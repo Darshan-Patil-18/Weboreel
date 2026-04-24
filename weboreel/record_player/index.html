@@ -1,0 +1,817 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>RECORD PLAYER</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=Space+Mono&display=swap');
+
+body, html {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 1800vh;
+    background: #050403;
+    overflow-x: hidden;
+    font-family: 'Space Mono', monospace;
+    color: #fff;
+    -webkit-font-smoothing: antialiased;
+}
+
+canvas {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: 1;
+}
+
+::-webkit-scrollbar {
+    width: 4px;
+    background: #111;
+}
+::-webkit-scrollbar-thumb {
+    background: #c8a84b;
+}
+
+#hud {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: 10;
+    pointer-events: none;
+}
+
+.hud-element {
+    position: absolute;
+    font-size: 10px;
+    color: #444;
+    letter-spacing: 0.1em;
+}
+
+#mute-btn {
+    top: 20px;
+    left: 20px;
+    pointer-events: auto;
+    cursor: pointer;
+    color: #888;
+    transition: color 0.3s ease;
+}
+#mute-btn:hover {
+    color: #fff;
+}
+
+#rpm-display {
+    top: 20px;
+    right: 20px;
+    animation: rotate 4s linear infinite;
+}
+
+#track-hud {
+    bottom: 20px;
+    right: 20px;
+    color: #555;
+}
+
+@keyframes rotate {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+#fact-cards {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 38%;
+    height: 100vh;
+    z-index: 5;
+    display: flex;
+    align-items: center;
+    padding-left: 8vw;
+    pointer-events: none;
+}
+
+.card {
+    position: absolute;
+    opacity: 0;
+    transform: translateY(20px);
+    transition: opacity 0.5s ease, transform 0.5s ease;
+    width: 80%;
+    max-width: 500px;
+}
+
+.card.active {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.track-dots {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 20px;
+}
+
+.dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #222;
+    transition: background 0.3s ease;
+}
+.dot.past { background: #444; }
+.dot.active { background: #fff; }
+
+.track-label {
+    font-size: 10px;
+    color: #666;
+    letter-spacing: 0.3em;
+    margin-bottom: 15px;
+}
+
+.headline {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: clamp(1.6rem, 3.5vw, 2.8rem);
+    color: #fff8f0;
+    line-height: 1.2;
+    margin: 0;
+}
+
+.divider {
+    width: 40px;
+    height: 1px;
+    background: #c8a84b;
+    margin: 16px 0;
+}
+
+.body-text {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: clamp(0.85rem, 1.4vw, 1.05rem);
+    color: rgba(255,248,240,0.6);
+    line-height: 1.9;
+    margin: 0;
+    white-space: pre-line;
+}
+
+@media (max-width: 768px) {
+    #fact-cards {
+        width: 100%;
+        height: 40vh;
+        top: auto;
+        bottom: 0;
+        padding: 0;
+        background: linear-gradient(to top, rgba(5,4,3,0.95) 60%, transparent);
+        align-items: flex-start;
+        padding-top: 30px;
+        box-sizing: border-box;
+    }
+    .card {
+        width: 90%;
+        left: 5%;
+    }
+}
+</style>
+</head>
+<body>
+
+<canvas id="canvas"></canvas>
+
+<div id="hud">
+    <div id="mute-btn" class="hud-element">♪ OFF</div>
+    <div id="rpm-display" class="hud-element">33 RPM</div>
+    <div id="track-hud" class="hud-element"></div>
+</div>
+
+<div id="fact-cards"></div>
+
+<script>
+const tracks = [
+    { scrollPoint: 0.10, headline: "Music reaches your brain in 0.05 seconds", body: "Faster than any other sensory input.\nSound bypasses the cortex entirely —\nhitting your limbic system before\nyou are consciously aware you heard anything.\nEmotion before thought. Always." },
+    { scrollPoint: 0.22, headline: "Minor chords make every culture sad", body: "Researchers tested indigenous tribes\nwith zero exposure to Western music.\nThey identified sad emotions in minor keys\nat exactly the same rate as New Yorkers.\nSadness in music is not learned. It is hardwired." },
+    { scrollPoint: 0.34, headline: "Your heartbeat syncs to the music", body: "Called entrainment — your cardiovascular\nsystem literally synchronizes its rhythm\nto external beats within 3 minutes.\nSlow music slows your heart.\nFast music accelerates it.\nDJs are quietly controlling your body." },
+    { scrollPoint: 0.46, headline: "Goosebumps from music = rare brain type", body: "Only 50% of people get chills from music.\nBrain scans show this group has MORE\nnerve fibers connecting auditory cortex\nto emotional processing regions.\nYou are not more sensitive — \nyou are neurologically different." },
+    { scrollPoint: 0.58, headline: "Silence after music is the loudest moment", body: "The pause after a powerful piece ends\ntriggers stronger emotional response\nthan the music itself.\nNeuroscientists call it the\n'moment of awe' — your brain\nsuspended between worlds." },
+    { scrollPoint: 0.70, headline: "Music in the womb shapes adult taste", body: "Fetuses respond to music at 16 weeks.\nThe genres a mother listens to\nduring third trimester measurably influence\nwhich sounds calm the child for years.\nYour taste in music began before you were born." },
+    { scrollPoint: 0.82, headline: "Familiar music numbs physical pain", body: "Patients who listen to chosen music\nduring surgery require 30% less anesthesia.\nMusic activates opioid receptors —\nthe same ones triggered by morphine.\nYour brain makes its own painkillers\nand music unlocks them." },
+    { scrollPoint: 0.94, headline: "The last song you hear stays forever", body: "Auditory memory is the most\npersistent form of human memory.\nPeople with severe Alzheimer's —\nwho cannot recognize their own children —\ncan still sing songs from their youth\nword for word. Music outlasts everything." }
+];
+
+// Audio Engine
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+let masterGain, vinylFilter, tremoloGain;
+let isMuted = true;
+let isAudioInitialized = false;
+
+let targetCutoff = 800;
+let currentCutoff = 800;
+let targetHum = 0.008;
+let currentHum = 0.008;
+
+function initAudio() {
+    if(isAudioInitialized) return;
+    
+    masterGain = audioCtx.createGain();
+    masterGain.connect(audioCtx.destination);
+    masterGain.gain.value = 0;
+    
+    // Vinyl Hiss
+    const bufferSize = audioCtx.sampleRate * 2;
+    const noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+    const output = noiseBuffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+        output[i] = Math.random() * 2 - 1;
+    }
+    const vinylNoise = audioCtx.createBufferSource();
+    vinylNoise.buffer = noiseBuffer;
+    vinylNoise.loop = true;
+    
+    vinylFilter = audioCtx.createBiquadFilter();
+    vinylFilter.type = 'lowpass';
+    vinylFilter.frequency.value = 800;
+    
+    const noiseGain = audioCtx.createGain();
+    noiseGain.gain.value = 0.015;
+    
+    vinylNoise.connect(vinylFilter);
+    vinylFilter.connect(noiseGain);
+    noiseGain.connect(masterGain);
+    vinylNoise.start();
+
+    // Motor Hum
+    const motorOsc = audioCtx.createOscillator();
+    motorOsc.type = 'sine';
+    motorOsc.frequency.value = 60;
+    
+    tremoloGain = audioCtx.createGain();
+    tremoloGain.gain.value = 0.008;
+    
+    const lfo = audioCtx.createOscillator();
+    lfo.type = 'sine';
+    lfo.frequency.value = 0.5;
+    
+    const lfoGain = audioCtx.createGain();
+    lfoGain.gain.value = 0.5;
+    
+    lfo.connect(lfoGain);
+    lfoGain.connect(tremoloGain.gain);
+    
+    motorOsc.connect(tremoloGain);
+    tremoloGain.connect(masterGain);
+    motorOsc.start();
+    lfo.start();
+    
+    isAudioInitialized = true;
+}
+
+function playChime() {
+    if(!isAudioInitialized || isMuted) return;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'sine';
+    osc.frequency.value = 440;
+    gain.gain.setValueAtTime(0, audioCtx.currentTime);
+    gain.gain.linearRampToValueAtTime(0.05, audioCtx.currentTime + 0.05);
+    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3);
+    osc.connect(gain);
+    gain.connect(masterGain);
+    osc.start();
+    osc.stop(audioCtx.currentTime + 0.3);
+}
+
+function playCrackle() {
+    if(!isAudioInitialized || isMuted) return;
+    const dur = 0.02;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'sawtooth';
+    osc.frequency.value = 2000 + Math.random() * 2000;
+    gain.gain.setValueAtTime(0.06, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
+    
+    const filter = audioCtx.createBiquadFilter();
+    filter.type = 'highpass';
+    filter.frequency.value = 2000;
+    
+    osc.connect(filter);
+    filter.connect(gain);
+    gain.connect(masterGain);
+    osc.start();
+    osc.stop(audioCtx.currentTime + dur);
+}
+
+function playScratch() {
+    if(!isAudioInitialized || isMuted) return;
+    const dur = 0.05;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'square';
+    osc.frequency.value = 100 + Math.random() * 300;
+    gain.gain.setValueAtTime(0.08, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
+    
+    const filter = audioCtx.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.frequency.value = 800;
+    
+    osc.connect(filter);
+    filter.connect(gain);
+    gain.connect(masterGain);
+    osc.start();
+    osc.stop(audioCtx.currentTime + dur);
+}
+
+let interactionDone = false;
+function handleInteraction() {
+    if(interactionDone) return;
+    interactionDone = true;
+    if(audioCtx.state === 'suspended') audioCtx.resume();
+    initAudio();
+    isMuted = false;
+    document.getElementById('mute-btn').innerText = "♪ ON";
+    masterGain.gain.setTargetAtTime(1, audioCtx.currentTime, 0.1);
+}
+document.addEventListener('click', handleInteraction, {once: true});
+document.addEventListener('touchstart', handleInteraction, {once: true});
+document.addEventListener('scroll', handleInteraction, {once: true});
+
+document.getElementById('mute-btn').addEventListener('click', (e) => {
+    e.stopPropagation();
+    if(!isAudioInitialized) initAudio();
+    isMuted = !isMuted;
+    masterGain.gain.setTargetAtTime(isMuted ? 0 : 1, audioCtx.currentTime, 0.1);
+    document.getElementById('mute-btn').innerText = isMuted ? "♪ OFF" : "♪ ON";
+});
+
+// State & Layout
+let targetScroll = 0;
+let currentScroll = 0;
+let rotationAngle = 0;
+let rotationSpeed = 0.012;
+let targetRotationSpeed = 0.012;
+let activeTrack = -1;
+let prevActiveTrack = -1;
+let dustParticles = [];
+
+for(let i=0; i<8; i++) {
+    dustParticles.push({
+        angle: Math.random() * Math.PI * 2,
+        radius: 0.1 + Math.random() * 0.8
+    });
+}
+
+function createCards() {
+    const container = document.getElementById('fact-cards');
+    tracks.forEach((track, i) => {
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.id = `card-${i}`;
+        
+        let dotsHTML = '<div class="track-dots">';
+        for(let j=0; j<8; j++) {
+            dotsHTML += `<div class="dot ${j < i ? 'past' : (j === i ? 'active' : '')}" id="dot-${i}-${j}"></div>`;
+        }
+        dotsHTML += '</div>';
+        
+        card.innerHTML = `
+            ${dotsHTML}
+            <div class="track-label">TRACK 0${i+1}</div>
+            <h2 class="headline">${track.headline}</h2>
+            <div class="divider"></div>
+            <p class="body-text">${track.body}</p>
+        `;
+        container.appendChild(card);
+    });
+}
+createCards();
+
+// Canvas Setup
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+let cw, ch;
+
+function resize() {
+    cw = canvas.width = window.innerWidth;
+    ch = canvas.height = window.innerHeight;
+}
+window.addEventListener('resize', resize);
+resize();
+
+function lerp(start, end, amt) {
+    return (1 - amt) * start + amt * end;
+}
+
+// Slipmat pattern
+const matPatternCanvas = document.createElement('canvas');
+matPatternCanvas.width = 100;
+matPatternCanvas.height = 100;
+const pctx = matPatternCanvas.getContext('2d');
+pctx.fillStyle = '#1a0a0a';
+pctx.fillRect(0,0,100,100);
+pctx.fillStyle = 'rgba(255,255,255,0.02)';
+for(let i=0; i<800; i++) {
+    pctx.fillRect(Math.random()*100, Math.random()*100, 1, 1);
+}
+let slipmatPattern = null;
+
+// Render Loop
+function render() {
+    if(!slipmatPattern && cw > 0) slipmatPattern = ctx.createPattern(matPatternCanvas, 'repeat');
+    
+    const scrollMax = document.body.scrollHeight - window.innerHeight;
+    targetScroll = window.scrollY / scrollMax;
+    if(isNaN(targetScroll)) targetScroll = 0;
+    
+    // Smooth lerp for scroll
+    currentScroll = lerp(currentScroll, targetScroll, 0.035);
+    
+    let nearestTrack = -1;
+    let minDiff = 1;
+    let inZone = false;
+    
+    tracks.forEach((track, i) => {
+        const diff = Math.abs(currentScroll - track.scrollPoint);
+        if(diff < minDiff) {
+            minDiff = diff;
+            nearestTrack = i;
+        }
+        if(diff < 0.025) {
+            inZone = true;
+        }
+    });
+    
+    if(inZone) {
+        targetRotationSpeed = 0.001;
+        targetCutoff = 400;
+        targetHum = 0.002;
+        if(activeTrack !== nearestTrack) {
+            activeTrack = nearestTrack;
+            playChime();
+        }
+    } else {
+        targetRotationSpeed = 0.012;
+        targetCutoff = 800;
+        targetHum = 0.008;
+        activeTrack = -1;
+    }
+    
+    if(isAudioInitialized) {
+        currentCutoff = lerp(currentCutoff, targetCutoff, 0.05);
+        currentHum = lerp(currentHum, targetHum, 0.05);
+        if(vinylFilter) vinylFilter.frequency.value = currentCutoff;
+        if(tremoloGain) tremoloGain.gain.value = currentHum;
+    }
+    
+    if(Math.abs(currentScroll - targetScroll) > 0.005) {
+        if(Math.random() < 0.08) playScratch();
+    }
+    
+    if(!isMuted && Math.random() < (window.innerWidth < 768 ? 0.002 : 0.005)) {
+        playCrackle();
+    }
+    
+    rotationSpeed = lerp(rotationSpeed, targetRotationSpeed, 0.05);
+    rotationAngle += rotationSpeed;
+    
+    // Update DOM
+    if(activeTrack !== prevActiveTrack) {
+        document.querySelectorAll('.card').forEach((c, i) => {
+            if(i === activeTrack) {
+                c.classList.add('active');
+            } else {
+                c.classList.remove('active');
+            }
+        });
+        if(activeTrack !== -1) {
+            document.getElementById('track-hud').innerText = `TRACK ${activeTrack + 1} of 8`;
+        } else {
+            document.getElementById('track-hud').innerText = ``;
+        }
+        prevActiveTrack = activeTrack;
+    }
+    
+    // Draw Background
+    ctx.clearRect(0, 0, cw, ch);
+    
+    const bgGrad = ctx.createLinearGradient(0, 0, 0, ch);
+    bgGrad.addColorStop(0, '#0a0805');
+    bgGrad.addColorStop(1, '#050403');
+    ctx.fillStyle = bgGrad;
+    ctx.fillRect(0, 0, cw, ch);
+    
+    const isMobile = cw < 768;
+    const platterX = cw * 0.45;
+    const platterY = ch * 0.5;
+    const platterR = ch * 0.38;
+    
+    const cX = isMobile ? cw * 0.5 : platterX;
+    const cY = isMobile ? ch * 0.4 : platterY;
+    const R = isMobile ? Math.min(cw*0.45, ch*0.3) : platterR;
+    
+    // Ambient Light
+    const glow = ctx.createRadialGradient(cX, cY, 0, cX, cY, R * 1.8);
+    glow.addColorStop(0, 'rgba(255,200,100,0.04)');
+    glow.addColorStop(1, 'transparent');
+    ctx.fillStyle = glow;
+    ctx.fillRect(0, 0, cw, ch);
+
+    // Wood Surface lines
+    ctx.strokeStyle = 'rgba(255,150,50,0.03)';
+    ctx.lineWidth = 1;
+    for(let i=0; i<ch; i+=15) {
+        ctx.beginPath();
+        ctx.moveTo(0, i);
+        ctx.lineTo(cw, i);
+        ctx.stroke();
+    }
+
+    // Turntable Base
+    const baseX = cX - R * 1.4;
+    const baseY = cY - R * 1.3;
+    const baseW = R * 2.9;
+    const baseH = R * 2.6;
+    
+    ctx.save();
+    ctx.shadowColor = 'rgba(0,0,0,0.8)';
+    ctx.shadowBlur = 40;
+    ctx.shadowOffsetY = 20;
+    ctx.fillStyle = '#1a1008';
+    ctx.beginPath();
+    ctx.roundRect(baseX, baseY, baseW, baseH, 20);
+    ctx.fill();
+    ctx.restore();
+    
+    // Wood grain on base
+    ctx.save();
+    ctx.beginPath();
+    ctx.roundRect(baseX, baseY, baseW, baseH, 20);
+    ctx.clip();
+    ctx.strokeStyle = 'rgba(255,200,100,0.04)';
+    ctx.lineWidth = 1;
+    for(let i=0; i<baseH; i+=8) {
+        ctx.beginPath();
+        for(let x=0; x<=baseW; x+=20) {
+            const y = baseY + i + Math.sin(x*0.05)*4 + Math.sin((x+i)*0.01)*8;
+            if(x===0) ctx.moveTo(baseX + x, y);
+            else ctx.lineTo(baseX + x, y);
+        }
+        ctx.stroke();
+    }
+    ctx.restore();
+    
+    // Platter
+    ctx.save();
+    ctx.shadowColor = 'rgba(0,0,0,0.6)';
+    ctx.shadowBlur = 15;
+    ctx.shadowOffsetY = 8;
+    const platterGrad = ctx.createRadialGradient(cX, cY, 0, cX, cY, R);
+    platterGrad.addColorStop(0, '#3a3a3a');
+    platterGrad.addColorStop(1, '#1a1a1a');
+    ctx.fillStyle = platterGrad;
+    ctx.beginPath();
+    ctx.arc(cX, cY, R, 0, Math.PI*2);
+    ctx.fill();
+    ctx.strokeStyle = '#888';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.restore();
+    
+    // Slipmat
+    ctx.save();
+    ctx.translate(cX, cY);
+    ctx.rotate(rotationAngle);
+    if(slipmatPattern) {
+        ctx.fillStyle = slipmatPattern;
+    } else {
+        ctx.fillStyle = '#1a0a0a';
+    }
+    ctx.beginPath();
+    ctx.arc(0, 0, R*0.98, 0, Math.PI*2);
+    ctx.fill();
+    ctx.restore();
+    
+    // Record
+    const recordR = R*0.96;
+    ctx.fillStyle = '#0a0a0a';
+    ctx.beginPath();
+    ctx.arc(cX, cY, recordR, 0, Math.PI*2);
+    ctx.fill();
+    
+    // Grooves
+    const numGrooves = 8;
+    const labelR = recordR * 0.28;
+    const grooveSpan = recordR - labelR;
+    const grooveW = grooveSpan / numGrooves;
+    
+    ctx.save();
+    ctx.translate(cX, cY);
+    ctx.rotate(rotationAngle);
+    
+    for(let i=0; i<numGrooves; i++) {
+        // Reverse order so track 0 (inner) maps to scroll 0, wait, scroll 0 is outer.
+        // Scroll 0 = outer groove. Track 0 is i=0. Inner radius of track i needs to be outer.
+        // Let's make i=0 the outermost groove.
+        const reversedI = (numGrooves - 1) - i;
+        const innerR = labelR + reversedI*grooveW;
+        const outerR = innerR + grooveW;
+        const isActive = i === activeTrack;
+        
+        ctx.fillStyle = i%2===0 ? 'rgba(30,30,30,1)' : 'rgba(20,20,20,1)';
+        
+        if(isActive) {
+            ctx.shadowColor = 'rgba(255,200,100,0.3)';
+            ctx.shadowBlur = 3;
+            const pulse = Math.sin(Date.now() * 0.003) * 0.2 + 0.5;
+            ctx.fillStyle = `rgba(80,60,40,${pulse})`;
+        } else {
+            ctx.shadowBlur = 0;
+        }
+        
+        ctx.beginPath();
+        ctx.arc(0, 0, outerR, 0, Math.PI*2);
+        ctx.arc(0, 0, innerR, 0, Math.PI*2, true);
+        ctx.fill();
+        
+        // Detail lines
+        ctx.lineWidth = 1;
+        ctx.strokeStyle = 'rgba(255,255,255,0.03)';
+        ctx.shadowBlur = 0;
+        for(let j=1; j<=4; j++) {
+            ctx.beginPath();
+            ctx.arc(0, 0, innerR + grooveW*(j/5), 0, Math.PI*2);
+            ctx.stroke();
+        }
+    }
+    
+    // Dust
+    ctx.fillStyle = 'rgba(255,255,255,0.3)';
+    dustParticles.forEach((p, idx) => {
+        const dR = labelR + p.radius * grooveSpan;
+        const px = Math.cos(p.angle) * dR;
+        const py = Math.sin(p.angle) * dR;
+        ctx.beginPath();
+        ctx.arc(px, py, 1.5, 0, Math.PI*2);
+        ctx.fill();
+        // Skip effect when dust hits needle (roughly -0.4 to +0.15 angle area)
+        // This is complex since needle angle changes, we'll stick to random crackle
+    });
+    
+    // Label
+    ctx.fillStyle = '#c8a84b';
+    ctx.beginPath();
+    ctx.arc(0, 0, labelR, 0, Math.PI*2);
+    ctx.fill();
+    
+    ctx.fillStyle = '#8B6914';
+    ctx.beginPath();
+    ctx.arc(0, 0, labelR*0.9, 0, Math.PI*2);
+    ctx.fill();
+    
+    ctx.strokeStyle = '#c8a84b';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(0, 0, labelR*0.7, 0, Math.PI*2);
+    ctx.stroke();
+    
+    ctx.strokeStyle = 'rgba(0,0,0,0.1)';
+    ctx.beginPath();
+    ctx.arc(0, 0, labelR*0.8, 0, Math.PI*2);
+    ctx.stroke();
+    
+    // Center hole
+    ctx.fillStyle = '#0a0a0a';
+    ctx.beginPath();
+    ctx.arc(0, 0, R*0.02, 0, Math.PI*2);
+    ctx.fill();
+    
+    // Label Text
+    ctx.fillStyle = '#1a0a00';
+    ctx.font = `bold ${R*0.045}px 'Space Mono'`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    
+    ctx.save();
+    ctx.translate(0, -labelR*0.45);
+    ctx.fillText('VOID RECORDS', 0, 0);
+    ctx.restore();
+    
+    ctx.font = `${R*0.04}px 'Space Mono'`;
+    ctx.fillText('SIDE A', 0, 0);
+    
+    ctx.save();
+    ctx.translate(0, labelR*0.45);
+    ctx.fillText('33 RPM', 0, 0);
+    ctx.restore();
+    
+    ctx.restore(); // Untranslate record center
+    
+    // Record Shine
+    ctx.save();
+    ctx.translate(cX, cY);
+    ctx.rotate(rotationAngle * 0.4); 
+    const shineGrad = ctx.createLinearGradient(-recordR, -recordR, recordR, recordR);
+    shineGrad.addColorStop(0, 'rgba(255,255,255,0.06)');
+    shineGrad.addColorStop(0.3, 'transparent');
+    shineGrad.addColorStop(0.7, 'transparent');
+    shineGrad.addColorStop(1, 'rgba(255,255,255,0.04)');
+    ctx.fillStyle = shineGrad;
+    ctx.beginPath();
+    ctx.arc(0, 0, recordR, 0, Math.PI*2);
+    ctx.fill();
+    ctx.restore();
+    
+    // Tonearm
+    const pivotX = cX + R * 1.15;
+    const pivotY = cY - R * 0.8;
+    
+    const minAngle = -0.4;
+    const maxAngle = 0.15;
+    const armAngle = minAngle + currentScroll * (maxAngle - minAngle);
+    
+    // Shadow
+    drawArm(pivotX, pivotY, R, armAngle, true);
+    // Arm
+    drawArm(pivotX, pivotY, R, armAngle, false);
+    
+    requestAnimationFrame(render);
+}
+
+function drawArm(px, py, R, angle, isShadow) {
+    ctx.save();
+    ctx.translate(px, py);
+    
+    if(isShadow) {
+        ctx.translate(4, 4);
+        ctx.shadowBlur = 6;
+        ctx.shadowColor = 'rgba(0,0,0,0.5)';
+        ctx.fillStyle = 'rgba(0,0,0,0.4)';
+        ctx.strokeStyle = 'rgba(0,0,0,0.4)';
+    } else {
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = '#888';
+        ctx.strokeStyle = '#c0c0c0';
+    }
+    
+    ctx.rotate(angle);
+    
+    // Pivot base
+    if(!isShadow) {
+        ctx.fillStyle = '#333';
+        ctx.beginPath();
+        ctx.arc(0, 0, R*0.12, 0, Math.PI*2);
+        ctx.fill();
+        ctx.fillStyle = '#888';
+    }
+    ctx.beginPath();
+    ctx.arc(0, 0, R*0.08, 0, Math.PI*2);
+    ctx.fill();
+    
+    if(!isShadow) {
+        ctx.fillStyle = '#555';
+        ctx.beginPath();
+        ctx.arc(0, 0, R*0.04, 0, Math.PI*2);
+        ctx.fill();
+    }
+    
+    // Arm body
+    const armLen = R * 1.7;
+    ctx.lineWidth = R*0.025;
+    ctx.lineCap = 'round';
+    
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.quadraticCurveTo(-R*0.15, armLen*0.5, -R*0.1, armLen);
+    ctx.stroke();
+    
+    // Headshell
+    ctx.translate(-R*0.1, armLen);
+    ctx.rotate(0.35);
+    
+    if(!isShadow) ctx.fillStyle = '#aaaaaa';
+    ctx.beginPath();
+    ctx.roundRect(-R*0.04, -R*0.08, R*0.08, R*0.18, 4);
+    ctx.fill();
+    
+    // Cartridge
+    if(!isShadow) ctx.fillStyle = '#222';
+    ctx.fillRect(-R*0.02, R*0.08, R*0.04, R*0.08);
+    
+    // Stylus
+    if(!isShadow) {
+        ctx.fillStyle = '#ffcc00';
+        ctx.beginPath();
+        ctx.arc(0, R*0.15, 3, 0, Math.PI*2);
+        ctx.fill();
+    }
+    
+    ctx.restore();
+}
+
+// Start
+requestAnimationFrame(render);
+</script>
+</body>
+</html>
