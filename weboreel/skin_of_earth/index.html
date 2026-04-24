@@ -1,0 +1,842 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SKIN OF EARTH</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@700&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap');
+
+        body {
+            margin: 0;
+            padding: 0;
+            height: 800vh;
+            background: #000;
+            overflow-x: hidden;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 1;
+            pointer-events: auto;
+        }
+
+        #hud-top {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            right: 20px;
+            display: flex;
+            justify-content: space-between;
+            pointer-events: none;
+            z-index: 10;
+            color: white;
+            font-family: 'Space Mono', monospace;
+            text-shadow: 0 2px 5px rgba(0,0,0,0.8);
+        }
+
+        #stats {
+            font-size: 1.1rem;
+            line-height: 1.5;
+            background: rgba(0, 0, 0, 0.4);
+            padding: 10px 15px;
+            border-radius: 10px;
+            backdrop-filter: blur(5px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        #layer-name {
+            font-family: 'Cinzel', serif;
+            font-size: 2.5rem;
+            font-weight: bold;
+            text-transform: uppercase;
+            text-align: right;
+            transition: text-shadow 0.3s;
+        }
+
+        #hud-bottom {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 10px;
+            background: rgba(0,0,0,0.6);
+            padding: 10px 20px;
+            border-radius: 30px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.1);
+            z-index: 10;
+        }
+
+        button {
+            background: none;
+            border: none;
+            color: white;
+            font-family: 'Space Mono', monospace;
+            font-size: 0.9rem;
+            font-weight: bold;
+            cursor: pointer;
+            padding: 8px 15px;
+            border-radius: 20px;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+
+        button:hover {
+            background: rgba(255,255,255,0.15);
+            transform: translateY(-2px);
+        }
+
+        #popup {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0.8);
+            background: rgba(10, 10, 15, 0.95);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            box-shadow: 0 20px 50px rgba(0,0,0,0.8), inset 0 0 20px rgba(255,255,255,0.05);
+            padding: 30px 40px;
+            border-radius: 20px;
+            text-align: center;
+            color: white;
+            z-index: 20;
+            opacity: 0;
+            pointer-events: none;
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            font-family: 'Space Mono', monospace;
+            backdrop-filter: blur(10px);
+        }
+
+        #popup.show {
+            opacity: 1;
+            transform: translate(-50%, -50%) scale(1);
+        }
+
+        .popup-emoji {
+            font-size: 4rem;
+            margin-bottom: 15px;
+            animation: float 2s ease-in-out infinite;
+        }
+
+        .popup-desc {
+            font-size: 1.2rem;
+            white-space: pre-line;
+            line-height: 1.4;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+
+        #minimap {
+            position: fixed;
+            left: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 12px;
+            height: 60vh;
+            background: rgba(0,0,0,0.7);
+            border-radius: 6px;
+            display: none;
+            flex-direction: column;
+            overflow: hidden;
+            z-index: 10;
+            box-shadow: 0 0 15px rgba(0,0,0,0.8);
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        #minimap.show {
+            display: flex;
+        }
+
+        .minimap-layer {
+            width: 100%;
+        }
+
+        #minimap-indicator {
+            position: absolute;
+            left: -3px;
+            width: 18px;
+            height: 4px;
+            background: white;
+            border-radius: 2px;
+            box-shadow: 0 0 8px white;
+            transition: top 0.1s;
+        }
+
+        @media (max-width: 600px) {
+            #layer-name { font-size: 1.5rem; }
+            #stats { font-size: 0.9rem; }
+            button { font-size: 0.8rem; padding: 6px 10px; }
+            #hud-bottom { gap: 5px; padding: 8px 10px; }
+            .popup-emoji { font-size: 3rem; }
+            .popup-desc { font-size: 1rem; }
+            #popup { padding: 20px; }
+        }
+    </style>
+</head>
+<body>
+
+    <canvas id="canvas"></canvas>
+
+    <div id="hud-top">
+        <div id="stats">
+            DEPTH: <span id="depth-val">0m</span><br>
+            DIGS: <span id="digs-val">0</span>
+        </div>
+        <div id="layer-name">SURFACE</div>
+    </div>
+
+    <div id="minimap">
+        <div id="minimap-indicator"></div>
+    </div>
+
+    <div id="hud-bottom">
+        <button id="btn-map">🗺️ MAP</button>
+        <button id="btn-random">🎲 RANDOM</button>
+        <button id="btn-capture">📸 CAPTURE</button>
+        <button id="btn-sound">♪ SOUND</button>
+    </div>
+
+    <div id="popup">
+        <div class="popup-emoji">✨</div>
+        <div class="popup-desc">Discovery</div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d', { alpha: false });
+
+        const layers = [
+            { name: "SURFACE — present day", color: "#2d5a1b", pctEnd: 0.08, depth: 0, items: [
+                { text: "🐛 Earthworm — still alive" },
+                { text: "🪨 Smooth pebble — 200 years old" },
+                { text: "🌱 Seed — waiting to become a tree" }
+            ]},
+            { name: "TOPSOIL — 1 meter deep", color: "#5c3d1e", pctEnd: 0.18, depth: 1, items: [
+                { text: "🦴 Small bone — unknown animal" },
+                { text: "💧 Underground water pocket" },
+                { text: "🍄 Ancient fungal network" }
+            ]},
+            { name: "SUBSOIL — 10 meters deep", color: "#3d2509", pctEnd: 0.30, depth: 10, items: [
+                { text: "🐟 Fish fossil — 50,000 years old" },
+                { text: "💎 Tiny quartz crystal" },
+                { text: "🌿 Preserved leaf — prehistoric" }
+            ]},
+            { name: "BEDROCK — 100 meters deep", color: "#1a1a2e", pctEnd: 0.45, depth: 100, items: [
+                { text: "⚡ Trapped lightning fossil" },
+                { text: "🔮 Unknown mineral — glows purple" },
+                { text: "👁️ Something staring back" }
+            ]},
+            { name: "ANCIENT STONE — 1km deep", color: "#0d0d1a", pctEnd: 0.60, depth: 1000, items: [
+                { text: "🦕 Dinosaur vertebra" },
+                { text: "🌋 Magma bubble — still warm" },
+                { text: "📜 Markings — no known language" }
+            ]},
+            { name: "DEEP CRUST — 10km deep", color: "#1a0505", pctEnd: 0.75, depth: 10000, items: [
+                { text: "👾 Creature — not in any catalog" },
+                { text: "🔴 Perfect red sphere — origin unknown" },
+                { text: "∞ A symbol that makes no sense" }
+            ]},
+            { name: "MANTLE — 100km deep", color: "#2d0000", pctEnd: 0.88, depth: 100000, items: [
+                { text: "🔥 Pure magma sample" },
+                { text: "💀 Skull — impossible depth" },
+                { text: "? Something moved" }
+            ]},
+            { name: "EARTH'S CORE — 6,000km deep", color: "core", pctEnd: 1.0, depth: 6000000, items: [
+                { text: "☀️ A tiny sun — contained" },
+                { text: "🫀 A heartbeat — not yours" },
+                { text: "✨ Everything. Nothing. Both." }
+            ]}
+        ];
+
+        let prev = 0;
+        layers.forEach(l => {
+            l.pctStart = prev;
+            prev = l.pctEnd;
+        });
+
+        let width, height, maxScroll, virtualHeight;
+        function resize() {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+            virtualHeight = document.body.scrollHeight;
+            maxScroll = virtualHeight - height;
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        // Minimap setup
+        const minimap = document.getElementById('minimap');
+        layers.forEach(l => {
+            let d = document.createElement('div');
+            d.className = 'minimap-layer';
+            d.style.height = ((l.pctEnd - l.pctStart) * 100) + '%';
+            d.style.background = l.color === 'core' ? 'linear-gradient(#ff0000, #fff)' : l.color;
+            minimap.insertBefore(d, document.getElementById('minimap-indicator'));
+        });
+
+        const holes = [];
+        const particles = [];
+        let totalDigs = 0;
+
+        class Entity {
+            constructor(layerIdx, type) {
+                this.layerIdx = layerIdx;
+                this.type = type;
+                let l = layers[layerIdx];
+                this.y = (l.pctStart * virtualHeight) + Math.random() * ((l.pctEnd - l.pctStart) * virtualHeight);
+                this.x = Math.random() * width;
+                this.time = Math.random() * 100;
+                
+                if(type === 'ant') {
+                    this.vx = (Math.random() > 0.5 ? 1 : -1) * (0.5 + Math.random()*0.5);
+                } else if(type === 'worm') {
+                    this.vx = (Math.random() > 0.5 ? 1 : -1) * 0.3;
+                } else if(type === 'lava') {
+                    this.vy = -0.5 - Math.random() * 0.5;
+                    this.r = 15 + Math.random()*25;
+                } else if(type === 'bio') {
+                    this.vx = (Math.random() - 0.5) * 0.8;
+                    this.vy = (Math.random() - 0.5) * 0.4;
+                }
+            }
+            update() {
+                this.time += 0.016;
+                let l = layers[this.layerIdx];
+                if(this.type === 'ant' || this.type === 'worm') {
+                    this.x += this.vx;
+                    if(this.x < -20) this.x = width + 20;
+                    if(this.x > width + 20) this.x = -20;
+                } else if(this.type === 'lava') {
+                    this.y += this.vy;
+                    if(this.y < l.pctStart * virtualHeight) {
+                        this.y = l.pctEnd * virtualHeight;
+                        this.x = Math.random() * width;
+                    }
+                } else if(this.type === 'bio') {
+                    this.x += this.vx;
+                    this.y += this.vy;
+                    if(this.x < -30) this.x = width + 30;
+                    if(this.x > width + 30) this.x = -30;
+                    if(this.y < l.pctStart * virtualHeight || this.y > l.pctEnd * virtualHeight) this.vy *= -1;
+                }
+            }
+            draw(ctx) {
+                if(this.type === 'ant') {
+                    ctx.fillStyle = '#111';
+                    ctx.fillRect(this.x, this.y, 6, 3);
+                    // legs
+                    ctx.fillRect(this.x, this.y-2, 1, 7);
+                    ctx.fillRect(this.x+3, this.y-2, 1, 7);
+                } else if(this.type === 'worm') {
+                    ctx.fillStyle = '#ff9999';
+                    for(let i=0; i<6; i++) {
+                        let oy = Math.sin(this.time*5 + i) * 3;
+                        ctx.beginPath();
+                        ctx.arc(this.x - i*5*Math.sign(this.vx), this.y + oy, 4, 0, Math.PI*2);
+                        ctx.fill();
+                    }
+                } else if(this.type === 'lava') {
+                    ctx.fillStyle = `rgba(255, ${Math.floor(100 + Math.sin(this.time)*50)}, 0, 0.8)`;
+                    ctx.beginPath();
+                    let sx = 1 + Math.sin(this.time*2)*0.15;
+                    let sy = 1 + Math.cos(this.time*2)*0.15;
+                    ctx.ellipse(this.x, this.y, this.r*sx, this.r*sy, 0, 0, Math.PI*2);
+                    ctx.fill();
+                } else if(this.type === 'bio') {
+                    ctx.shadowColor = '#00ffff';
+                    ctx.shadowBlur = 15 + Math.sin(this.time*3)*10;
+                    ctx.fillStyle = 'rgba(0, 255, 255, 0.4)';
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, 12, 0, Math.PI*2);
+                    ctx.fill();
+                    ctx.shadowBlur = 0;
+                    ctx.strokeStyle = 'rgba(0, 255, 255, 0.3)';
+                    ctx.lineWidth = 2;
+                    for(let i=0; i<4; i++) {
+                        ctx.beginPath();
+                        ctx.moveTo(this.x, this.y+10);
+                        ctx.quadraticCurveTo(this.x + Math.sin(this.time*2+i)*15, this.y+25, this.x + Math.sin(this.time*1.5+i)*20, this.y+40);
+                        ctx.stroke();
+                    }
+                }
+            }
+        }
+
+        const entities = [];
+        for(let i=0; i<8; i++) entities.push(new Entity(0, 'ant'));
+        for(let i=0; i<5; i++) entities.push(new Entity(1, 'worm'));
+        for(let i=0; i<6; i++) entities.push(new Entity(4, 'bio'));
+        for(let i=0; i<12; i++) entities.push(new Entity(6, 'lava'));
+
+        const staticDecors = [];
+        function addDecor(layerIdx, count, type) {
+            for(let i=0; i<count; i++) {
+                staticDecors.push({ layerIdx, x: Math.random(), yPct: Math.random(), type });
+            }
+        }
+        addDecor(0, 50, 'flower');
+        addDecor(1, 40, 'root');
+        addDecor(1, 60, 'pebble');
+        addDecor(2, 30, 'fossil');
+        addDecor(3, 20, 'crystal');
+        addDecor(3, 15, 'painting');
+        addDecor(4, 15, 'dino');
+        addDecor(4, 30, 'crack');
+        addDecor(5, 12, 'shadow');
+        addDecor(5, 30, 'rune');
+
+        function drawStaticDecors(ctx, currentY) {
+            staticDecors.forEach(d => {
+                let l = layers[d.layerIdx];
+                let ly = l.pctStart * virtualHeight;
+                let lh = (l.pctEnd - l.pctStart) * virtualHeight;
+                let dx = d.x * width;
+                let dy = ly + d.yPct * lh;
+                
+                if(dy < currentY - 100 || dy > currentY + height + 100) return;
+                
+                ctx.save();
+                ctx.translate(dx, dy);
+                
+                if(d.type === 'flower') {
+                    ctx.fillStyle = `hsl(${Math.random()*360}, 80%, 70%)`;
+                    ctx.beginPath(); ctx.arc(0, -3, 3, 0, Math.PI*2); ctx.fill();
+                    ctx.fillStyle = '#44aa44';
+                    ctx.fillRect(-1, 0, 2, 6);
+                } else if(d.type === 'pebble') {
+                    ctx.fillStyle = 'rgba(255,255,255,0.1)';
+                    ctx.beginPath(); ctx.arc(0,0, 2 + Math.random()*3, 0, Math.PI*2); ctx.fill();
+                } else if(d.type === 'root') {
+                    ctx.strokeStyle = '#3a200a';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.moveTo(0,0);
+                    ctx.quadraticCurveTo(10, 15, 5, 30);
+                    ctx.stroke();
+                } else if(d.type === 'fossil') {
+                    ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+                    ctx.setLineDash([2, 3]);
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.ellipse(0, 0, 20, 10, Math.random()*Math.PI, 0, Math.PI*2);
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+                } else if(d.type === 'crystal') {
+                    ctx.fillStyle = 'rgba(100, 200, 255, 0.3)';
+                    ctx.beginPath();
+                    ctx.moveTo(0, -15); ctx.lineTo(8, 0); ctx.lineTo(0, 15); ctx.lineTo(-8, 0);
+                    ctx.fill();
+                } else if(d.type === 'painting') {
+                    ctx.strokeStyle = 'rgba(200, 100, 50, 0.4)';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.moveTo(0, -10); ctx.lineTo(0, 5); 
+                    ctx.moveTo(-8, -2); ctx.lineTo(8, -2); 
+                    ctx.moveTo(0, 5); ctx.lineTo(-6, 15); 
+                    ctx.moveTo(0, 5); ctx.lineTo(6, 15); 
+                    ctx.stroke();
+                    ctx.beginPath(); ctx.arc(0, -14, 4, 0, Math.PI*2); ctx.stroke();
+                } else if(d.type === 'dino') {
+                    ctx.strokeStyle = 'rgba(255, 200, 0, 0.2)';
+                    ctx.lineWidth = 3;
+                    ctx.beginPath();
+                    ctx.moveTo(-30, 0);
+                    ctx.quadraticCurveTo(0, -15, 30, 0);
+                    for(let j=-20; j<20; j+=8) {
+                        ctx.moveTo(j, -5 + Math.abs(j)*0.2);
+                        ctx.lineTo(j, 5 - Math.abs(j)*0.2);
+                    }
+                    ctx.stroke();
+                } else if(d.type === 'crack') {
+                    ctx.strokeStyle = '#ff4400';
+                    ctx.shadowColor = '#ff4400';
+                    ctx.shadowBlur = 8;
+                    ctx.lineWidth = 1;
+                    ctx.beginPath();
+                    ctx.moveTo(0,0);
+                    ctx.lineTo(15, 10);
+                    ctx.lineTo(20, -5);
+                    ctx.lineTo(35, 5);
+                    ctx.stroke();
+                    ctx.shadowBlur = 0;
+                } else if(d.type === 'shadow') {
+                    ctx.fillStyle = 'rgba(0,0,0,0.6)';
+                    ctx.beginPath();
+                    ctx.ellipse(0, 0, 60, 25, Math.random()*Math.PI, 0, Math.PI*2);
+                    ctx.fill();
+                } else if(d.type === 'rune') {
+                    ctx.strokeStyle = 'rgba(255,0,50,0.3)';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.moveTo(-8, -8); ctx.lineTo(8, 8);
+                    ctx.moveTo(8, -8); ctx.lineTo(-8, 8);
+                    ctx.moveTo(0, -12); ctx.lineTo(0, 12);
+                    ctx.stroke();
+                }
+                ctx.restore();
+            });
+        }
+
+        let audioCtx;
+        let masterGain;
+        let layerGains = [];
+        let isMuted = false;
+        let audioInit = false;
+
+        function initAudio() {
+            if(audioCtx) return;
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            masterGain = audioCtx.createGain();
+            masterGain.gain.value = isMuted ? 0 : 0.8;
+            masterGain.connect(audioCtx.destination);
+            
+            layers.forEach((l, i) => {
+                let gain = audioCtx.createGain();
+                gain.gain.value = 0;
+                gain.connect(masterGain);
+                layerGains.push(gain);
+                
+                if(i === 0) {
+                    setInterval(() => {
+                        if(gain.gain.value < 0.01) return;
+                        let osc = audioCtx.createOscillator();
+                        osc.frequency.setValueAtTime(800 + Math.random()*400, audioCtx.currentTime);
+                        osc.frequency.exponentialRampToValueAtTime(1000 + Math.random()*200, audioCtx.currentTime + 0.1);
+                        let env = audioCtx.createGain();
+                        env.gain.setValueAtTime(0, audioCtx.currentTime);
+                        env.gain.linearRampToValueAtTime(0.1, audioCtx.currentTime + 0.05);
+                        env.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.1);
+                        osc.connect(env); env.connect(gain);
+                        osc.start(); osc.stop(audioCtx.currentTime + 0.1);
+                    }, 2000 + Math.random()*1000);
+                } else if(i === 1) {
+                    let osc = audioCtx.createOscillator();
+                    osc.type = 'sine'; osc.frequency.value = 80;
+                    let p = audioCtx.createGain(); p.gain.value = 0.03;
+                    osc.connect(p); p.connect(gain); osc.start();
+                } else if(i === 2) {
+                    setInterval(() => {
+                        if(gain.gain.value < 0.01) return;
+                        let osc = audioCtx.createOscillator();
+                        osc.frequency.value = 400;
+                        let env = audioCtx.createGain();
+                        env.gain.setValueAtTime(0, audioCtx.currentTime);
+                        env.gain.linearRampToValueAtTime(0.05, audioCtx.currentTime + 0.01);
+                        env.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.1);
+                        osc.connect(env); env.connect(gain);
+                        osc.start(); osc.stop(audioCtx.currentTime + 0.1);
+                    }, 2000);
+                } else if(i === 3) {
+                    let osc = audioCtx.createOscillator(); osc.frequency.value = 150;
+                    let env = audioCtx.createGain(); env.gain.value = 0.05;
+                    let delay = audioCtx.createDelay(1.0); delay.delayTime.value = 0.8;
+                    let feedback = audioCtx.createGain(); feedback.gain.value = 0.4;
+                    delay.connect(feedback); feedback.connect(delay);
+                    osc.connect(env); env.connect(gain);
+                    env.connect(delay); delay.connect(gain);
+                    osc.start();
+                } else if(i === 4) {
+                    let osc = audioCtx.createOscillator(); osc.frequency.value = 40;
+                    let env = audioCtx.createGain(); env.gain.value = 0.06;
+                    osc.connect(env); env.connect(gain); osc.start();
+                } else if(i === 5) {
+                    let osc1 = audioCtx.createOscillator(); osc1.frequency.value = 200;
+                    let osc2 = audioCtx.createOscillator(); osc2.frequency.value = 203;
+                    let env = audioCtx.createGain(); env.gain.value = 0.04;
+                    osc1.connect(env); osc2.connect(env); env.connect(gain);
+                    osc1.start(); osc2.start();
+                } else if(i === 6) {
+                    let osc = audioCtx.createOscillator(); osc.frequency.value = 30;
+                    let env = audioCtx.createGain(); env.gain.value = 0.05;
+                    osc.connect(env); env.connect(gain); osc.start();
+                    
+                    let bufferSize = audioCtx.sampleRate * 2;
+                    let buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+                    let output = buffer.getChannelData(0);
+                    for (let j = 0; j < bufferSize; j++) output[j] = Math.random() * 2 - 1;
+                    let noise = audioCtx.createBufferSource(); noise.buffer = buffer; noise.loop = true;
+                    let filter = audioCtx.createBiquadFilter(); filter.type = 'lowpass'; filter.frequency.value = 300;
+                    let nEnv = audioCtx.createGain(); nEnv.gain.value = 0.02;
+                    noise.connect(filter); filter.connect(nEnv); nEnv.connect(gain);
+                    noise.start();
+                } else if(i === 7) {
+                    let osc = audioCtx.createOscillator(); osc.frequency.value = 528;
+                    let env = audioCtx.createGain(); env.gain.value = 0.08;
+                    let lfo = audioCtx.createOscillator(); lfo.frequency.value = 0.5;
+                    let lfoGain = audioCtx.createGain(); lfoGain.gain.value = 0.04;
+                    lfo.connect(lfoGain); lfoGain.connect(env.gain);
+                    lfo.start();
+                    osc.connect(env); env.connect(gain); osc.start();
+                }
+            });
+        }
+
+        function playDigSound() {
+            if(!audioCtx) return;
+            let osc = audioCtx.createOscillator();
+            osc.frequency.setValueAtTime(120, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(60, audioCtx.currentTime + 0.2);
+            let env = audioCtx.createGain();
+            env.gain.setValueAtTime(0, audioCtx.currentTime);
+            env.gain.linearRampToValueAtTime(0.3, audioCtx.currentTime + 0.02);
+            env.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.2);
+            osc.connect(env); env.connect(masterGain);
+            osc.start(); osc.stop(audioCtx.currentTime + 0.2);
+        }
+
+        function playChime() {
+            if(!audioCtx) return;
+            let osc = audioCtx.createOscillator();
+            osc.frequency.setValueAtTime(880, audioCtx.currentTime);
+            let env = audioCtx.createGain();
+            env.gain.setValueAtTime(0, audioCtx.currentTime);
+            env.gain.linearRampToValueAtTime(0.08, audioCtx.currentTime + 0.02);
+            env.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.2);
+            osc.connect(env); env.connect(masterGain);
+            osc.start(); osc.stop(audioCtx.currentTime + 0.2);
+        }
+
+        let popupTimeout;
+        function showPopup(layer) {
+            let item = layer.items[Math.floor(Math.random() * layer.items.length)];
+            const popup = document.getElementById('popup');
+            
+            let parts = item.text.split(' ');
+            let emoji = "✨";
+            let text = item.text;
+            
+            if (parts[0].length <= 2 && !/[a-zA-Z]/.test(parts[0])) {
+                emoji = parts[0];
+                text = parts.slice(1).join(' ');
+            }
+            
+            popup.querySelector('.popup-emoji').innerText = emoji;
+            popup.querySelector('.popup-desc').innerHTML = text.replace(/\n/g, '<br>');
+            
+            popup.classList.add('show');
+            clearTimeout(popupTimeout);
+            popupTimeout = setTimeout(() => {
+                popup.classList.remove('show');
+            }, 2500);
+            
+            playChime();
+        }
+
+        window.addEventListener('pointerdown', (e) => {
+            if(e.target.closest('button') || e.target.closest('#minimap') || e.target.closest('#hud-top')) return;
+            
+            if(!audioInit && !isMuted) {
+                initAudio();
+                if(audioCtx.state === 'suspended') audioCtx.resume();
+                audioInit = true;
+            }
+            
+            let x = e.clientX;
+            let y = e.clientY + currentY;
+            
+            let pct = y / virtualHeight;
+            let layerIdx = layers.findIndex(l => pct <= l.pctEnd);
+            if(layerIdx === -1) layerIdx = layers.length - 1;
+            let layer = layers[layerIdx];
+            
+            holes.push({x, y, radius: 25 + Math.random()*20, layerIdx});
+            totalDigs++;
+            
+            let pColor = layer.color === 'core' ? '#ffffff' : layer.color;
+            if(layerIdx === 6) pColor = '#ffaa00';
+            
+            for(let i=0; i<15; i++) {
+                particles.push({
+                    x: x, y: y,
+                    vx: (Math.random()-0.5)*12,
+                    vy: (Math.random()-0.5)*12 - 5,
+                    color: pColor,
+                    life: 1,
+                    decay: 0.015 + Math.random()*0.02
+                });
+            }
+            
+            showPopup(layer);
+            playDigSound();
+            updateHUD();
+        });
+
+        document.getElementById('btn-map').addEventListener('click', () => {
+            document.getElementById('minimap').classList.toggle('show');
+        });
+
+        document.getElementById('btn-random').addEventListener('click', () => {
+            window.scrollTo({
+                top: Math.random() * maxScroll,
+                behavior: 'smooth'
+            });
+        });
+
+        document.getElementById('btn-capture').addEventListener('click', () => {
+            const link = document.createElement('a');
+            link.download = 'skin_of_earth.png';
+            link.href = canvas.toDataURL();
+            link.click();
+        });
+
+        document.getElementById('btn-sound').addEventListener('click', () => {
+            if(!audioInit) {
+                initAudio();
+                audioInit = true;
+            }
+            isMuted = !isMuted;
+            masterGain.gain.value = isMuted ? 0 : 0.8;
+            document.getElementById('btn-sound').style.opacity = isMuted ? 0.5 : 1;
+            if (audioCtx && audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        });
+
+        let currentY = 0;
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            let targetY = window.scrollY || document.documentElement.scrollTop;
+            currentY += (targetY - currentY) * 0.08; 
+            
+            ctx.clearRect(0, 0, width, height);
+            ctx.save();
+            ctx.translate(0, -currentY);
+            
+            let startY = 0;
+            layers.forEach(layer => {
+                let layerH = (layer.pctEnd - layer.pctStart) * virtualHeight;
+                if (startY + layerH > currentY - 50 && startY < currentY + height + 50) {
+                    if (layer.color === "core") {
+                        let gradient = ctx.createRadialGradient(width/2, startY + layerH/2, 0, width/2, startY + layerH/2, layerH/2);
+                        gradient.addColorStop(0, '#fff');
+                        gradient.addColorStop(0.2, '#ff0000');
+                        gradient.addColorStop(1, '#ff4400');
+                        ctx.fillStyle = gradient;
+                    } else {
+                        ctx.fillStyle = layer.color;
+                    }
+                    ctx.fillRect(0, startY, width, layerH);
+                }
+                startY += layerH;
+            });
+
+            drawStaticDecors(ctx, currentY);
+
+            entities.forEach(e => {
+                e.update();
+                if(e.y > currentY - 50 && e.y < currentY + height + 50) {
+                    e.draw(ctx);
+                }
+            });
+
+            holes.forEach(h => {
+                if(h.y > currentY - 100 && h.y < currentY + height + 100) {
+                    ctx.fillStyle = 'rgba(0,0,0,0.5)';
+                    ctx.beginPath(); ctx.ellipse(h.x, h.y, h.radius, h.radius * 0.6, 0, 0, Math.PI*2); ctx.fill();
+                    ctx.fillStyle = 'rgba(0,0,0,0.8)';
+                    ctx.beginPath(); ctx.ellipse(h.x, h.y, h.radius * 0.6, h.radius * 0.3, 0, 0, Math.PI*2); ctx.fill();
+                }
+            });
+
+            for(let i=particles.length-1; i>=0; i--) {
+                let p = particles[i];
+                p.x += p.vx; p.y += p.vy; p.vy += 0.2; p.life -= p.decay;
+                if(p.life <= 0) {
+                    particles.splice(i, 1);
+                } else if(p.y > currentY - 50 && p.y < currentY + height + 50) {
+                    ctx.globalAlpha = p.life;
+                    ctx.fillStyle = p.color;
+                    ctx.beginPath(); ctx.arc(p.x, p.y, 4, 0, Math.PI*2); ctx.fill();
+                    ctx.globalAlpha = 1;
+                }
+            }
+
+            // Core Message
+            let coreL = layers[layers.length - 1];
+            let coreY = coreL.pctStart * virtualHeight;
+            if (currentY + height > coreY) {
+                ctx.fillStyle = 'rgba(0,0,0,0.9)';
+                ctx.font = '24px "Space Mono", monospace';
+                ctx.textAlign = 'center';
+                ctx.fillText("you reached the center of everything", width/2, virtualHeight - height/2 - 20);
+                ctx.fillText("now what?", width/2, virtualHeight - height/2 + 20);
+            }
+
+            ctx.restore();
+
+            let centerPct = (currentY + height/2) / virtualHeight;
+            if(centerPct > 0.75) {
+                let heatIntensity = (centerPct - 0.75) / 0.25;
+                ctx.fillStyle = `rgba(255, 0, 0, ${heatIntensity * 0.2})`;
+                ctx.fillRect(0, 0, width, height);
+            }
+
+            updateHUD();
+            updateAudio();
+        }
+
+        function updateHUD() {
+            let centerPct = (currentY + height/2) / virtualHeight;
+            let currentPct = currentY / maxScroll; 
+            if(isNaN(currentPct)) currentPct = 0;
+            currentPct = Math.max(0, Math.min(1, currentPct));
+
+            let curLayerIdx = layers.findIndex(l => centerPct <= l.pctEnd);
+            if(curLayerIdx === -1) curLayerIdx = layers.length - 1;
+            
+            let l = layers[curLayerIdx];
+            
+            let dStart = l.depth;
+            let dEnd = curLayerIdx < layers.length - 1 ? layers[curLayerIdx+1].depth : l.depth;
+            let localPct = (centerPct - l.pctStart) / (l.pctEnd - l.pctStart);
+            localPct = Math.max(0, Math.min(1, localPct));
+            
+            let depthVal = dStart + (dEnd - dStart) * localPct;
+            
+            let depthStr = "";
+            if (depthVal < 1000) depthStr = Math.floor(depthVal) + "m";
+            else depthStr = Math.floor(depthVal/1000) + "km";
+            
+            document.getElementById('depth-val').innerText = depthStr;
+            document.getElementById('digs-val').innerText = totalDigs;
+            document.getElementById('layer-name').innerText = l.name.split('—')[0].trim();
+            document.getElementById('layer-name').style.textShadow = `0 0 15px ${l.color === 'core' ? '#ff4400' : l.color}`;
+            
+            document.getElementById('minimap-indicator').style.top = (currentPct * 100) + '%';
+        }
+
+        function updateAudio() {
+            if(!audioCtx || !audioInit) return;
+            let centerPct = (currentY + height/2) / virtualHeight;
+            
+            layers.forEach((l, i) => {
+                let vol = 0;
+                let fadeDist = 0.05;
+                if (centerPct >= l.pctStart && centerPct <= l.pctEnd) {
+                    vol = 1.0;
+                } else if (centerPct < l.pctStart && centerPct > l.pctStart - fadeDist) {
+                    vol = (centerPct - (l.pctStart - fadeDist)) / fadeDist;
+                } else if (centerPct > l.pctEnd && centerPct < l.pctEnd + fadeDist) {
+                    vol = ((l.pctEnd + fadeDist) - centerPct) / fadeDist;
+                }
+                
+                layerGains[i].gain.setTargetAtTime(vol, audioCtx.currentTime, 0.1);
+            });
+        }
+
+        requestAnimationFrame(animate);
+
+    </script>
+</body>
+</html>

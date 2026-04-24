@@ -1,0 +1,966 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>What If You Could Hear Colors?</title>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --red: #ff2a4b;
+            --orange: #ff7b00;
+            --yellow: #ffea00;
+            --green: #00fa9a;
+            --blue: #005ae0;
+            --purple: #8600e6;
+            --pink: #ff6beb;
+            --white: #ffffff;
+            --bg: #030303;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--white);
+            font-family: 'Playfair Display', serif;
+            overflow-x: hidden;
+            scroll-behavior: smooth;
+        }
+
+        /* Prevent scroll initially */
+        body.locked {
+            overflow: hidden;
+        }
+
+        /* Background Canvas */
+        #fluid-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 0;
+            pointer-events: none;
+            mix-blend-mode: screen;
+            opacity: 0.8;
+            filter: blur(8px) contrast(1.5);
+        }
+
+        /* Sections */
+        section {
+            position: relative;
+            z-index: 10;
+            width: 100vw;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 2rem;
+            opacity: 0;
+            transition: opacity 1.5s ease-out, transform 1.5s ease-out;
+            transform: translateY(30px);
+        }
+
+        section.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        h1, h2, h3, p {
+            text-align: center;
+            mix-blend-mode: exclusion;
+        }
+
+        h1 {
+            font-size: 5rem;
+            line-height: 1.1;
+            margin-bottom: 1rem;
+            text-shadow: -2px 0px rgba(255,0,0,0.5), 2px 0px rgba(0,255,255,0.5); /* Chromatic aberration */
+        }
+        
+        h2 {
+            font-size: 3rem;
+            font-weight: 400;
+            font-style: italic;
+            margin-bottom: 2rem;
+        }
+
+        p {
+            font-size: 1.5rem;
+            max-width: 800px;
+            line-height: 1.6;
+        }
+
+        /* Hero */
+        #hero {
+            height: 100vh;
+            opacity: 1;
+            transform: none;
+            cursor: pointer;
+            z-index: 100;
+        }
+
+        .pulse-dot {
+            width: 10px;
+            height: 10px;
+            background-color: var(--white);
+            border-radius: 50%;
+            box-shadow: 0 0 20px 5px rgba(255, 255, 255, 0.5);
+            animation: pulse 2s infinite ease-in-out;
+            transition: opacity 1s;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 0.5; }
+            50% { transform: scale(3); opacity: 1; }
+            100% { transform: scale(1); opacity: 0.5; }
+        }
+
+        .hero-text {
+            position: absolute;
+            font-size: 2rem;
+            opacity: 0;
+            transition: opacity 2s ease-in-out;
+            pointer-events: none;
+        }
+
+        .hero-title-container {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            opacity: 0;
+            transition: opacity 3s ease-in-out;
+        }
+
+        .hero-title-container.show {
+            display: flex;
+            opacity: 1;
+        }
+
+        .scroll-indicator {
+            position: absolute;
+            bottom: 40px;
+            font-size: 1rem;
+            letter-spacing: 0.2em;
+            opacity: 0;
+            animation: float 3s infinite ease-in-out;
+            transition: opacity 2s;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+
+        /* Experience Piano */
+        #experience {
+            min-height: 100vh;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .piano-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            grid-template-rows: repeat(2, 1fr);
+            width: 100%;
+            height: 100vh;
+            gap: 2px;
+            background: rgba(255,255,255,0.05);
+        }
+
+        .color-zone {
+            position: relative;
+            cursor: crosshair;
+            transition: background 0.3s;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .color-zone::after {
+            content: '';
+            position: absolute;
+            top: 50%; left: 50%;
+            width: 0; height: 0;
+            background: currentColor;
+            border-radius: 50%;
+            opacity: 0;
+            transform: translate(-50%, -50%);
+            transition: width 0.8s ease-out, height 0.8s ease-out, opacity 0.8s ease-out;
+            pointer-events: none;
+            mix-blend-mode: screen;
+        }
+
+        .color-zone.active::after {
+            width: 300%;
+            padding-bottom: 300%;
+            opacity: 0.8;
+            transition: width 0.1s, height 0.1s, opacity 0.1s;
+        }
+
+        .color-label {
+            font-size: 1.5rem;
+            font-style: italic;
+            opacity: 0.3;
+            transition: opacity 0.3s, transform 0.3s;
+            mix-blend-mode: overlay;
+        }
+
+        .color-zone:hover .color-label {
+            opacity: 1;
+            transform: scale(1.1);
+        }
+
+        /* Profile Section */
+        #profile-card {
+            background: rgba(255,255,255,0.03);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 20px;
+            padding: 4rem;
+            text-align: center;
+            max-width: 600px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .profile-soul {
+            position: absolute;
+            top: -50%; left: -50%;
+            width: 200%; height: 200%;
+            background: radial-gradient(circle, var(--blue) 0%, transparent 50%), radial-gradient(circle, var(--purple) 0%, transparent 50%);
+            background-size: 100% 100%;
+            opacity: 0.15;
+            animation: swirl 10s infinite linear;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        @keyframes swirl {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .profile-content {
+            position: relative;
+            z-index: 1;
+        }
+
+        .profile-btn {
+            margin-top: 2rem;
+            padding: 1rem 3rem;
+            background: transparent;
+            color: #fff;
+            border: 1px solid rgba(255,255,255,0.4);
+            border-radius: 30px;
+            font-family: inherit;
+            font-size: 1.2rem;
+            cursor: pointer;
+            transition: all 0.3s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .profile-btn:hover {
+            background: rgba(255,255,255,0.1);
+            border-color: #fff;
+            box-shadow: 0 0 20px rgba(255,255,255,0.2);
+        }
+
+        /* Science Section */
+        .fact-card {
+            margin: 4rem 0;
+            padding: 2rem;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+        }
+
+        /* Sandbox Section */
+        #sandbox {
+            position: relative;
+            overflow: hidden;
+            min-height: 100vh;
+            width: 100vw;
+        }
+
+        #sandbox-canvas {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            cursor: crosshair;
+            z-index: 0;
+        }
+
+        .sandbox-ui {
+            position: absolute;
+            top: 2rem;
+            text-align: center;
+            z-index: 10;
+            pointer-events: none;
+            width: 100%;
+        }
+        
+        .sandbox-ui h2, .sandbox-ui p {
+            mix-blend-mode: normal;
+            text-shadow: 0 2px 10px #000;
+        }
+
+        /* Community Wall */
+        #community {
+            gap: 2rem;
+            min-height: 100vh;
+        }
+
+        .name-input-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1.5rem;
+            z-index: 10;
+        }
+
+        #name-input {
+            background: transparent;
+            border: none;
+            border-bottom: 2px solid rgba(255,255,255,0.3);
+            color: white;
+            font-family: inherit;
+            font-size: 3rem;
+            text-align: center;
+            outline: none;
+            padding: 0.5rem;
+            width: 100%;
+            max-width: 400px;
+            text-transform: uppercase;
+            transition: border-color 0.3s;
+        }
+
+        #name-input:focus {
+            border-color: white;
+        }
+
+        #name-result {
+            font-size: 2rem;
+            height: 3rem;
+            transition: opacity 0.5s;
+        }
+
+        .mosaic-wall {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+            max-width: 800px;
+            justify-content: center;
+            margin-top: 3rem;
+        }
+
+        .mosaic-item {
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            font-weight: bold;
+            letter-spacing: 2px;
+            font-size: 0.8rem;
+            color: #000;
+            opacity: 0;
+            animation: fadeIn 0.5s forwards;
+            backdrop-filter: blur(5px);
+        }
+
+        @keyframes fadeIn {
+            to { opacity: 1; }
+        }
+
+        /* Final */
+        #final {
+            text-align: center;
+            gap: 2rem;
+            min-height: 100vh;
+        }
+        
+        #final p {
+            font-size: 2rem;
+            opacity: 0.8;
+        }
+
+        /* Mobile Adjustments */
+        @media (max-width: 768px) {
+            h1 { font-size: 3rem; }
+            h2 { font-size: 2rem; }
+            p { font-size: 1.1rem; }
+            .piano-grid {
+                grid-template-columns: repeat(2, 1fr);
+                grid-template-rows: repeat(4, 1fr);
+            }
+            #name-input { font-size: 2rem; }
+        }
+    </style>
+</head>
+<body class="locked">
+
+    <canvas id="fluid-canvas"></canvas>
+
+    <!-- HERO -->
+    <section id="hero" onclick="startExperience()">
+        <div class="pulse-dot" id="pulse-dot"></div>
+        <div class="hero-text" id="text-1">Close your eyes.</div>
+        <div class="hero-text" id="text-2">Now open them.</div>
+        
+        <div class="hero-title-container" id="hero-title">
+            <h1>What If You Could Hear Colors?</h1>
+            <h2>Some people can. Now you will too.</h2>
+            <div class="scroll-indicator" style="animation: float 3s infinite ease-in-out;">SCROLL DOWN</div>
+        </div>
+    </section>
+
+    <!-- EXPERIENCE -->
+    <section id="experience">
+        <div class="piano-grid">
+            <div class="color-zone" data-color="red" style="color: var(--red);">
+                <span class="color-label">RED</span>
+            </div>
+            <div class="color-zone" data-color="orange" style="color: var(--orange);">
+                <span class="color-label">ORANGE</span>
+            </div>
+            <div class="color-zone" data-color="yellow" style="color: var(--yellow);">
+                <span class="color-label">YELLOW</span>
+            </div>
+            <div class="color-zone" data-color="green" style="color: var(--green);">
+                <span class="color-label">GREEN</span>
+            </div>
+            <div class="color-zone" data-color="blue" style="color: var(--blue);">
+                <span class="color-label">BLUE</span>
+            </div>
+            <div class="color-zone" data-color="purple" style="color: var(--purple);">
+                <span class="color-label">PURPLE</span>
+            </div>
+            <div class="color-zone" data-color="pink" style="color: var(--pink);">
+                <span class="color-label">PINK</span>
+            </div>
+            <div class="color-zone" data-color="white" style="color: var(--white);">
+                <span class="color-label">WHITE</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- PROFILE -->
+    <section id="profile">
+        <div id="profile-card">
+            <div class="profile-soul" id="profile-anim"></div>
+            <div class="profile-content">
+                <h2>Your Synesthesia Profile</h2>
+                <p id="profile-desc">Play the piano above to discover your color soul.</p>
+                <div style="height: 20px;"></div>
+                <p id="profile-meaning" style="font-size: 1.2rem; font-style: italic; opacity: 0.8;"></p>
+                <button class="profile-btn" onclick="playProfileChord()">Hear Your Chord</button>
+            </div>
+        </div>
+    </section>
+
+    <!-- SCIENCE -->
+    <section id="science">
+        <div class="fact-card">
+            <p><strong>1 in 23 people</strong> have some form of synesthesia.</p>
+        </div>
+        <div class="fact-card">
+            <p>Pharrell Williams sees colors when he makes music.</p>
+        </div>
+        <div class="fact-card">
+            <p>Wassily Kandinsky painted exactly what he <em>heard</em>.</p>
+        </div>
+        <div class="fact-card">
+            <p>Your brain has <strong>86 billion neurons</strong> — all creating your unique reality.</p>
+        </div>
+    </section>
+
+    <!-- SANDBOX -->
+    <section id="sandbox">
+        <canvas id="sandbox-canvas"></canvas>
+        <div class="sandbox-ui">
+            <h2>Compose Your Feeling</h2>
+            <p>Paint a song. Play a painting. Drag to compose.</p>
+        </div>
+    </section>
+
+    <!-- COMMUNITY WALL -->
+    <section id="community">
+        <h2>What color is your name?</h2>
+        <div class="name-input-container">
+            <input type="text" id="name-input" placeholder="TYPE YOUR NAME" maxlength="15" autocomplete="off" spellcheck="false" />
+            <div id="name-result"></div>
+        </div>
+        <div class="mosaic-wall" id="mosaic"></div>
+    </section>
+
+    <!-- FINAL -->
+    <section id="final">
+        <p>You just experienced synesthesia.</p>
+        <p>For most people, this was just a webpage.</p>
+        <p>For you, for a moment — it was real.</p>
+        <button class="profile-btn" onclick="alert('Screenshot the experience to share your color soul!')">Share your color soul</button>
+    </section>
+
+    <script>
+        // --- DATA ---
+        const colorData = {
+            red:    { hex: '#ff2a4b', freq: 110.00, type: 'sine',     reverbLevel: 0.8, meaning: "You are grounded, passionate, and crave heavy depth." },
+            orange: { hex: '#ff7b00', freq: 220.00, type: 'triangle', reverbLevel: 0.4, meaning: "You radiate warmth, comfort, and rhythmic energy." },
+            yellow: { hex: '#ffea00', freq: 880.00, type: 'sine',     reverbLevel: 0.6, meaning: "You have a bright, sparkling mind that seeks clarity." },
+            green:  { hex: '#00fa9a', freq: 329.63, type: 'square',   reverbLevel: 0.5, meaning: "You are organic, adaptable, and seek balance in nature." },
+            blue:   { hex: '#005ae0', freq: 164.81, type: 'triangle', reverbLevel: 0.9, meaning: "You crave vastness, mystery, and deep calm tides." },
+            purple: { hex: '#8600e6', freq: 440.00, type: 'sine',     reverbLevel: 1.0, meaning: "You are highly intuitive, ethereal, and spiritual." },
+            pink:   { hex: '#ff6beb', freq: 659.25, type: 'square',   reverbLevel: 0.3, meaning: "You appreciate delicate beauty and fleeting moments." },
+            white:  { hex: '#ffffff', freq: 528.00, type: 'sine',     reverbLevel: 0.2, meaning: "You seek pure truth, silence, and healing resonance." }
+        };
+
+        let interactionScores = { red:0, orange:0, yellow:0, green:0, blue:0, purple:0, pink:0, white:0 };
+        let topColors = [];
+
+        // --- WEB AUDIO API ENGINE ---
+        let audioCtx, masterGain, convolver;
+        let isAudioInitialized = false;
+
+        async function initAudio() {
+            if (isAudioInitialized) return;
+            isAudioInitialized = true;
+            
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            masterGain = audioCtx.createGain();
+            masterGain.gain.value = 0.5;
+            masterGain.connect(audioCtx.destination);
+            
+            // Generate synthetic Reverb Impulse Response (massive hall)
+            convolver = audioCtx.createConvolver();
+            const duration = 4.0; 
+            const rate = audioCtx.sampleRate;
+            const length = rate * duration;
+            const impulse = audioCtx.createBuffer(2, length, rate);
+            for (let i = 0; i < length; i++) {
+                const decay = Math.exp(-3 * (i / length));
+                impulse.getChannelData(0)[i] = (Math.random() * 2 - 1) * decay;
+                impulse.getChannelData(1)[i] = (Math.random() * 2 - 1) * decay;
+            }
+            convolver.buffer = impulse;
+            convolver.connect(masterGain);
+
+            // Subtle ambient drone
+            const droneOsc = audioCtx.createOscillator();
+            droneOsc.type = 'sine';
+            droneOsc.frequency.value = 55; // Deep sub
+            const droneGain = audioCtx.createGain();
+            droneGain.gain.value = 0.05;
+            droneOsc.connect(droneGain);
+            droneGain.connect(convolver);
+            droneOsc.start();
+        }
+
+        function playColorSound(colorKey) {
+            if (!audioCtx) return;
+            const data = colorData[colorKey];
+            
+            const osc = audioCtx.createOscillator();
+            osc.type = data.type;
+            osc.frequency.setValueAtTime(data.freq, audioCtx.currentTime);
+            
+            // Lowpass filter to ensure it doesn't pierce
+            const filter = audioCtx.createBiquadFilter();
+            filter.type = 'lowpass';
+            filter.frequency.value = data.type === 'square' || data.type === 'triangle' ? 1500 : 3000;
+            
+            const gain = audioCtx.createGain();
+            // ADSR Envelope
+            gain.gain.setValueAtTime(0, audioCtx.currentTime);
+            gain.gain.linearRampToValueAtTime(0.3, audioCtx.currentTime + 0.1); // Attack
+            gain.gain.exponentialRampToValueAtTime(0.1, audioCtx.currentTime + 0.5); // Decay
+            gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 3.0); // Release
+            
+            osc.connect(filter);
+            filter.connect(gain);
+            
+            // Reverb blend
+            const dryNode = audioCtx.createGain();
+            dryNode.gain.value = Math.max(0.3, 1.0 - data.reverbLevel);
+            const wetNode = audioCtx.createGain();
+            wetNode.gain.value = data.reverbLevel * 4.0; // Boost wet signal due to convolver normalization
+            
+            gain.connect(dryNode);
+            gain.connect(wetNode);
+            
+            dryNode.connect(masterGain);
+            wetNode.connect(convolver);
+            
+            osc.start();
+            osc.stop(audioCtx.currentTime + 3.0);
+            
+            interactionScores[colorKey] += 1;
+            updateProfile();
+        }
+
+        function triggerHeroExplosion() {
+            if (!audioCtx) return;
+            // Massive boom
+            const osc = audioCtx.createOscillator();
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(50, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(10, audioCtx.currentTime + 1.0);
+            
+            const filter = audioCtx.createBiquadFilter();
+            filter.type = 'lowpass';
+            filter.frequency.setValueAtTime(2000, audioCtx.currentTime);
+            filter.frequency.exponentialRampToValueAtTime(100, audioCtx.currentTime + 1.0);
+            
+            const gain = audioCtx.createGain();
+            gain.gain.setValueAtTime(0, audioCtx.currentTime);
+            gain.gain.linearRampToValueAtTime(0.8, audioCtx.currentTime + 0.05);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 4.0);
+            
+            osc.connect(filter);
+            filter.connect(gain);
+            gain.connect(convolver);
+            
+            osc.start();
+            osc.stop(audioCtx.currentTime + 4.0);
+        }
+
+        // --- FLUID CANVAS BACKGROUND ---
+        const fluidCanvas = document.getElementById('fluid-canvas');
+        const fluidCtx = fluidCanvas.getContext('2d');
+        let width, height;
+        let blobs = [];
+
+        function resize() {
+            width = fluidCanvas.width = window.innerWidth;
+            height = fluidCanvas.height = window.innerHeight;
+            
+            const sandboxCanvas = document.getElementById('sandbox-canvas');
+            if(sandboxCanvas) {
+                sandboxCanvas.width = width;
+                sandboxCanvas.height = height;
+            }
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        class Blob {
+            constructor(x, y, colorText) {
+                this.x = x;
+                this.y = y;
+                this.color = colorData[colorText].hex;
+                this.radius = 10;
+                this.maxRadius = Math.random() * 300 + 200;
+                this.alpha = 0.8;
+                this.decay = Math.random() * 0.01 + 0.005;
+                this.growth = Math.random() * 5 + 2;
+            }
+            update() {
+                this.radius += this.growth;
+                this.alpha -= this.decay;
+                return this.alpha > 0;
+            }
+            draw(ctx) {
+                ctx.beginPath();
+                const rx = rgb(this.color);
+                const grad = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.radius);
+                grad.addColorStop(0, `rgba(${rx.r}, ${rx.g}, ${rx.b}, ${this.alpha})`);
+                grad.addColorStop(1, `rgba(${rx.r}, ${rx.g}, ${rx.b}, 0)`);
+                ctx.fillStyle = grad;
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        function rgb(hex) {
+            const h = hex.replace('#', '');
+            return {
+                r: parseInt(h.substring(0,2), 16),
+                g: parseInt(h.substring(2,4), 16),
+                b: parseInt(h.substring(4,6), 16)
+            };
+        }
+
+        function spawnBlob(x, y, color) {
+            blobs.push(new Blob(x, y, color));
+        }
+
+        function renderFluid() {
+            fluidCtx.clearRect(0, 0, width, height);
+            // globalCompositeOperation screen creates vivid overlaps
+            fluidCtx.globalCompositeOperation = 'screen';
+            for (let i = blobs.length - 1; i >= 0; i--) {
+                const b = blobs[i];
+                if (b.update()) {
+                    b.draw(fluidCtx);
+                } else {
+                    blobs.splice(i, 1);
+                }
+            }
+            requestAnimationFrame(renderFluid);
+        }
+        renderFluid();
+
+        // --- HERO SEQUENCE ---
+        let heroStarted = false;
+        async function startExperience() {
+            if (heroStarted) return;
+            heroStarted = true;
+            
+            const dot = document.getElementById('pulse-dot');
+            const txt1 = document.getElementById('text-1');
+            const txt2 = document.getElementById('text-2');
+            const titleCont = document.getElementById('hero-title');
+            
+            dot.style.opacity = 0;
+            
+            // "Close your eyes"
+            setTimeout(() => { txt1.style.opacity = 1; }, 500);
+            
+            // "Now open them"
+            setTimeout(() => { 
+                txt1.style.opacity = 0; 
+                setTimeout(()=> { txt2.style.opacity = 1; }, 500);
+            }, 3000);
+            
+            // EXPLOSION
+            setTimeout(async () => {
+                txt2.style.opacity = 0;
+                document.getElementById('hero').style.cursor = 'default';
+                await initAudio();
+                triggerHeroExplosion();
+                
+                // Explode colors on screen
+                for(let i=0; i<15; i++) {
+                    const keys = Object.keys(colorData);
+                    const k = keys[Math.floor(Math.random()*keys.length)];
+                    setTimeout(() => {
+                        spawnBlob(width/2 + (Math.random()-0.5)*400, height/2 + (Math.random()-0.5)*400, k);
+                    }, i*100);
+                }
+                
+                setTimeout(() => {
+                    titleCont.classList.add('show');
+                    document.body.classList.remove('locked');
+                }, 1000);
+            }, 5500);
+        }
+
+        // --- EXPERIENCE PIANO ---
+        document.querySelectorAll('.color-zone').forEach(zone => {
+            const handleTouch = (e) => {
+                e.preventDefault();
+                const color = zone.getAttribute('data-color');
+                playColorSound(color);
+                
+                let cx, cy;
+                if(e.touches && e.touches.length > 0) {
+                    cx = e.touches[0].clientX;
+                    cy = e.touches[0].clientY;
+                } else {
+                    cx = e.clientX;
+                    cy = e.clientY;
+                }
+                
+                spawnBlob(cx, cy, color);
+                
+                zone.classList.add('active');
+                setTimeout(() => zone.classList.remove('active'), 200);
+            };
+            zone.addEventListener('mousedown', handleTouch);
+            zone.addEventListener('touchstart', handleTouch, {passive: false});
+        });
+
+        // --- PROFILE LOGIC ---
+        function updateProfile() {
+            const sorted = Object.entries(interactionScores)
+                .filter(([_, score]) => score > 0)
+                .sort((a,b) => b[1] - a[1]);
+                
+            if(sorted.length > 0) {
+                topColors = sorted.slice(0, 2).map(x => x[0]);
+                
+                const desc = document.getElementById('profile-desc');
+                const meaning = document.getElementById('profile-meaning');
+                const anim = document.getElementById('profile-anim');
+                
+                const c1 = topColors[0];
+                const c2 = topColors.length > 1 ? topColors[1] : c1;
+                
+                desc.innerHTML = `You are drawn to <strong style="color:${colorData[c1].hex}">${c1.toUpperCase()}</strong> and <strong style="color:${colorData[c2].hex}">${c2.toUpperCase()}</strong>.`;
+                meaning.innerText = colorData[c1].meaning;
+                
+                anim.style.background = `radial-gradient(circle, ${colorData[c1].hex} 0%, transparent 50%), radial-gradient(circle, ${colorData[c2].hex} 0%, transparent 50%)`;
+            }
+        }
+        
+        function playProfileChord() {
+            if(!audioCtx || topColors.length === 0) return;
+            topColors.forEach((c, idx) => {
+                setTimeout(() => playColorSound(c), idx * 150);
+            });
+        }
+
+        // --- SANDBOX ---
+        const sandboxCanvas = document.getElementById('sandbox-canvas');
+        const sCtx = sandboxCanvas.getContext('2d');
+        let isDrawing = false;
+        let lastX, lastY;
+        let sandboxOsc;
+        let sandboxGain;
+
+        function startDrawing(e) {
+            isDrawing = true;
+            const {x, y} = getPos(e);
+            lastX = x; lastY = y;
+            
+            if(audioCtx) {
+                sandboxOsc = audioCtx.createOscillator();
+                sandboxOsc.type = 'triangle';
+                sandboxGain = audioCtx.createGain();
+                sandboxGain.gain.value = 0.1;
+                sandboxOsc.connect(sandboxGain);
+                sandboxGain.connect(convolver);
+                sandboxOsc.start();
+                updateDrawingSound(y);
+            }
+        }
+
+        function draw(e) {
+            if(!isDrawing) return;
+            const {x, y} = getPos(e);
+            
+            // Calculate speed
+            const dx = x - lastX;
+            const dy = y - lastY;
+            const dist = Math.sqrt(dx*dx + dy*dy);
+            
+            sCtx.beginPath();
+            sCtx.moveTo(lastX, lastY);
+            sCtx.lineTo(x, y);
+            sCtx.lineWidth = 10 + dist * 0.5; // Thicker if faster
+            sCtx.lineCap = 'round';
+            // Hue based on X position, Lightness based on Y
+            const hue = (x / width) * 360;
+            sCtx.strokeStyle = `hsl(${hue}, 100%, 60%)`;
+            sCtx.shadowBlur = 20;
+            sCtx.shadowColor = `hsl(${hue}, 100%, 60%)`;
+            sCtx.stroke();
+            
+            if (audioCtx && sandboxOsc) {
+                updateDrawingSound(y);
+            }
+            
+            lastX = x;
+            lastY = y;
+        }
+
+        function stopDrawing() {
+            isDrawing = false;
+            if (audioCtx && sandboxGain) {
+                sandboxGain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.5);
+                setTimeout(() => { if(sandboxOsc) sandboxOsc.stop(); }, 500);
+            }
+        }
+
+        function updateDrawingSound(y) {
+            // Map Y position to frequency (high Y = low freq, low Y = high freq)
+            if(!sandboxOsc) return;
+            const freq = 100 + ((height - y) / height) * 800;
+            sandboxOsc.frequency.linearRampToValueAtTime(freq, audioCtx.currentTime + 0.05);
+        }
+
+        function getPos(e) {
+            if(e.touches) {
+                const rect = sandboxCanvas.getBoundingClientRect();
+                return {x: e.touches[0].clientX - rect.left, y: e.touches[0].clientY - rect.top};
+            }
+            const rect = sandboxCanvas.getBoundingClientRect();
+            return {x: e.clientX - rect.left, y: e.clientY - rect.top};
+        }
+
+        sandboxCanvas.addEventListener('mousedown', startDrawing);
+        sandboxCanvas.addEventListener('mousemove', draw);
+        window.addEventListener('mouseup', stopDrawing);
+        
+        sandboxCanvas.addEventListener('touchstart', (e)=> {e.preventDefault(); startDrawing(e);}, {passive:false});
+        sandboxCanvas.addEventListener('touchmove', (e)=> {e.preventDefault(); draw(e);}, {passive:false});
+        window.addEventListener('touchend', stopDrawing);
+
+        // --- COMMUNITY WALL ---
+        const nameInput = document.getElementById('name-input');
+        const mosaic = document.getElementById('mosaic');
+        const keys = Object.keys(colorData);
+
+        function updateMosaic() {
+            const saved = JSON.parse(localStorage.getItem('synesthesia_names') || '[]');
+            mosaic.innerHTML = '';
+            saved.slice(-20).reverse().forEach(entry => {
+                const div = document.createElement('div');
+                div.className = 'mosaic-item';
+                div.style.background = `linear-gradient(45deg, ${entry.colors.join(', ')})`;
+                div.style.color = '#fff';
+                div.style.textShadow = '0 0 5px #000';
+                div.innerText = entry.name;
+                mosaic.appendChild(div);
+            });
+        }
+        updateMosaic();
+
+        nameInput.addEventListener('keydown', (e) => {
+            if(e.key === 'Enter' && nameInput.value.trim().length > 0) {
+                const name = nameInput.value.trim().toUpperCase();
+                // Hash name to colors
+                const nameColors = [];
+                for(let i=0; i<Math.min(name.length, 3); i++) {
+                    const charCode = name.charCodeAt(i);
+                    nameColors.push(colorData[keys[charCode % keys.length]].hex);
+                }
+                
+                document.getElementById('name-result').innerHTML = `
+                    <span style="color:${nameColors[0]}">${name}</span>
+                `;
+                
+                const saved = JSON.parse(localStorage.getItem('synesthesia_names') || '[]');
+                saved.push({name, colors: nameColors});
+                localStorage.setItem('synesthesia_names', JSON.stringify(saved));
+                
+                nameInput.value = '';
+                updateMosaic();
+                
+                // Play chord
+                if(audioCtx) {
+                    nameColors.forEach((colHex, idx) => {
+                        const colKey = keys.find(k => colorData[k].hex === colHex);
+                        if(colKey) setTimeout(() => playColorSound(colKey), idx*200);
+                    });
+                }
+            }
+        });
+
+        // --- INTERSECTION OBSERVER FOR FADES ---
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if(entry.isIntersecting) {
+                    entry.target.classList.add('visible');
+                }
+            });
+        }, { threshold: 0.1 });
+
+        document.querySelectorAll('section').forEach(sec => {
+            observer.observe(sec);
+        });
+
+    </script>
+</body>
+</html>

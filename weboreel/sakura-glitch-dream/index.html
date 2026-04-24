@@ -1,0 +1,1266 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>SAKURA GLITCH DREAM — 夢の断片</title>
+<meta name="description" content="A surreal cinematic scroll journey through a broken anime universe. Fall deeper into the dream." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;700;900&family=Bebas+Neue&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap');
+
+/* ═══════════════════════════════════
+   CSS VARIABLES & RESET
+════════════════════════════════════ */
+:root {
+  --pink: #ff6b9d;
+  --pink-light: #ffb7c5;
+  --pink-soft: #ffc8dd;
+  --pink-hot: #ff8fab;
+  --purple: #7b2d8b;
+  --purple-light: #c084fc;
+  --cyan: #00f5ff;
+  --navy: #0a0015;
+  --black: #000000;
+  --white: #ffffff;
+  --progress-color: var(--pink);
+  --theme-primary: #ff6b9d;
+  --theme-secondary: #c084fc;
+  --theme-accent: #00f5ff;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html {
+  scroll-behavior: smooth;
+  scrollbar-width: thin;
+  scrollbar-color: var(--pink) transparent;
+}
+
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--pink); border-radius: 2px; }
+
+body {
+  font-family: 'Space Mono', monospace;
+  background: var(--navy);
+  color: var(--white);
+  overflow-x: hidden;
+  cursor: crosshair;
+}
+
+/* ═══════════════════════════════════
+   PROGRESS BAR
+════════════════════════════════════ */
+#progress-bar {
+  position: fixed;
+  top: 0; left: 0;
+  width: 0%;
+  height: 3px;
+  background: linear-gradient(90deg, var(--pink), var(--purple-light), var(--cyan));
+  z-index: 9999;
+  transition: width 0.1s linear;
+  box-shadow: 0 0 8px var(--pink);
+}
+
+/* ═══════════════════════════════════
+   CANVAS SAKURA LAYER
+════════════════════════════════════ */
+#sakura-canvas {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* ═══════════════════════════════════
+   MUSIC HINT / BUTTON
+════════════════════════════════════ */
+#music-hint {
+  position: fixed;
+  bottom: clamp(16px, 4vw, 32px);
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: 'Space Mono', monospace;
+  font-size: clamp(10px, 1.5vw, 13px);
+  color: var(--pink-light);
+  letter-spacing: 0.15em;
+  z-index: 1000;
+  animation: pulse-hint 1.8s ease-in-out infinite;
+  pointer-events: none;
+  text-shadow: 0 0 12px var(--pink);
+  white-space: nowrap;
+}
+@keyframes pulse-hint {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 1; }
+}
+
+#music-btn {
+  position: fixed;
+  top: clamp(12px, 2vw, 20px);
+  right: clamp(12px, 2vw, 20px);
+  width: clamp(40px, 5vw, 52px);
+  height: clamp(40px, 5vw, 52px);
+  border-radius: 50%;
+  border: 1.5px solid var(--pink);
+  background: rgba(10, 0, 21, 0.7);
+  color: var(--pink);
+  font-size: clamp(14px, 2vw, 20px);
+  cursor: pointer;
+  z-index: 1000;
+  display: flex; align-items: center; justify-content: center;
+  backdrop-filter: blur(10px);
+  transition: all 0.3s ease;
+  box-shadow: 0 0 20px rgba(255,107,157,0.3);
+}
+#music-btn:hover {
+  background: rgba(255,107,157,0.2);
+  box-shadow: 0 0 30px rgba(255,107,157,0.6);
+  transform: scale(1.1);
+}
+#music-btn.pulsing { animation: btn-pulse 0.8s ease-in-out infinite alternate; }
+@keyframes btn-pulse {
+  from { box-shadow: 0 0 10px rgba(255,107,157,0.3); }
+  to   { box-shadow: 0 0 30px rgba(255,107,157,0.8), 0 0 60px rgba(255,107,157,0.3); }
+}
+
+/* ═══════════════════════════════════
+   SECTIONS SHARED
+════════════════════════════════════ */
+section {
+  position: relative;
+  width: 100%;
+  min-height: 100vh;
+  display: flex; align-items: center; justify-content: center;
+  overflow: hidden;
+  z-index: 2;
+}
+
+/* ═══════════════════════════════════
+   SECTION 1 — THE AWAKENING
+════════════════════════════════════ */
+#s1 {
+  background: var(--navy);
+  flex-direction: column;
+  text-align: center;
+}
+
+/* Floating orbs */
+.orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(60px);
+  pointer-events: none;
+  opacity: 0.35;
+  animation: orb-drift linear infinite;
+}
+.orb-1 { width: 300px; height: 300px; background: #c084fc; top:10%; left:5%; animation-duration: 18s; }
+.orb-2 { width: 200px; height: 200px; background: #ff6b9d; top:60%; left:80%; animation-duration: 13s; }
+.orb-3 { width: 250px; height: 250px; background: #7b2d8b; top:30%; left:60%; animation-duration: 21s; }
+.orb-4 { width: 180px; height: 180px; background: #ffc8dd; top:75%; left:20%; animation-duration: 16s; }
+.orb-5 { width: 220px; height: 220px; background: #ff8fab; top:5%; left:50%; animation-duration: 19s; }
+
+@keyframes orb-drift {
+  0%   { transform: translate(0, 0) scale(1); }
+  25%  { transform: translate(30px, -40px) scale(1.1); }
+  50%  { transform: translate(-20px, 30px) scale(0.95); }
+  75%  { transform: translate(40px, 20px) scale(1.05); }
+  100% { transform: translate(0, 0) scale(1); }
+}
+
+#kanji-dream {
+  font-family: 'Zen Kaku Gothic New', sans-serif;
+  font-size: clamp(100px, 20vw, 280px);
+  font-weight: 900;
+  line-height: 1;
+  background: linear-gradient(135deg, var(--pink), var(--purple-light), var(--white), var(--pink-light));
+  background-size: 400% 400%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: kanji-gradient 4s ease infinite;
+  transition: transform 1s cubic-bezier(0.34,1.56,0.64,1), filter 1s ease, opacity 0.8s ease;
+  transform: scale(0);
+  filter: blur(20px);
+  opacity: 0;
+  position: relative;
+  z-index: 3;
+}
+@keyframes kanji-gradient {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+#kanji-dream.revealed {
+  transform: scale(1);
+  filter: blur(0);
+  opacity: 1;
+}
+
+#s1-title {
+  font-family: 'Bebas Neue', cursive;
+  font-size: clamp(22px, 5vw, 72px);
+  letter-spacing: 0.3em;
+  color: var(--white);
+  margin-top: clamp(8px, 1.5vw, 20px);
+  opacity: 0;
+  transform: translateY(30px);
+  transition: opacity 0.8s 0.3s ease, transform 0.8s 0.3s ease;
+  position: relative; z-index: 3;
+}
+#s1-title.revealed { opacity: 1; transform: translateY(0); }
+
+#s1-subtitle {
+  font-family: 'Space Mono', monospace;
+  font-size: clamp(10px, 1.5vw, 15px);
+  color: var(--pink-light);
+  margin-top: clamp(10px, 2vw, 20px);
+  animation: pulse-sub 2.5s ease-in-out infinite;
+  position: relative; z-index: 3;
+  letter-spacing: 0.1em;
+}
+@keyframes pulse-sub {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 1; }
+}
+
+/* ═══════════════════════════════════
+   SECTION 2 — THE GLITCH CORRIDOR
+════════════════════════════════════ */
+#s2 {
+  background: #000;
+  flex-direction: column;
+  text-align: center;
+  background-image: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 3px,
+    rgba(255,255,255,0.018) 3px,
+    rgba(255,255,255,0.018) 4px
+  );
+}
+
+.glitch-wrapper {
+  position: relative;
+  display: inline-block;
+  user-select: none;
+}
+
+#glitch-text {
+  font-family: 'Zen Kaku Gothic New', sans-serif;
+  font-size: clamp(30px, 7vw, 110px);
+  font-weight: 900;
+  color: var(--white);
+  position: relative;
+  display: inline-block;
+  min-height: 1.2em;
+}
+
+#glitch-text::before,
+#glitch-text::after {
+  content: attr(data-text);
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  font-family: 'Zen Kaku Gothic New', sans-serif;
+  font-size: inherit;
+  font-weight: inherit;
+}
+#glitch-text::before {
+  color: #ff003c;
+  clip-path: polygon(0 15%, 100% 15%, 100% 35%, 0 35%);
+  animation: glitch-before 3s steps(1) infinite;
+}
+#glitch-text::after {
+  color: #00f5ff;
+  clip-path: polygon(0 55%, 100% 55%, 100% 75%, 0 75%);
+  animation: glitch-after 3.3s steps(1) infinite;
+}
+@keyframes glitch-before {
+  0%,87%,100% { transform: translateX(0); opacity: 0; }
+  88%  { transform: translateX(-8px); opacity: 1; }
+  90%  { transform: translateX(6px); opacity: 1; }
+  92%  { transform: translateX(-4px); opacity: 1; }
+  94%  { transform: translateX(0); opacity: 0; }
+}
+@keyframes glitch-after {
+  0%,79%,100% { transform: translateX(0); opacity: 0; }
+  80%  { transform: translateX(10px); opacity: 1; }
+  82%  { transform: translateX(-7px); opacity: 1; }
+  84%  { transform: translateX(4px); opacity: 1; }
+  86%  { transform: translateX(0); opacity: 0; }
+}
+
+#glitch-translation {
+  font-family: 'Space Mono', monospace;
+  font-size: clamp(10px, 1.5vw, 13px);
+  color: #ff003c;
+  letter-spacing: 0.2em;
+  margin-top: clamp(12px, 2vw, 20px);
+  opacity: 0;
+  transition: opacity 0.5s ease;
+}
+#glitch-translation.visible { opacity: 1; }
+
+/* Katakana rain column */
+#katakana-rain {
+  position: absolute;
+  right: clamp(10px, 3vw, 60px);
+  top: 0; bottom: 0;
+  width: clamp(30px, 4vw, 60px);
+  overflow: hidden;
+  display: flex; flex-direction: column;
+  gap: 0;
+  pointer-events: none;
+}
+#katakana-rain .rain-col {
+  font-family: 'Zen Kaku Gothic New', monospace;
+  font-size: clamp(8px, 1.2vw, 14px);
+  color: rgba(255,107,157,0.6);
+  line-height: 1.6;
+  animation: rain-up 8s linear infinite;
+  text-align: center;
+}
+@keyframes rain-up {
+  from { transform: translateY(100vh); }
+  to   { transform: translateY(-100vh); }
+}
+
+/* ═══════════════════════════════════
+   SECTION 3 — THE MIRROR WORLD
+════════════════════════════════════ */
+#s3 {
+  background: #060011;
+  padding: 0;
+  align-items: stretch;
+}
+
+.mirror-container {
+  display: flex;
+  width: 100%;
+  min-height: 100vh;
+  position: relative;
+}
+
+.mirror-half {
+  flex: 1;
+  display: flex; align-items: center; justify-content: center;
+  flex-direction: column;
+  padding: clamp(20px, 4vw, 60px);
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.9s cubic-bezier(0.34,1.56,0.64,1), opacity 0.9s ease;
+}
+
+.mirror-left {
+  background: linear-gradient(135deg, #0a0015 0%, #1a0030 100%);
+  transform: translateX(-100%);
+  opacity: 0;
+}
+.mirror-right {
+  background: linear-gradient(135deg, #00151a 0%, #001a0e 100%);
+  filter: hue-rotate(180deg) invert(0.12);
+  transform: translateX(100%);
+  opacity: 0;
+}
+.mirror-left.revealed  { transform: translateX(0); opacity: 1; }
+.mirror-right.revealed { transform: translateX(0); opacity: 1; }
+
+/* Dividing line */
+.mirror-divider {
+  position: absolute;
+  left: 50%;
+  top: 0; bottom: 0;
+  width: 3px;
+  background: linear-gradient(180deg, var(--pink), var(--cyan), var(--pink));
+  background-size: 100% 300%;
+  animation: divider-scroll 3s linear infinite;
+  z-index: 10;
+  box-shadow: 0 0 12px var(--pink), 0 0 30px var(--cyan);
+  transform: translateX(-50%);
+}
+@keyframes divider-scroll {
+  0%   { background-position: 0% 0%; }
+  100% { background-position: 0% 100%; }
+}
+
+/* Polaroid */
+.polaroid {
+  background: white;
+  padding: clamp(12px,2vw,20px) clamp(12px,2vw,20px) clamp(30px,5vw,50px);
+  transform: rotate(-3deg);
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+  max-width: clamp(200px, 35vw, 340px);
+  width: 90%;
+}
+.mirror-right .polaroid { transform: rotate(3deg); }
+
+/* CSS anime landscape inside polaroid */
+.landscape {
+  width: 100%;
+  aspect-ratio: 4/3;
+  position: relative;
+  overflow: hidden;
+  display: block;
+}
+
+.sky {
+  position: absolute; top:0; left:0; right:0;
+  height: 65%;
+  background: linear-gradient(180deg, #1a0050 0%, #ff8fab 60%, #ffc8dd 100%);
+}
+.sun {
+  position: absolute;
+  width: 22%; aspect-ratio:1;
+  background: radial-gradient(circle, #ffe066 0%, #ff8c42 60%, transparent 100%);
+  border-radius: 50%;
+  top: 12%; left: 38%;
+  opacity: 0.9;
+}
+.mountain {
+  position: absolute;
+  bottom: 35%;
+  clip-path: polygon(0 100%, 50% 0%, 100% 100%);
+}
+.mt1 { width:55%; left:-5%; background:#2d1b69; }
+.mt2 { width:45%; left:55%; background:#1a0a3f; }
+.mt3 { width:35%; left:25%; background:#3d2680; bottom:37%; }
+
+.ground {
+  position: absolute; bottom:0; left:0; right:0;
+  height: 38%;
+  background: linear-gradient(180deg, #0a1f0a 0%, #0d2b0d 100%);
+}
+
+/* Torii gate */
+.torii {
+  position: absolute;
+  bottom: 36%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 28%;
+}
+.torii-top {
+  width: 100%;
+  height: 10%;
+  background: #cc2200;
+  position: relative;
+  border-radius: 2px 2px 0 0;
+}
+.torii-top::before, .torii-top::after {
+  content:'';
+  position: absolute;
+  left: -12%; right: -12%;
+  height: 100%;
+  background: #cc2200;
+  border-radius: 2px;
+}
+.torii-top::before { top: -70%; transform: scaleX(1.1); }
+.torii-top::after  { top: 80%; height: 60%; }
+.torii-pillar-left, .torii-pillar-right {
+  position: absolute;
+  bottom: 0; top: 100%;
+  width: 12%;
+  background: #cc2200;
+  height: 250%;
+}
+.torii-pillar-left  { left: 8%; }
+.torii-pillar-right { right: 8%; }
+.torii-wrapper { position: relative; width: 100%; }
+
+.polaroid-caption {
+  text-align: center;
+  font-family: 'Space Mono', monospace;
+  font-size: clamp(9px, 1.2vw, 12px);
+  color: #333;
+  margin-top: clamp(8px, 1.5vw, 14px);
+  letter-spacing: 0.1em;
+}
+
+@media (max-width: 700px) {
+  .mirror-container { flex-direction: column; }
+  .mirror-half { min-height: 50vh; }
+  .mirror-divider { left:0; right:0; top:50%; bottom:auto; width:100%; height:3px; transform:translateY(-50%); }
+  @keyframes divider-scroll {
+    0%   { background-position: 0% 0%; }
+    100% { background-position: 100% 0%; }
+  }
+}
+
+/* ═══════════════════════════════════
+   SECTION 4 — THE FEELING INPUT
+════════════════════════════════════ */
+#s4 {
+  flex-direction: column;
+  text-align: center;
+  padding: clamp(40px, 6vw, 80px) clamp(20px, 5vw, 60px);
+  transition: background-color 0.5s ease;
+}
+
+#s4-bg-layer {
+  position: absolute; inset: 0;
+  background: radial-gradient(ellipse at 50% 50%, rgba(124,45,139,0.3), transparent 70%);
+  pointer-events: none;
+}
+
+#question-jp {
+  font-family: 'Zen Kaku Gothic New', sans-serif;
+  font-size: clamp(22px, 5vw, 72px);
+  font-weight: 900;
+  color: var(--white);
+  margin-bottom: clamp(8px, 1.5vw, 16px);
+  position: relative; z-index: 3;
+}
+#question-en {
+  font-family: 'Space Mono', monospace;
+  font-size: clamp(10px, 1.5vw, 14px);
+  color: var(--pink-light);
+  letter-spacing: 0.1em;
+  margin-bottom: clamp(20px, 4vw, 40px);
+  position: relative; z-index: 3;
+}
+
+#feeling-textarea {
+  width: 100%;
+  max-width: 900px;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid rgba(255,107,157,0.3);
+  outline: none;
+  font-family: 'Zen Kaku Gothic New', sans-serif;
+  font-size: clamp(18px, 3vw, 42px);
+  color: var(--white);
+  text-align: center;
+  resize: none;
+  padding: clamp(12px, 2vw, 20px);
+  min-height: clamp(100px, 15vw, 180px);
+  position: relative; z-index: 3;
+  caret-color: var(--pink);
+  transition: border-color 0.3s ease;
+}
+#feeling-textarea::placeholder { color: rgba(255,107,157,0.5); }
+#feeling-textarea:focus { border-bottom-color: var(--pink); }
+
+@media (max-width: 600px) {
+  #feeling-textarea { font-size: 5vw; }
+}
+
+#void-btn {
+  margin-top: clamp(16px, 3vw, 32px);
+  font-family: 'Bebas Neue', cursive;
+  font-size: clamp(16px, 2.5vw, 26px);
+  letter-spacing: 0.25em;
+  color: var(--black);
+  background: linear-gradient(135deg, var(--pink), var(--purple-light));
+  border: none;
+  padding: clamp(10px, 1.5vw, 16px) clamp(28px, 5vw, 56px);
+  cursor: pointer;
+  position: relative; z-index: 3;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  clip-path: polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%);
+}
+#void-btn:hover {
+  transform: scale(1.05);
+  box-shadow: 0 0 30px rgba(255,107,157,0.6);
+}
+#void-btn:active { transform: scale(0.97); }
+
+#void-response {
+  font-family: 'Space Mono', monospace;
+  font-size: clamp(12px, 1.5vw, 16px);
+  color: var(--pink-light);
+  margin-top: clamp(16px, 3vw, 28px);
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity 0.8s ease, transform 0.8s ease;
+  position: relative; z-index: 3;
+  letter-spacing: 0.1em;
+}
+#void-response.visible { opacity: 1; transform: translateY(0); }
+
+/* Exploding chars */
+.explode-char {
+  position: fixed;
+  font-family: 'Zen Kaku Gothic New', sans-serif;
+  font-size: clamp(16px, 2.5vw, 28px);
+  color: var(--pink);
+  pointer-events: none;
+  z-index: 9998;
+  animation: char-explode 1s ease-out forwards;
+}
+@keyframes char-explode {
+  0%   { opacity: 1; transform: translate(0,0) scale(1); }
+  100% { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(0); }
+}
+
+/* ═══════════════════════════════════
+   SECTION 5 — THE END / LOOP
+════════════════════════════════════ */
+#s5 {
+  background: #000;
+  flex-direction: column;
+  text-align: center;
+  overflow: hidden;
+}
+
+/* Stars */
+.star-field {
+  position: absolute; inset: 0;
+  pointer-events: none;
+}
+
+/* Portal */
+.portal-wrapper {
+  position: relative;
+  z-index: 3;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: clamp(16px, 3vw, 32px);
+}
+
+#wake-text {
+  font-family: 'Zen Kaku Gothic New', sans-serif;
+  font-size: clamp(28px, 6vw, 88px);
+  font-weight: 900;
+  color: var(--white);
+  letter-spacing: 0.1em;
+  text-shadow: 0 0 30px var(--pink), 0 0 60px var(--purple-light);
+  min-height: 1.2em;
+}
+
+.portal {
+  width: clamp(160px, 28vw, 320px);
+  height: clamp(160px, 28vw, 320px);
+  border-radius: 50%;
+  background: conic-gradient(
+    from 0deg,
+    #ff6b9d, #c084fc, #ffffff, #00f5ff, #c084fc, #ff6b9d
+  );
+  animation: portal-spin 4s linear infinite;
+  position: relative;
+  box-shadow: 0 0 60px var(--pink), 0 0 100px var(--purple), inset 0 0 60px rgba(0,0,0,0.5);
+}
+.portal::after {
+  content: '';
+  position: absolute;
+  inset: 18%;
+  border-radius: 50%;
+  background: radial-gradient(circle, #000 30%, rgba(0,0,0,0.7) 100%);
+}
+@keyframes portal-spin {
+  to { transform: rotate(360deg); }
+}
+
+#fall-deeper-label {
+  font-family: 'Space Mono', monospace;
+  font-size: clamp(11px, 1.5vw, 15px);
+  color: rgba(255,255,255,0.5);
+  letter-spacing: 0.15em;
+}
+
+.end-buttons {
+  display: flex;
+  gap: clamp(10px, 2vw, 24px);
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.end-btn {
+  font-family: 'Bebas Neue', cursive;
+  font-size: clamp(14px, 2vw, 20px);
+  letter-spacing: 0.2em;
+  padding: clamp(10px, 1.5vw, 14px) clamp(20px, 4vw, 40px);
+  cursor: pointer;
+  border: 1.5px solid var(--pink);
+  background: transparent;
+  color: var(--white);
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+.end-btn::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: linear-gradient(135deg, var(--pink), var(--purple));
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.3s ease;
+  z-index: -1;
+}
+.end-btn:hover::before { transform: scaleX(1); }
+.end-btn:hover { box-shadow: 0 0 20px var(--pink); }
+
+/* ═══════════════════════════════════
+   GLITCH FLASH EFFECT
+════════════════════════════════════ */
+.glitch-flash {
+  animation: flash-body 0.15s ease-in-out;
+}
+@keyframes flash-body {
+  0%,100% { filter: invert(0); }
+  50% { filter: invert(1) hue-rotate(90deg); }
+}
+</style>
+</head>
+<body>
+
+<!-- Progress Bar -->
+<div id="progress-bar"></div>
+
+<!-- Music Hint -->
+<div id="music-hint">♪ CLICK TO AWAKEN</div>
+
+<!-- Music Button -->
+<button id="music-btn" title="Toggle music">♪</button>
+
+<!-- Sakura Canvas -->
+<canvas id="sakura-canvas"></canvas>
+
+<!-- ═══════════ SECTION 1 — THE AWAKENING ═══════════ -->
+<section id="s1">
+  <div class="orb orb-1"></div>
+  <div class="orb orb-2"></div>
+  <div class="orb orb-3"></div>
+  <div class="orb orb-4"></div>
+  <div class="orb orb-5"></div>
+
+  <div style="display:flex;flex-direction:column;align-items:center;position:relative;z-index:3;">
+    <div id="kanji-dream">夢</div>
+    <div id="s1-title">YOU ARE ENTERING THE DREAM</div>
+    <div id="s1-subtitle">scroll to fall deeper ↓</div>
+  </div>
+</section>
+
+<!-- ═══════════ SECTION 2 — THE GLITCH CORRIDOR ═══════════ -->
+<section id="s2">
+  <!-- Katakana rain -->
+  <div id="katakana-rain"></div>
+
+  <div style="position:relative;z-index:3;display:flex;flex-direction:column;align-items:center;">
+    <div class="glitch-wrapper">
+      <div id="glitch-text" data-text="現実は嘘だ"></div>
+    </div>
+    <div id="glitch-translation">— reality is a lie —</div>
+  </div>
+</section>
+
+<!-- ═══════════ SECTION 3 — THE MIRROR WORLD ═══════════ -->
+<section id="s3">
+  <div class="mirror-container">
+    <div class="mirror-left mirror-half">
+      <div class="polaroid">
+        <div class="landscape" aria-label="CSS anime landscape">
+          <div class="sky"></div>
+          <div class="sun"></div>
+          <div class="mountain mt1"></div>
+          <div class="mountain mt2"></div>
+          <div class="mountain mt3"></div>
+          <div class="ground"></div>
+          <div class="torii">
+            <div class="torii-wrapper">
+              <div class="torii-top">
+                <div class="torii-pillar-left"></div>
+                <div class="torii-pillar-right"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="polaroid-caption">where you came from</div>
+      </div>
+    </div>
+
+    <div class="mirror-divider"></div>
+
+    <div class="mirror-right mirror-half">
+      <div class="polaroid">
+        <div class="landscape" aria-label="Distorted anime landscape">
+          <div class="sky"></div>
+          <div class="sun"></div>
+          <div class="mountain mt1"></div>
+          <div class="mountain mt2"></div>
+          <div class="mountain mt3"></div>
+          <div class="ground"></div>
+          <div class="torii">
+            <div class="torii-wrapper">
+              <div class="torii-top">
+                <div class="torii-pillar-left"></div>
+                <div class="torii-pillar-right"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="polaroid-caption">where you're going</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ SECTION 4 — THE FEELING INPUT ═══════════ -->
+<section id="s4">
+  <div id="s4-bg-layer"></div>
+  <div id="question-jp">何を感じていますか？</div>
+  <div id="question-en">Type anything. The void is listening.</div>
+  <textarea id="feeling-textarea" placeholder="感情を入力してください…" rows="4" spellcheck="false"></textarea>
+  <button id="void-btn">SEND TO THE VOID</button>
+  <div id="void-response">The void has received your feelings 🌸</div>
+</section>
+
+<!-- ═══════════ SECTION 5 — THE END / LOOP ═══════════ -->
+<section id="s5">
+  <canvas class="star-field" id="star-canvas"></canvas>
+
+  <div class="portal-wrapper">
+    <div id="wake-text"></div>
+    <div class="portal"></div>
+    <div id="fall-deeper-label">or fall deeper?</div>
+    <div class="end-buttons">
+      <button class="end-btn" id="btn-return">↑ RETURN TO DREAM</button>
+      <button class="end-btn" id="btn-fall">↓ FALL DEEPER</button>
+    </div>
+  </div>
+</section>
+
+<script>
+/* ═══════════════════════════════════════════════════
+   SAKURA CANVAS
+═══════════════════════════════════════════════════ */
+(function() {
+  const canvas = document.getElementById('sakura-canvas');
+  const ctx = canvas.getContext('2d');
+  const isMobile = () => window.innerWidth < 700;
+  const PETAL_COUNT = () => isMobile() ? 30 : 60;
+  const COLORS = ['#ffb7c5','#ff8fab','#ffc8dd','#ff6b9d'];
+  let petals = [];
+  let W, H, scrollY = 0;
+
+  function resize() {
+    W = canvas.width = window.innerWidth;
+    H = canvas.height = window.innerHeight;
+  }
+  resize();
+  window.addEventListener('resize', () => { resize(); initPetals(); });
+  window.addEventListener('scroll', () => { scrollY = window.scrollY; }, { passive: true });
+
+  function randomPetal() {
+    return {
+      x: Math.random() * W,
+      y: Math.random() * H - H,
+      size: Math.random() * 5 + 3,
+      rot: Math.random() * Math.PI * 2,
+      rotSpeed: (Math.random() - 0.5) * 0.05,
+      speed: Math.random() * 1.2 + 0.6,
+      drift: Math.random() * 0.6 + 0.2,
+      phase: Math.random() * Math.PI * 2,
+      color: COLORS[Math.floor(Math.random() * COLORS.length)],
+      opacity: Math.random() * 0.7 + 0.3,
+    };
+  }
+
+  function initPetals() {
+    petals = [];
+    const n = PETAL_COUNT();
+    for (let i = 0; i < n; i++) {
+      const p = randomPetal();
+      p.y = Math.random() * H; // start scattered
+      petals.push(p);
+    }
+  }
+  initPetals();
+
+  function draw(t) {
+    ctx.clearRect(0, 0, W, H);
+    const wind = (scrollY % 1000) / 1000 * 2;
+    petals.forEach(p => {
+      p.y += p.speed;
+      p.x += Math.sin(t * 0.001 + p.phase) * p.drift + wind * 0.3;
+      p.rot += p.rotSpeed;
+
+      const alpha = p.y > H * 0.8 ? p.opacity * (1 - (p.y - H * 0.8) / (H * 0.2)) : p.opacity;
+
+      if (p.y > H + 20) {
+        p.y = -20;
+        p.x = Math.random() * W;
+      }
+
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.rot);
+      ctx.globalAlpha = Math.max(0, alpha);
+      ctx.beginPath();
+      ctx.ellipse(0, 0, p.size, p.size * 1.75, 0, 0, Math.PI * 2);
+      ctx.fillStyle = p.color;
+      ctx.fill();
+      ctx.restore();
+    });
+    requestAnimationFrame(draw);
+  }
+  requestAnimationFrame(draw);
+})();
+
+/* ═══════════════════════════════════════════════════
+   STAR FIELD (Section 5)
+═══════════════════════════════════════════════════ */
+(function() {
+  const canvas = document.getElementById('star-canvas');
+  const ctx = canvas.getContext('2d');
+  let stars = [], W, H;
+
+  function resize() {
+    W = canvas.width = canvas.offsetWidth;
+    H = canvas.height = canvas.offsetHeight;
+    initStars();
+  }
+
+  function initStars() {
+    stars = [];
+    for (let i = 0; i < 200; i++) {
+      stars.push({
+        x: Math.random() * W,
+        y: Math.random() * H,
+        r: Math.random() * 1.5 + 0.3,
+        alpha: Math.random(),
+        speed: Math.random() * 0.005 + 0.001,
+      });
+    }
+  }
+
+  function drawStars() {
+    ctx.clearRect(0, 0, W, H);
+    stars.forEach(s => {
+      s.alpha += s.speed;
+      if (s.alpha > 1 || s.alpha < 0) s.speed *= -1;
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(255,255,255,${s.alpha.toFixed(2)})`;
+      ctx.fill();
+    });
+    requestAnimationFrame(drawStars);
+  }
+
+  const ro = new ResizeObserver(() => resize());
+  ro.observe(document.getElementById('s5'));
+  resize();
+  requestAnimationFrame(drawStars);
+})();
+
+/* ═══════════════════════════════════════════════════
+   WEB AUDIO OST
+═══════════════════════════════════════════════════ */
+let audioCtx = null;
+let musicStarted = false;
+let muted = false;
+let masterGain = null;
+
+function createOST() {
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  masterGain = audioCtx.createGain();
+  masterGain.gain.value = 1;
+  masterGain.connect(audioCtx.destination);
+
+  const melodyFreqs = [523, 659, 784, 880, 784, 659, 523, 440];
+  const bassFreqs   = [130, 130, 146, 110];
+  const padFreqs    = [261, 329, 392];
+
+  function playNote(freq, type, gainVal, start, duration) {
+    const osc = audioCtx.createOscillator();
+    const g   = audioCtx.createGain();
+    osc.type = type;
+    osc.frequency.value = freq;
+    g.gain.setValueAtTime(0, start);
+    g.gain.linearRampToValueAtTime(gainVal, start + 0.05);
+    g.gain.setValueAtTime(gainVal, start + duration - 0.05);
+    g.gain.linearRampToValueAtTime(0, start + duration);
+    osc.connect(g);
+    g.connect(masterGain);
+    osc.start(start);
+    osc.stop(start + duration);
+  }
+
+  function playNoise(start, duration, gainVal) {
+    const bufferSize = audioCtx.sampleRate * duration;
+    const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+    const src = audioCtx.createBufferSource();
+    src.buffer = buffer;
+    const g = audioCtx.createGain();
+    const filter = audioCtx.createBiquadFilter();
+    filter.type = 'highpass';
+    filter.frequency.value = 6000;
+    g.gain.setValueAtTime(gainVal, start);
+    g.gain.linearRampToValueAtTime(0, start + duration);
+    src.connect(filter);
+    filter.connect(g);
+    g.connect(masterGain);
+    src.start(start);
+    src.stop(start + duration);
+  }
+
+  const LOOP = 3.2;
+
+  function scheduleLoop(when) {
+    // Layer 1 — Melody (triangle)
+    melodyFreqs.forEach((f, i) => {
+      playNote(f, 'triangle', 0.06, when + i * 0.4, 0.4);
+    });
+
+    // Layer 2 — Bass (sine) 4 notes × 0.8s each = 3.2s
+    bassFreqs.forEach((f, i) => {
+      playNote(f, 'sine', 0.08, when + i * 0.8, 0.8);
+    });
+
+    // Layer 3 — Hi-hat (white noise every 0.4s)
+    for (let i = 0; i < 8; i++) {
+      playNoise(when + i * 0.4, 0.05, 0.04);
+    }
+
+    // Layer 4 — PAD (sine, slow)
+    padFreqs.forEach((f, pi) => {
+      // spread over ~3s each — overlap across loops naturally
+      playNote(f, 'sine', 0.03, when + pi * 1.0, 3.0);
+    });
+  }
+
+  let nextLoopTime = audioCtx.currentTime + 0.05;
+  function scheduler() {
+    while (nextLoopTime < audioCtx.currentTime + 0.5) {
+      scheduleLoop(nextLoopTime);
+      nextLoopTime += LOOP;
+    }
+    setTimeout(scheduler, 100);
+  }
+  scheduler();
+}
+
+function startMusic() {
+  if (musicStarted) return;
+  musicStarted = true;
+  document.getElementById('music-hint').style.display = 'none';
+  document.getElementById('music-btn').classList.add('pulsing');
+  createOST();
+}
+
+document.addEventListener('click', function onFirstClick() {
+  startMusic();
+  document.removeEventListener('click', onFirstClick);
+}, { once: true });
+
+document.getElementById('music-btn').addEventListener('click', function(e) {
+  e.stopPropagation();
+  if (!musicStarted) { startMusic(); return; }
+  muted = !muted;
+  if (masterGain) {
+    masterGain.gain.setTargetAtTime(muted ? 0 : 1, audioCtx.currentTime, 0.1);
+  }
+  this.textContent = muted ? '🔇' : '♪';
+  this.classList.toggle('pulsing', !muted);
+});
+
+/* ═══════════════════════════════════════════════════
+   SCROLL PROGRESS BAR
+═══════════════════════════════════════════════════ */
+window.addEventListener('scroll', () => {
+  const scrolled = window.scrollY;
+  const total = document.body.scrollHeight - window.innerHeight;
+  const pct = (scrolled / total) * 100;
+  document.getElementById('progress-bar').style.width = pct + '%';
+}, { passive: true });
+
+/* ═══════════════════════════════════════════════════
+   INTERSECTION OBSERVER — SECTION ANIMATIONS
+═══════════════════════════════════════════════════ */
+const observerOpts = { threshold: 0.3 };
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      const id = e.target.id;
+      if (id === 's1') revealSection1();
+      if (id === 's2') revealSection2();
+      if (id === 's3') revealSection3();
+      if (id === 's5') revealSection5();
+    }
+  });
+}, observerOpts);
+
+['s1','s2','s3','s5'].forEach(id => {
+  const el = document.getElementById(id);
+  if (el) observer.observe(el);
+});
+
+// Section 1
+let s1Revealed = false;
+function revealSection1() {
+  if (s1Revealed) return;
+  s1Revealed = true;
+  document.getElementById('kanji-dream').classList.add('revealed');
+  setTimeout(() => document.getElementById('s1-title').classList.add('revealed'), 200);
+}
+// Trigger on load if already visible
+if (document.getElementById('s1').getBoundingClientRect().top < window.innerHeight) revealSection1();
+
+// Section 2 — typewriter
+let s2Revealed = false;
+const GLITCH_SOURCE = '現実は嘘だ';
+function revealSection2() {
+  if (s2Revealed) return;
+  s2Revealed = true;
+  const el = document.getElementById('glitch-text');
+  el.textContent = '';
+  let i = 0;
+  const interval = setInterval(() => {
+    el.textContent += GLITCH_SOURCE[i];
+    el.dataset.text = el.textContent;
+    i++;
+    if (i >= GLITCH_SOURCE.length) {
+      clearInterval(interval);
+      setTimeout(() => {
+        document.getElementById('glitch-translation').classList.add('visible');
+      }, 400);
+    }
+  }, 120);
+}
+
+// Section 3
+let s3Revealed = false;
+function revealSection3() {
+  if (s3Revealed) return;
+  s3Revealed = true;
+  document.querySelector('.mirror-left').classList.add('revealed');
+  setTimeout(() => document.querySelector('.mirror-right').classList.add('revealed'), 150);
+}
+
+// Section 5 — letter by letter
+let s5Revealed = false;
+const WAKE_SOURCE = '目を覚ます';
+function revealSection5() {
+  if (s5Revealed) return;
+  s5Revealed = true;
+  const el = document.getElementById('wake-text');
+  el.textContent = '';
+  let i = 0;
+  const interval = setInterval(() => {
+    el.textContent += WAKE_SOURCE[i];
+    i++;
+    if (i >= WAKE_SOURCE.length) clearInterval(interval);
+  }, 200);
+}
+
+/* ═══════════════════════════════════════════════════
+   KATAKANA RAIN (Section 2)
+═══════════════════════════════════════════════════ */
+(function() {
+  const container = document.getElementById('katakana-rain');
+  const chars = 'アイウエオカキクケコサシスセソタチツテトナニヌネノ01110100101001';
+  const NUM_COLS = 2;
+  for (let c = 0; c < NUM_COLS; c++) {
+    const col = document.createElement('div');
+    col.className = 'rain-col';
+    col.style.animationDelay = (c * 1.3) + 's';
+    col.style.animationDuration = (7 + c * 4) + 's';
+    let txt = '';
+    for (let r = 0; r < 35; r++) {
+      txt += chars[Math.floor(Math.random() * chars.length)] + '\n';
+    }
+    col.textContent = txt;
+    container.appendChild(col);
+
+    // Randomize chars periodically
+    setInterval(() => {
+      let newtxt = '';
+      for (let r = 0; r < 35; r++) {
+        newtxt += chars[Math.floor(Math.random() * chars.length)] + '\n';
+      }
+      col.textContent = newtxt;
+    }, 1200 + c * 400);
+  }
+})();
+
+/* ═══════════════════════════════════════════════════
+   SECTION 4 — FEELING INPUT
+═══════════════════════════════════════════════════ */
+const textarea = document.getElementById('feeling-textarea');
+const s4Section = document.getElementById('s4');
+
+textarea.addEventListener('input', () => {
+  const len = textarea.value.length;
+  const hue = (len * 4) % 360;
+  s4Section.style.background = `hsl(${hue}, 40%, 8%)`;
+});
+
+document.getElementById('void-btn').addEventListener('click', () => {
+  const text = textarea.value.trim();
+  if (!text) return;
+
+  // Get textarea position
+  const rect = textarea.getBoundingClientRect();
+  const cx = rect.left + rect.width / 2;
+  const cy = rect.top + rect.height / 2;
+
+  const chars = text.split('');
+  chars.forEach((ch, i) => {
+    const span = document.createElement('span');
+    span.className = 'explode-char';
+    span.textContent = ch;
+    const angle = (i / chars.length) * Math.PI * 2 + Math.random() * 0.5;
+    const dist = 100 + Math.random() * 250;
+    const dx = Math.cos(angle) * dist;
+    const dy = Math.sin(angle) * dist;
+    span.style.setProperty('--dx', dx + 'px');
+    span.style.setProperty('--dy', dy + 'px');
+    span.style.left = cx + 'px';
+    span.style.top  = cy + 'px';
+    span.style.animationDuration = (0.7 + Math.random() * 0.5) + 's';
+    document.body.appendChild(span);
+    setTimeout(() => span.remove(), 1500);
+  });
+
+  textarea.value = '';
+
+  setTimeout(() => {
+    const resp = document.getElementById('void-response');
+    resp.classList.add('visible');
+    setTimeout(() => resp.classList.remove('visible'), 4000);
+  }, 600);
+});
+
+/* ═══════════════════════════════════════════════════
+   SECTION 5 BUTTONS
+═══════════════════════════════════════════════════ */
+document.getElementById('btn-return').addEventListener('click', () => {
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+});
+
+const colorThemes = [
+  { primary: '#ff6b9d', secondary: '#c084fc', accent: '#00f5ff' },
+  { primary: '#00f5ff', secondary: '#ff6b9d', accent: '#ffd700' },
+  { primary: '#adff2f', secondary: '#00ced1', accent: '#ff1493' },
+  { primary: '#ff8c00', secondary: '#da70d6', accent: '#00ff7f' },
+  { primary: '#7fff00', secondary: '#ff4500', accent: '#00bfff' },
+];
+let themeIdx = 0;
+
+document.getElementById('btn-fall').addEventListener('click', () => {
+  themeIdx = (themeIdx + 1) % colorThemes.length;
+  const theme = colorThemes[themeIdx];
+  let flashes = 0;
+  const flash = setInterval(() => {
+    document.body.classList.add('glitch-flash');
+    setTimeout(() => document.body.classList.remove('glitch-flash'), 140);
+    flashes++;
+    if (flashes >= 3) {
+      clearInterval(flash);
+      document.documentElement.style.setProperty('--pink', theme.primary);
+      document.documentElement.style.setProperty('--purple-light', theme.secondary);
+      document.documentElement.style.setProperty('--cyan', theme.accent);
+      document.documentElement.style.setProperty('--theme-primary', theme.primary);
+      document.documentElement.style.setProperty('--theme-secondary', theme.secondary);
+      document.documentElement.style.setProperty('--theme-accent', theme.accent);
+      setTimeout(() => window.scrollTo({ top: 0, behavior: 'smooth' }), 200);
+    }
+  }, 220);
+});
+</script>
+</body>
+</html>

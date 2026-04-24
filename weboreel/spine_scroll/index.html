@@ -1,0 +1,795 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SPINE SCROLL</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400;1,600&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap');
+
+        body,
+        html {
+            margin: 0;
+            padding: 0;
+            background-color: #000;
+            overflow-x: hidden;
+            font-family: 'Space Mono', monospace;
+            color: #fff;
+        }
+
+        body {
+            height: 2000vh;
+        }
+
+        #canvas-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 1;
+            pointer-events: none;
+        }
+
+        canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        #ui-layer {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 10;
+            pointer-events: none;
+        }
+
+        #top-name {
+            position: absolute;
+            top: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: rgba(255, 255, 255, 0.4);
+            font-size: 14px;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            text-align: center;
+            transition: opacity 0.5s ease;
+        }
+
+        #fact-card {
+            position: absolute;
+            left: 10vw;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 30vw;
+            max-width: 400px;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .vertebra-code {
+            font-size: 11px;
+            color: #888;
+            letter-spacing: 2px;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+        }
+
+        .emotion-name {
+            font-family: 'Cormorant Garamond', serif;
+            font-style: italic;
+            font-size: clamp(1.8rem, 4vw, 3rem);
+            color: #fff8f0;
+            margin: 0;
+            line-height: 1.1;
+        }
+
+        .divider {
+            width: 40px;
+            height: 1px;
+            background-color: #444;
+            margin: 20px 0;
+        }
+
+        .fact-text {
+            font-family: 'Cormorant Garamond', serif;
+            font-size: clamp(0.85rem, 1.5vw, 1.1rem);
+            color: rgba(255, 248, 240, 0.65);
+            line-height: 1.8;
+            margin: 0;
+            display: -webkit-box;
+            -webkit-line-clamp: 4;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .body-region {
+            font-size: 10px;
+            color: #666;
+            margin-top: 12px;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        #progress-hud {
+            position: absolute;
+            right: 40px;
+            top: 50%;
+            transform: translateY(-50%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            height: 60vh;
+            justify-content: space-between;
+        }
+
+        .hud-line {
+            position: absolute;
+            right: 3px;
+            top: 0;
+            bottom: 0;
+            width: 1px;
+            background: rgba(255, 255, 255, 0.1);
+            z-index: -1;
+        }
+
+        .hud-dot {
+            width: 4px;
+            height: 4px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.1);
+            transition: all 0.3s ease;
+        }
+
+        .hud-dot.past {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .hud-dot.active {
+            width: 7px;
+            height: 7px;
+            background: #fff;
+            box-shadow: 0 0 10px #fff;
+        }
+
+        #start-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: #050508;
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            transition: opacity 1s ease;
+        }
+
+        #start-overlay h1 {
+            font-family: 'Cormorant Garamond', serif;
+            font-style: italic;
+            font-weight: 400;
+            letter-spacing: 6px;
+            font-size: 2rem;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        #start-overlay p {
+            color: #888;
+            font-size: 11px;
+            letter-spacing: 3px;
+            animation: pulse 2s infinite;
+            text-transform: uppercase;
+            text-align: center;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 0.4;
+            }
+
+            50% {
+                opacity: 1;
+            }
+        }
+
+        @media (max-width: 768px) {
+            #fact-card {
+                left: 5vw;
+                top: auto;
+                bottom: 15vh;
+                width: 90vw;
+                max-width: none;
+                transform: none;
+            }
+
+            #progress-hud {
+                right: 15px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="start-overlay">
+        <h1>SPINE SCROLL</h1>
+        <p>Tap to enter the nervous system</p>
+    </div>
+
+    <div id="canvas-container">
+        <canvas id="spineCanvas"></canvas>
+    </div>
+
+    <div id="ui-layer">
+        <div id="top-name"></div>
+        <div id="fact-card">
+            <div class="vertebra-code" id="card-code"></div>
+            <h2 class="emotion-name" id="card-emotion"></h2>
+            <div class="divider"></div>
+            <p class="fact-text" id="card-fact"></p>
+            <div class="body-region" id="card-region"></div>
+        </div>
+        <div id="progress-hud">
+            <div class="hud-line"></div>
+            <!-- Dots injected via JS -->
+        </div>
+    </div>
+
+    <script>
+        const rawData = [
+            { c: "C1", n: "ATLAS", s: "CERVICAL", e: "TRUST", f: "C1 sits directly under your skull. When you nod yes — this vertebra moves. Chronic distrust physically tightens this joint.", r: "Top of skull, scalp", y: 0.05 },
+            { c: "C2", n: "AXIS", s: "CERVICAL", e: "IDENTITY", f: "C2 is the only vertebra that lets you shake your head no. People with identity crises often hold tension here.", r: "Back of head, ears", y: 0.08 },
+            { c: "C3", n: "", s: "CERVICAL", e: "GRIEF", f: "C3 nerves connect to your cheeks and outer ear. When you cry, muscles here contract first — before your eyes water.", r: "Cheeks, jaw", y: 0.11 },
+            { c: "C4", n: "", s: "CERVICAL", e: "UNEXPRESSED WORDS", f: "C4 feeds the diaphragm via phrenic nerve. Words you never said literally take your breath away — through this vertebra.", r: "Throat, shoulders", y: 0.14 },
+            { c: "C5", n: "", s: "CERVICAL", e: "LONELINESS", f: "C5 connects to deltoid muscles — the ones that lift your arms to hug someone. Loneliness measurably weakens C5 nerve signals.", r: "Shoulders, upper arms", y: 0.17 },
+            { c: "C6", n: "", s: "CERVICAL", e: "SELF DOUBT", f: "C6 controls your wrist extensors — the muscles that push things away. People who push away help often have chronic C6 tension.", r: "Forearms, wrists, thumbs", y: 0.20 },
+            { c: "C7", n: "", s: "CERVICAL", e: "OVERWHELM", f: "C7 is called the 'stress vertebra'. It is the most commonly misaligned vertebra in people diagnosed with anxiety disorders.", r: "Ring and middle fingers", y: 0.23 },
+
+            { c: "T1", n: "", s: "THORACIC", e: "HEARTBREAK", f: "T1 shares nerve pathways with your heart. Heartbreak causes real chest pain here — the brain cannot distinguish social pain from physical pain.", r: "Inner arms, chest", y: 0.27 },
+            { c: "T2", n: "", s: "THORACIC", e: "ANTICIPATION", f: "T2 connects to heart and lungs. The feeling before something important — heart racing, shallow breath — runs through T2.", r: "Heart region", y: 0.30 },
+            { c: "T3", n: "", s: "THORACIC", e: "SHAME", f: "T3 innervates chest muscles. Shame causes people to literally cave their chest inward — compressing T3 and reducing lung capacity by 30%.", r: "Chest, breast area", y: 0.33 },
+            { c: "T4", n: "", s: "THORACIC", e: "RESENTMENT", f: "T4 connects to gallbladder. Traditional Chinese medicine mapped resentment to gallbladder 2,000 years before Western science confirmed emotional stress causes gallstones.", r: "Chest, gallbladder", y: 0.36 },
+            { c: "T5", n: "", s: "THORACIC", e: "SUPPRESSED ANGER", f: "T5 feeds the liver — the organ that processes both toxins and emotions. Suppressed anger is the most common emotional pattern in liver disease patients.", r: "Solar plexus, liver", y: 0.39 },
+            { c: "T6", n: "", s: "THORACIC", e: "ANXIETY", f: "T6 connects to the stomach. Anxiety lives here — butterflies in your stomach are T6 nerve signals misfiring. Your gut has 500 million neurons.", r: "Stomach", y: 0.42 },
+            { c: "T7", n: "", s: "THORACIC", e: "FEAR OF FAILURE", f: "T7 feeds the pancreas — which regulates blood sugar. Stress through T7 spikes cortisol, which spikes glucose. Fear literally changes your blood chemistry.", r: "Pancreas, mid back", y: 0.45 },
+            { c: "T8", n: "", s: "THORACIC", e: "POWERLESSNESS", f: "T8 connects to spleen and diaphragm. The spleen filters blood — and in every language on Earth, sadness is described as heaviness in this exact region.", r: "Spleen, lower chest", y: 0.48 },
+            { c: "T9", n: "", s: "THORACIC", e: "JEALOUSY", f: "T9 feeds adrenal glands. Jealousy triggers the same adrenal fight-or-flight response as physical threat. Your body cannot tell the difference.", r: "Adrenal glands", y: 0.51 },
+            { c: "T10", n: "", s: "THORACIC", e: "ABANDONMENT", f: "T10 connects to kidneys. Fear of abandonment — one of humanity's oldest fears — registers as lower back pain in 73% of people with attachment disorders.", r: "Kidneys", y: 0.54 },
+            { c: "T11", n: "", s: "THORACIC", e: "GUILT", f: "T11 innervates urinary tract. Guilt causes measurable constriction here. The phrase 'I feel sick about it' is neurologically accurate through T11.", r: "Kidney, ureter", y: 0.57 },
+            { c: "T12", n: "", s: "THORACIC", e: "BETRAYAL", f: "T12 connects to small intestine — where 90% of serotonin is produced. Betrayal drops serotonin levels measurably within 4 minutes of the experience.", r: "Lower abdomen", y: 0.60 },
+
+            { c: "L1", n: "", s: "LUMBAR", e: "SURVIVAL FEAR", f: "L1 connects to large intestine. Extreme fear causes involuntary bowel release through L1 — the body's oldest survival mechanism, older than language.", r: "Groin, lower abdomen", y: 0.65 },
+            { c: "L2", n: "", s: "LUMBAR", e: "HELPLESSNESS", f: "L2 feeds hip flexors — muscles that curl you into fetal position. Depression physically pulls people into this posture through L2 tension.", r: "Thighs, hips", y: 0.69 },
+            { c: "L3", n: "", s: "LUMBAR", e: "SEXUAL SHAME", f: "L3 connects to reproductive organs, bladder and uterus. Societies that carry collective sexual shame show measurably higher rates of L3 disc herniation.", r: "Inner thighs, knees", y: 0.73 },
+            { c: "L4", n: "", s: "LUMBAR", e: "INDECISION", f: "L4 feeds tibialis anterior — the muscle that helps you take a step. People with chronic indecision have measurably weaker L4 nerve conduction.", r: "Lower legs, calves", y: 0.77 },
+            { c: "L5", n: "", s: "LUMBAR", e: "BURDEN", f: "L5 is the most herniated disc in the human body. It carries the weight of everything above it. The #1 cause of L5 damage is not lifting — it is prolonged psychological stress.", r: "Feet, big toes", y: 0.81 },
+
+            // SACRUM (5 fused represented across 5 dots to maintain 33 count)
+            { c: "S1", n: "SACRUM", s: "SACRAL", e: "ANCESTRAL MEMORY", f: "The sacrum was called 'os sacrum' by Romans — sacred bone. It contains your earliest developmental nerve patterns. Trauma here often traces back to inherited generational stress.", r: "Pelvis, genitals", y: 0.84 },
+            { c: "S2", n: "SACRUM", s: "SACRAL", e: "ANCESTRAL MEMORY", f: "The sacrum was called 'os sacrum' by Romans — sacred bone. It contains your earliest developmental nerve patterns. Trauma here often traces back to inherited generational stress.", r: "Pelvis, genitals", y: 0.85 },
+            { c: "S3", n: "SACRUM", s: "SACRAL", e: "ANCESTRAL MEMORY", f: "The sacrum was called 'os sacrum' by Romans — sacred bone. It contains your earliest developmental nerve patterns. Trauma here often traces back to inherited generational stress.", r: "Pelvis, genitals", y: 0.86 },
+            { c: "S4", n: "SACRUM", s: "SACRAL", e: "ANCESTRAL MEMORY", f: "The sacrum was called 'os sacrum' by Romans — sacred bone. It contains your earliest developmental nerve patterns. Trauma here often traces back to inherited generational stress.", r: "Pelvis, genitals", y: 0.87 },
+            { c: "S5", n: "SACRUM", s: "SACRAL", e: "ANCESTRAL MEMORY", f: "The sacrum was called 'os sacrum' by Romans — sacred bone. It contains your earliest developmental nerve patterns. Trauma here often traces back to inherited generational stress.", r: "Pelvis, genitals", y: 0.88 },
+
+            // COCCYX (4 fused)
+            { c: "Co1", n: "COCCYX", s: "COCCYX", e: "LETTING GO", f: "The coccyx is a vestigial tail — all that remains of our evolutionary past. It is the last bone. The end. People who cannot let go of the past often carry chronic coccyx pain.", r: "Base of body, sit bones", y: 0.91 },
+            { c: "Co2", n: "COCCYX", s: "COCCYX", e: "LETTING GO", f: "The coccyx is a vestigial tail — all that remains of our evolutionary past. It is the last bone. The end. People who cannot let go of the past often carry chronic coccyx pain.", r: "Base of body, sit bones", y: 0.92 },
+            { c: "Co3", n: "COCCYX", s: "COCCYX", e: "LETTING GO", f: "The coccyx is a vestigial tail — all that remains of our evolutionary past. It is the last bone. The end. People who cannot let go of the past often carry chronic coccyx pain.", r: "Base of body, sit bones", y: 0.93 },
+            { c: "Co4", n: "COCCYX", s: "COCCYX", e: "LETTING GO", f: "The coccyx is a vestigial tail — all that remains of our evolutionary past. It is the last bone. The end. People who cannot let go of the past often carry chronic coccyx pain.", r: "Base of body, sit bones", y: 0.94 }
+        ];
+
+        const totalVertebrae = rawData.length;
+
+        // HUD initialization
+        const hudContainer = document.getElementById('progress-hud');
+        for (let i = 0; i < totalVertebrae; i++) {
+            const dot = document.createElement('div');
+            dot.classList.add('hud-dot');
+            hudContainer.appendChild(dot);
+        }
+        const hudDots = document.querySelectorAll('.hud-dot');
+
+        // UI Elements
+        const uiTopName = document.getElementById('top-name');
+        const uiFactCard = document.getElementById('fact-card');
+        const uiCardCode = document.getElementById('card-code');
+        const uiCardEmotion = document.getElementById('card-emotion');
+        const uiCardFact = document.getElementById('card-fact');
+        const uiCardRegion = document.getElementById('card-region');
+
+        // State
+        let scrollProgressTarget = 0;
+        let scrollProgressCurrent = 0;
+        let activeIndexTarget = 0;
+        let activeIndexCurrent = 0;
+        const LERP_FACTOR = 0.04;
+
+        let width, height;
+        const canvas = document.getElementById('spineCanvas');
+        const ctx = canvas.getContext('2d', { alpha: false });
+        let isMobile = false;
+
+        // Audio State
+        let audioCtx;
+        let masterGain, droneOsc, droneLfo;
+        let isAudioInitialized = false;
+        let lastPlayedIndex = -1;
+
+        function initAudio() {
+            if (isAudioInitialized) return;
+            try {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                masterGain = audioCtx.createGain();
+                masterGain.gain.value = 0.5;
+                masterGain.connect(audioCtx.destination);
+
+                // Base drone
+                droneOsc = audioCtx.createOscillator();
+                droneOsc.type = 'sine';
+                droneOsc.frequency.value = 60;
+
+                droneLfo = audioCtx.createOscillator();
+                droneLfo.type = 'sine';
+                droneLfo.frequency.value = 0.2;
+                const droneLfoGain = audioCtx.createGain();
+                droneLfoGain.gain.value = 10;
+                droneLfo.connect(droneLfoGain);
+                droneLfoGain.connect(droneOsc.frequency);
+
+                const droneGain = audioCtx.createGain();
+                droneGain.gain.value = 0.03;
+                droneOsc.connect(droneGain);
+                droneGain.connect(masterGain);
+
+                droneOsc.start();
+                droneLfo.start();
+
+                isAudioInitialized = true;
+            } catch (e) {
+                console.warn("Web Audio API not supported", e);
+            }
+        }
+
+        function playVertebraTone(index) {
+            if (!isAudioInitialized || !audioCtx) return;
+            if (index === lastPlayedIndex) return;
+            lastPlayedIndex = index;
+
+            const vData = rawData[index];
+
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+
+            osc.connect(gain);
+            gain.connect(masterGain);
+
+            osc.type = 'sine';
+
+            // Calculate frequency based on position (descending)
+            let freq = 200 + ((totalVertebrae - 1 - index) * 12);
+
+            if (vData.s === "CERVICAL") freq = 300 + (index * 10);
+            else if (vData.s === "THORACIC") freq = 150 + ((19 - index) * 5);
+            else if (vData.s === "LUMBAR") freq = 80 + ((24 - index) * 10);
+            else freq = 40 + ((32 - index) * 5);
+
+            let duration = 0.6;
+            gain.gain.setValueAtTime(0, audioCtx.currentTime);
+            gain.gain.linearRampToValueAtTime(0.04, audioCtx.currentTime + 0.1);
+
+            if (vData.c === "T1") {
+                // Heartbreak binaural
+                osc.frequency.value = 200;
+                const osc2 = audioCtx.createOscillator();
+                osc2.type = 'sine';
+                osc2.frequency.value = 201;
+                osc2.connect(gain);
+                osc2.start();
+                osc2.stop(audioCtx.currentTime + duration);
+            } else if (vData.c === "L5") {
+                freq = 55;
+                duration = 1.2;
+                osc.frequency.value = freq;
+            } else if (vData.s === "COCCYX") {
+                if (index === 32) { // very last one
+                    freq = 528;
+                    duration = 3.0;
+                    gain.gain.setValueAtTime(0, audioCtx.currentTime);
+                    gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.5); // silence
+                    gain.gain.linearRampToValueAtTime(0.05, audioCtx.currentTime + 1.0);
+                } else {
+                    freq = 40;
+                }
+                osc.frequency.value = freq;
+            } else {
+                osc.frequency.value = freq;
+            }
+
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+            osc.start();
+            osc.stop(audioCtx.currentTime + duration);
+        }
+
+        function resize() {
+            width = window.innerWidth;
+            height = window.innerHeight;
+            canvas.width = width;
+            canvas.height = height;
+            isMobile = width <= 768;
+        }
+
+        window.addEventListener('resize', resize);
+        resize();
+
+        // Input handling
+        document.getElementById('start-overlay').addEventListener('click', function () {
+            this.style.opacity = '0';
+            setTimeout(() => {
+                this.style.display = 'none';
+            }, 1000);
+            initAudio();
+        });
+
+        window.addEventListener('scroll', () => {
+            const docHeight = document.body.clientHeight;
+            const winHeight = window.innerHeight;
+            if (docHeight > winHeight) {
+                scrollProgressTarget = window.scrollY / (docHeight - winHeight);
+            } else {
+                scrollProgressTarget = 0;
+            }
+            // Clamp
+            if (scrollProgressTarget < 0) scrollProgressTarget = 0;
+            if (scrollProgressTarget > 1) scrollProgressTarget = 1;
+        });
+
+        // Particle system
+        const particles = [];
+        for (let i = 0; i < 20; i++) {
+            particles.push({
+                x: Math.random(),
+                y: Math.random(),
+                speed: 0.0001 + Math.random() * 0.0003,
+                size: Math.random() * 2 + 1
+            });
+        }
+
+        // Background colors per section
+        const sectionColors = {
+            "CERVICAL": [5, 5, 8],
+            "THORACIC": [8, 5, 5],
+            "LUMBAR": [5, 5, 8],
+            "SACRAL": [8, 5, 6],
+            "COCCYX": [0, 0, 0]
+        };
+
+        function updateUI() {
+            const activeIdx = Math.round(activeIndexCurrent);
+            const data = rawData[activeIdx];
+
+            if (!data) return;
+
+            // Top Name
+            const fullName = data.n ? `${data.c} — ${data.n} — ${data.s}` : `${data.c} — ${data.s}`;
+            if (uiTopName.innerText !== fullName) {
+                uiTopName.style.opacity = 0;
+                setTimeout(() => {
+                    uiTopName.innerText = fullName;
+                    uiTopName.style.opacity = 0.4;
+                }, 150);
+            }
+
+            // Fact Card Data Updates
+            const dist = Math.abs(activeIndexCurrent - activeIdx);
+            if (dist < 0.2) {
+                uiFactCard.style.opacity = 1;
+                if (uiCardCode.innerText !== data.c) {
+                    uiCardCode.innerText = data.c;
+                    uiCardEmotion.innerText = data.e;
+                    uiCardFact.innerText = data.f;
+                    uiCardRegion.innerText = `CONTROLS: ${data.r}`;
+                }
+            } else {
+                uiFactCard.style.opacity = 0;
+            }
+
+            // HUD updates
+            hudDots.forEach((dot, i) => {
+                dot.className = 'hud-dot';
+                if (i === activeIdx) dot.classList.add('active');
+                else if (i < activeIdx) dot.classList.add('past');
+                else dot.classList.add('future');
+            });
+
+            // Trigger audio
+            if (dist < 0.1) {
+                playVertebraTone(activeIdx);
+            }
+        }
+
+        // Lerp helper
+        function lerp(start, end, amt) {
+            return (1 - amt) * start + amt * end;
+        }
+
+        // Drawing helpers
+        function drawVertebra(ctx, x, y, scale, isActiveAmt) {
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.scale(scale, scale);
+
+            // Bone color shift
+            const boneR = Math.floor(lerp(232, 255, isActiveAmt));
+            const boneG = Math.floor(lerp(220, 255, isActiveAmt));
+            const boneB = Math.floor(lerp(200, 255, isActiveAmt));
+            const strokeColor = `rgba(196, 168, 130, ${lerp(0.8, 1, isActiveAmt)})`;
+
+            if (isActiveAmt > 0) {
+                ctx.shadowBlur = lerp(0, 20, isActiveAmt);
+                ctx.shadowColor = `rgb(255, 255, 255)`;
+            }
+
+            ctx.fillStyle = `rgb(${boneR}, ${boneG}, ${boneB})`;
+            ctx.strokeStyle = strokeColor;
+            ctx.lineWidth = 1;
+
+            // Transverse processes (wings)
+            ctx.beginPath();
+            ctx.roundRect(-45, -5, 90, 10, 3);
+            ctx.fill();
+            ctx.stroke();
+
+            // Spinous process (back point, visually top here)
+            ctx.beginPath();
+            ctx.moveTo(-15, -10);
+            ctx.lineTo(0, -35);
+            ctx.lineTo(15, -10);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+
+            // Center body
+            ctx.beginPath();
+            ctx.roundRect(-30, -15, 60, 30, 8);
+            ctx.fill();
+            ctx.stroke();
+
+            // Spinal cord hole
+            ctx.fillStyle = '#0a0a0a';
+            ctx.beginPath();
+            ctx.arc(0, -5, 8, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.restore();
+        }
+
+        function drawNerves(ctx, x, y, isActiveAmt) {
+            if (isActiveAmt <= 0.01) return;
+            ctx.save();
+            ctx.translate(x, y);
+
+            ctx.strokeStyle = `rgba(255, 170, 68, ${isActiveAmt * 0.6})`;
+            ctx.lineWidth = 2;
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = '#ffaa44';
+
+            const spread = isActiveAmt * (isMobile ? 80 : 150);
+
+            // Left nerve
+            ctx.beginPath();
+            ctx.moveTo(-35, 0);
+            ctx.bezierCurveTo(-50, 0, -50 + spread / 2, 20 + spread / 2, -50 - spread, 20 + spread);
+            ctx.stroke();
+
+            // Right nerve
+            ctx.beginPath();
+            ctx.moveTo(35, 0);
+            ctx.bezierCurveTo(50, 0, 50 - spread / 2, 20 + spread / 2, 50 + spread, 20 + spread);
+            ctx.stroke();
+
+            ctx.restore();
+        }
+
+        function drawHumanSilhouette(ctx, activeYNorm, activeAmt) {
+            if (isMobile) return; // Hide on mobile
+
+            ctx.save();
+            const cx = width * 0.8; // Right side
+            const cy = height * 0.5;
+            const h = height * 0.8; // Total silhouette height
+            const w = h * 0.25; // Silhouette width
+            const top = cy - h / 2;
+
+            ctx.translate(cx, top);
+
+            // Draw base outline
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
+            ctx.lineWidth = 1;
+
+            // Simple abstract outline
+            ctx.beginPath();
+            // Head
+            ctx.arc(0, h * 0.06, w * 0.3, 0, Math.PI * 2);
+            // Neck
+            ctx.moveTo(-w * 0.15, h * 0.12);
+            ctx.lineTo(-w * 0.15, h * 0.16);
+            ctx.moveTo(w * 0.15, h * 0.12);
+            ctx.lineTo(w * 0.15, h * 0.16);
+            // Shoulders & Outer arms
+            ctx.moveTo(-w * 0.15, h * 0.16);
+            ctx.bezierCurveTo(-w * 1.0, h * 0.16, -w * 1.1, h * 0.25, -w * 1.1, h * 0.45);
+            ctx.moveTo(w * 0.15, h * 0.16);
+            ctx.bezierCurveTo(w * 1.0, h * 0.16, w * 1.1, h * 0.25, w * 1.1, h * 0.45);
+
+            // Inner arms & Torso
+            ctx.moveTo(-w * 0.7, h * 0.45);
+            ctx.bezierCurveTo(-w * 0.7, h * 0.25, -w * 0.4, h * 0.25, -w * 0.4, h * 0.6);
+            ctx.moveTo(w * 0.7, h * 0.45);
+            ctx.bezierCurveTo(w * 0.7, h * 0.25, w * 0.4, h * 0.25, w * 0.4, h * 0.6);
+
+            // Outer Legs
+            ctx.moveTo(-w * 0.4, h * 0.6);
+            ctx.lineTo(-w * 0.4, h * 0.95);
+            ctx.moveTo(w * 0.4, h * 0.6);
+            ctx.lineTo(w * 0.4, h * 0.95);
+
+            // Inner Legs
+            ctx.moveTo(0, h * 0.65);
+            ctx.lineTo(-w * 0.15, h * 0.95);
+            ctx.moveTo(0, h * 0.65);
+            ctx.lineTo(w * 0.15, h * 0.95);
+
+            ctx.fill();
+            ctx.stroke();
+
+            // Active Region Highlight
+            if (activeAmt > 0.01) {
+                const targetY = h * activeYNorm;
+
+                const glowY = targetY;
+                const glowRadius = h * 0.12;
+
+                const gradient = ctx.createRadialGradient(0, glowY, 0, 0, glowY, glowRadius);
+                gradient.addColorStop(0, `rgba(255, 150, 50, ${activeAmt * 0.25})`);
+                gradient.addColorStop(1, 'rgba(255, 150, 50, 0)');
+
+                ctx.fillStyle = gradient;
+                ctx.beginPath();
+                ctx.arc(0, glowY, glowRadius, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Glowing dot
+                ctx.shadowBlur = 15;
+                ctx.shadowColor = '#ff9933';
+                ctx.fillStyle = `rgba(255, 153, 51, ${activeAmt})`;
+                ctx.beginPath();
+                ctx.arc(0, glowY, 5, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.shadowBlur = 0;
+
+                // Connection line from spine
+                ctx.globalCompositeOperation = 'screen';
+                ctx.strokeStyle = `rgba(255, 170, 68, ${activeAmt * 0.6})`;
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                // Path from left edge of silhouette
+                ctx.moveTo(-cx * 0.35, glowY);
+                ctx.lineTo(0, glowY);
+                ctx.stroke();
+                ctx.globalCompositeOperation = 'source-over';
+            }
+
+            ctx.restore();
+        }
+
+        let time = 0;
+
+        function render() {
+            requestAnimationFrame(render);
+            time += 0.016;
+
+            // Lerp state
+            scrollProgressCurrent = lerp(scrollProgressCurrent, scrollProgressTarget, LERP_FACTOR);
+
+            // Update target index based on progress
+            activeIndexTarget = scrollProgressCurrent * (totalVertebrae - 1);
+            activeIndexCurrent = lerp(activeIndexCurrent, activeIndexTarget, LERP_FACTOR);
+
+            // Background color calculation
+            const activeIdxRound = Math.round(activeIndexCurrent);
+            const currentData = rawData[activeIdxRound] || rawData[0];
+            const colorArr = sectionColors[currentData.s];
+
+            ctx.fillStyle = `rgb(${colorArr[0]}, ${colorArr[1]}, ${colorArr[2]})`;
+            ctx.fillRect(0, 0, width, height);
+
+            // Particles
+            ctx.fillStyle = 'rgba(255, 200, 150, 0.1)';
+            particles.forEach(p => {
+                p.y += p.speed;
+                if (p.y > 1) p.y = 0;
+                ctx.beginPath();
+                ctx.arc(p.x * width, p.y * height, p.size, 0, Math.PI * 2);
+                ctx.fill();
+            });
+
+            // Scan line
+            const scanY = (time * 0.05) % 1.0;
+            ctx.fillStyle = 'rgba(100, 150, 255, 0.03)';
+            ctx.fillRect(0, scanY * height, width, 2);
+
+            // Draw Spine
+            const spineCenterX = isMobile ? width / 2 : width * 0.45;
+            const vertebraSpacing = 160; // Distance between each vertebra
+            const totalSpineHeight = (totalVertebrae - 1) * vertebraSpacing;
+
+            // Camera Y offset (moves down the spine)
+            const cameraY = scrollProgressCurrent * totalSpineHeight;
+
+            // Spinal cord
+            ctx.save();
+            ctx.strokeStyle = '#ffcc88';
+            ctx.lineWidth = 2;
+            const cordAlpha = 0.7 + Math.sin(time * 2) * 0.3;
+            ctx.shadowBlur = 4;
+            ctx.shadowColor = '#ffcc88';
+            ctx.globalAlpha = cordAlpha;
+            ctx.beginPath();
+            ctx.moveTo(spineCenterX, height / 2 - cameraY - 200);
+            ctx.lineTo(spineCenterX, height / 2 - cameraY + totalSpineHeight + 200);
+            ctx.stroke();
+            ctx.restore();
+
+            // Iterate over all vertebrae
+            for (let i = 0; i < totalVertebrae; i++) {
+                const vY = height / 2 + (i * vertebraSpacing) - cameraY;
+
+                // Cull off-screen
+                if (vY < -200 || vY > height + 200) continue;
+
+                const distanceToIndex = Math.abs(activeIndexCurrent - i);
+                let activeAmt = 1 - Math.min(distanceToIndex, 1);
+                // Smooth easing
+                activeAmt = activeAmt * activeAmt * (3 - 2 * activeAmt);
+
+                const scale = lerp(1, 1.15, activeAmt) * (isMobile ? 0.7 : 1);
+
+                // Draw disc if not last
+                if (i < totalVertebrae - 1) {
+                    ctx.fillStyle = 'rgba(184, 212, 232, 0.4)';
+                    ctx.beginPath();
+                    ctx.ellipse(spineCenterX, vY + vertebraSpacing / 2, 20 * scale, 8 * scale, 0, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+
+                drawNerves(ctx, spineCenterX, vY, activeAmt);
+                drawVertebra(ctx, spineCenterX, vY, scale, activeAmt);
+            }
+
+            // Draw Silhouette (active logic inside)
+            const dist = Math.abs(activeIndexCurrent - activeIdxRound);
+            const activeAmtFloor = 1 - Math.min(dist * 2, 1);
+            drawHumanSilhouette(ctx, currentData.y, activeAmtFloor);
+
+            updateUI();
+        }
+
+        render();
+    </script>
+</body>
+
+</html>

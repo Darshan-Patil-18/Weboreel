@@ -1,0 +1,699 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>PULSE ROOM</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Mono:wght@400;700&display=swap');
+
+        body,
+        html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: #000;
+            color: #fff;
+            font-family: 'Space Mono', monospace;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: none;
+        }
+
+        canvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        .hud-text {
+            position: absolute;
+            z-index: 10;
+            font-size: 16px;
+            text-shadow: 0 0 10px rgba(0, 0, 0, 1);
+            pointer-events: none;
+        }
+
+        #hud-top-left {
+            top: 20px;
+            left: 20px;
+        }
+
+        #hud-top-right {
+            top: 20px;
+            right: 20px;
+            text-align: right;
+        }
+
+        #hud-top-center {
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 32px;
+            text-shadow: 0 0 15px rgba(168, 85, 247, 0.8);
+        }
+
+        .title-font {
+            font-family: 'Bebas Neue', sans-serif;
+            letter-spacing: 2px;
+        }
+
+        #start-screen {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            z-index: 20;
+            pointer-events: none;
+            transition: opacity 0.5s ease;
+        }
+
+        .big-text {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 6rem;
+            line-height: 1;
+            color: #fff;
+            text-shadow: 0 0 20px #a855f7, 0 0 40px #a855f7;
+        }
+
+        .small-text {
+            font-size: 1rem;
+            letter-spacing: 4px;
+            margin-top: 10px;
+            opacity: 0.8;
+            text-shadow: 0 0 10px rgba(168, 85, 247, 0.5);
+        }
+
+        #controls {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 30;
+            display: flex;
+            gap: 15px;
+            background: rgba(0, 0, 0, 0.6);
+            padding: 10px 20px;
+            border-radius: 30px;
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+        }
+
+        button {
+            background: transparent;
+            border: none;
+            color: #fff;
+            font-family: 'Space Mono', monospace;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            padding: 8px 12px;
+            transition: all 0.2s;
+            border-radius: 15px;
+        }
+
+        button:hover {
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        button:active {
+            transform: scale(0.92);
+        }
+
+        @media (max-width: 600px) {
+            .big-text {
+                font-size: 4rem;
+            }
+
+            #hud-top-center {
+                font-size: 24px;
+                top: 50px;
+            }
+
+            .hud-text {
+                font-size: 12px;
+            }
+
+            #controls {
+                width: 90%;
+                justify-content: center;
+                gap: 5px;
+                padding: 10px;
+                flex-wrap: wrap;
+            }
+
+            button {
+                font-size: 14px;
+                padding: 8px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="hud-top-left" class="hud-text">BEATS: <span id="beats-count">0</span></div>
+    <div id="hud-top-center" class="hud-text title-font">♩ <span id="bpm-display">--</span> BPM</div>
+    <div id="hud-top-right" class="hud-text">STAGE: <span id="stage-display">AWAKENING</span></div>
+
+    <div id="start-screen">
+        <div class="big-text">TAP TO FEEL IT</div>
+        <div class="small-text">build your rhythm</div>
+    </div>
+
+    <div id="controls">
+        <button id="btn-reset">🔄 RESET</button>
+        <button id="btn-capture">📸 CAPTURE</button>
+        <button id="btn-mute">♪ MUTE</button>
+    </div>
+
+    <canvas id="canvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        let cw, ch;
+
+        // App State
+        let beats = 0;
+        let tapTimestamps = [];
+        let currentBpm = 0;
+        let targetHue = 280; // default purple
+        let currentHue = 280;
+        let roomPulse = 0;
+        let lastTime = 0;
+        let scanLineY = 0;
+        let mirrorAngle = 0;
+        let waveOffset = 0;
+        let isMuted = false;
+
+        let pulses = [];
+        let particles = [];
+        let musicNotes = [];
+
+        // Audio State
+        let audioCtx = null;
+        let masterGain = null;
+        let delayNode = null;
+        let feedbackGain = null;
+        let subDrone = null;
+        let soundCycle = 0;
+
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            cw = canvas.width;
+            ch = canvas.height;
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        function initAudio() {
+            if (audioCtx) return;
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            masterGain = audioCtx.createGain();
+            masterGain.connect(audioCtx.destination);
+
+            delayNode = audioCtx.createDelay(5.0);
+            delayNode.delayTime.value = 60 / 120;
+
+            feedbackGain = audioCtx.createGain();
+            feedbackGain.gain.value = 0.2;
+
+            delayNode.connect(feedbackGain);
+            feedbackGain.connect(delayNode);
+            delayNode.connect(masterGain);
+        }
+
+        function playNoise(t, duration, hpFreq, gainVal) {
+            if (!audioCtx) return;
+            const bufferSize = audioCtx.sampleRate * duration;
+            const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+            const data = buffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) {
+                data[i] = Math.random() * 2 - 1;
+            }
+            const noise = audioCtx.createBufferSource();
+            noise.buffer = buffer;
+
+            const filter = audioCtx.createBiquadFilter();
+            filter.type = 'highpass';
+            filter.frequency.value = hpFreq;
+
+            const gain = audioCtx.createGain();
+            gain.gain.setValueAtTime(gainVal, t);
+            gain.gain.exponentialRampToValueAtTime(0.01, t + duration);
+
+            noise.connect(filter);
+            filter.connect(gain);
+            gain.connect(masterGain);
+            gain.connect(delayNode);
+
+            noise.start(t);
+            noise.stop(t + duration);
+        }
+
+        function playSound() {
+            if (!audioCtx) initAudio();
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            if (isMuted) return;
+
+            const t = audioCtx.currentTime;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+
+            osc.connect(gain);
+            gain.connect(masterGain);
+            gain.connect(delayNode);
+
+            if (soundCycle === 0) { // KICK
+                osc.frequency.setValueAtTime(150, t);
+                osc.frequency.exponentialRampToValueAtTime(40, t + 0.3);
+                gain.gain.setValueAtTime(0.3, t);
+                gain.gain.exponentialRampToValueAtTime(0.01, t + 0.3);
+                osc.start(t);
+                osc.stop(t + 0.3);
+            } else if (soundCycle === 1) { // HI-HAT
+                playNoise(t, 0.05, 8000, 0.15);
+            } else if (soundCycle === 2) { // SNARE
+                playNoise(t, 0.15, 200, 0.2);
+            } else if (soundCycle === 3) { // BASS HIT
+                osc.frequency.setValueAtTime(80, t);
+                osc.frequency.exponentialRampToValueAtTime(40, t + 0.4);
+                gain.gain.setValueAtTime(0.25, t);
+                gain.gain.exponentialRampToValueAtTime(0.01, t + 0.4);
+                osc.start(t);
+                osc.stop(t + 0.4);
+            }
+
+            soundCycle = (soundCycle + 1) % 4;
+        }
+
+        function updateAudioBPM() {
+            if (delayNode && currentBpm > 0) {
+                let dt = 60 / currentBpm;
+                if (dt > 2) dt = 2; // limit echo length
+                delayNode.delayTime.setTargetAtTime(dt, audioCtx.currentTime, 0.1);
+            }
+        }
+
+        function manageDrone() {
+            if (beats >= 100 && !subDrone && !isMuted) {
+                if (!audioCtx) initAudio();
+                subDrone = audioCtx.createOscillator();
+                subDrone.frequency.value = 40;
+                const droneGain = audioCtx.createGain();
+                droneGain.gain.value = 0.08;
+                subDrone.connect(droneGain);
+                droneGain.connect(masterGain);
+                subDrone.start();
+            } else if ((beats < 100 || isMuted) && subDrone) {
+                subDrone.stop();
+                subDrone.disconnect();
+                subDrone = null;
+            }
+        }
+
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden && subDrone) {
+                subDrone.stop();
+                subDrone.disconnect();
+                subDrone = null;
+            } else if (!document.hidden && beats >= 100 && !isMuted) {
+                manageDrone();
+            }
+        });
+
+        function drawPoly(pts, fill, stroke1, stroke2) {
+            ctx.beginPath();
+            ctx.moveTo(pts[0].x, pts[0].y);
+            for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+            ctx.closePath();
+            ctx.fillStyle = fill;
+            ctx.fill();
+
+            if (stroke2) {
+                ctx.lineWidth = 2;
+                ctx.strokeStyle = stroke2;
+                ctx.stroke();
+            }
+            if (stroke1) {
+                ctx.lineWidth = 2;
+                ctx.strokeStyle = stroke1;
+                ctx.stroke();
+            }
+        }
+
+        function updateHUD() {
+            document.getElementById('beats-count').innerText = beats;
+            document.getElementById('bpm-display').innerText = currentBpm > 0 ? currentBpm : '--';
+
+            let stage = "AWAKENING";
+            if (beats >= 100) stage = "RAVING";
+            else if (beats >= 51) stage = "VIBRING";
+            else if (beats >= 26) stage = "GROOVING";
+            else if (beats >= 11) stage = "ALIVE";
+
+            document.getElementById('stage-display').innerText = stage;
+
+            if (beats > 0) {
+                document.getElementById('start-screen').style.opacity = 0;
+            } else {
+                document.getElementById('start-screen').style.opacity = 1;
+            }
+        }
+
+        window.addEventListener('pointerdown', (e) => {
+            if (e.target.tagName === 'BUTTON') return;
+
+            beats++;
+            roomPulse = 1;
+
+            const x = e.clientX;
+            const y = e.clientY;
+
+            pulses.push({
+                x: x,
+                y: y,
+                radius: 0,
+                maxRadius: 400
+            });
+
+            for (let i = 0; i < 15; i++) {
+                particles.push({
+                    x: x,
+                    y: y,
+                    vx: (Math.random() - 0.5) * 800,
+                    vy: (Math.random() - 0.5) * 800,
+                    life: 1.5,
+                    maxLife: 1.5,
+                    color: Math.random() < 0.33 ? '#a855f7' : (Math.random() < 0.5 ? '#22d3ee' : '#ffffff'),
+                    rainbow: beats >= 100,
+                    size: Math.random() * 3 + 2
+                });
+            }
+
+            if (beats % 5 === 0) {
+                const notesArr = ['♩', '♪', '♫', '♬'];
+                musicNotes.push({
+                    x: x,
+                    y: y,
+                    text: notesArr[Math.floor(Math.random() * notesArr.length)],
+                    size: 20 + Math.random() * 20,
+                    life: 2,
+                    maxLife: 2,
+                    vx: (Math.random() - 0.5) * 20,
+                    vy: -50 - Math.random() * 50
+                });
+            }
+
+            const now = performance.now();
+            if (tapTimestamps.length > 0 && now - tapTimestamps[tapTimestamps.length - 1] > 3000) {
+                tapTimestamps = [];
+                currentBpm = 0;
+            }
+
+            tapTimestamps.push(now);
+            if (tapTimestamps.length > 8) tapTimestamps.shift();
+
+            if (tapTimestamps.length > 1) {
+                let totalGap = 0;
+                for (let i = 1; i < tapTimestamps.length; i++) {
+                    totalGap += tapTimestamps[i] - tapTimestamps[i - 1];
+                }
+                const avgGap = totalGap / (tapTimestamps.length - 1);
+                currentBpm = Math.round(60000 / avgGap);
+                updateAudioBPM();
+            }
+
+            updateHUD();
+            playSound();
+        });
+
+        document.getElementById('btn-reset').addEventListener('click', () => {
+            beats = 0;
+            tapTimestamps = [];
+            currentBpm = 0;
+            particles = [];
+            pulses = [];
+            musicNotes = [];
+            roomPulse = 0;
+            currentHue = 280;
+            updateHUD();
+            if (subDrone) {
+                subDrone.stop();
+                subDrone.disconnect();
+                subDrone = null;
+            }
+        });
+
+        document.getElementById('btn-capture').addEventListener('click', () => {
+            const link = document.createElement('a');
+            link.download = 'pulse-room.png';
+            link.href = canvas.toDataURL();
+            link.click();
+        });
+
+        document.getElementById('btn-mute').addEventListener('click', (e) => {
+            isMuted = !isMuted;
+            e.target.innerText = isMuted ? '♪ UNMUTE' : '♪ MUTE';
+            manageDrone();
+        });
+
+        function render(time) {
+            const dt = lastTime ? (time - lastTime) / 1000 : 0.016;
+            lastTime = time;
+
+            if (roomPulse > 0) {
+                roomPulse -= dt * 5;
+                if (roomPulse < 0) roomPulse = 0;
+            }
+
+            scanLineY += 80 * dt;
+            mirrorAngle += 0.5 * dt;
+            waveOffset += 1 * dt;
+
+            let tHue = 280;
+            if (currentBpm > 140) tHue = 0;
+            else if (currentBpm > 0 && currentBpm < 80) tHue = 230;
+
+            if (beats >= 100) {
+                currentHue = (currentHue + 30 * dt) % 360;
+            } else {
+                let diff = tHue - currentHue;
+                if (Math.abs(diff) > 180) {
+                    if (tHue > currentHue) currentHue += 360;
+                    else tHue += 360;
+                }
+                currentHue += (tHue - currentHue) * 5 * dt;
+                currentHue = (currentHue + 360) % 360;
+            }
+
+            manageDrone();
+
+            ctx.clearRect(0, 0, cw, ch);
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, cw, ch);
+
+            const cx = cw / 2;
+            const cy = ch / 2;
+            const scale = 1 + roomPulse * 0.03;
+
+            ctx.save();
+            let shakeX = 0;
+            if (beats >= 100 && roomPulse > 0) {
+                shakeX = (Math.random() - 0.5) * 6 * roomPulse;
+            }
+            ctx.translate(cx + shakeX, cy);
+            ctx.scale(scale, scale);
+            ctx.translate(-cx, -cy);
+
+            const backW = cw * 0.4;
+            const backH = ch * 0.4;
+            const backX = cx - backW / 2;
+            const backY = cy - backH / 2;
+
+            const btl = { x: backX, y: backY };
+            const btr = { x: backX + backW, y: backY };
+            const bbl = { x: backX, y: backY + backH };
+            const bbr = { x: backX + backW, y: backY + backH };
+            const tl = { x: 0, y: 0 };
+            const tr = { x: cw, y: 0 };
+            const bl = { x: 0, y: ch };
+            const br = { x: cw, y: ch };
+
+            const pulseLightness = roomPulse * 15;
+            const edgeColor = `rgba(255,255,255,${roomPulse})`;
+            const edgeColorBase = `hsla(${currentHue}, 100%, 60%, ${0.3 + roomPulse * 0.5})`;
+
+            drawPoly([tl, tr, btr, btl], `hsl(${currentHue}, 100%, ${4 + pulseLightness}%)`, edgeColorBase, edgeColor);
+            drawPoly([bl, br, bbr, bbl], `hsl(${currentHue}, 100%, ${2 + pulseLightness}%)`, edgeColorBase, edgeColor);
+            drawPoly([tl, btl, bbl, bl], `hsl(${currentHue}, 100%, ${3 + pulseLightness}%)`, edgeColorBase, edgeColor);
+            drawPoly([tr, btr, bbr, br], `hsl(${currentHue}, 100%, ${3 + pulseLightness}%)`, edgeColorBase, edgeColor);
+            drawPoly([btl, btr, bbr, bbl], `hsl(${currentHue}, 100%, ${6 + pulseLightness}%)`, edgeColorBase, edgeColor);
+
+            if (beats >= 11) {
+                ctx.save();
+                ctx.beginPath();
+                ctx.moveTo(btl.x, btl.y);
+                ctx.lineTo(btr.x, btr.y);
+                ctx.lineTo(bbr.x, bbr.y);
+                ctx.lineTo(bbl.x, bbl.y);
+                ctx.closePath();
+                ctx.clip();
+
+                ctx.fillStyle = 'rgba(34, 211, 238, 0.3)';
+                ctx.shadowColor = '#22d3ee';
+                ctx.shadowBlur = 10;
+
+                for (let i = 0; i < 3; i++) {
+                    let y = btl.y + ((scanLineY + i * (backH / 3)) % backH);
+                    ctx.fillRect(btl.x, y - 2, backW, 4);
+                }
+                ctx.restore();
+            }
+
+            if (beats >= 26) {
+                const mx = cx;
+                const my = btl.y / 2;
+                const mRadius = 30;
+
+                ctx.save();
+                ctx.translate(mx, my);
+                ctx.beginPath();
+                ctx.arc(0, 0, mRadius, 0, Math.PI * 2);
+                ctx.fillStyle = '#111';
+                ctx.fill();
+                ctx.clip();
+                ctx.strokeStyle = '#555';
+                ctx.lineWidth = 1;
+                ctx.rotate(mirrorAngle);
+                for (let i = -mRadius; i < mRadius; i += 6) {
+                    ctx.beginPath(); ctx.moveTo(i, -mRadius); ctx.lineTo(i, mRadius); ctx.stroke();
+                    ctx.beginPath(); ctx.moveTo(-mRadius, i); ctx.lineTo(mRadius, i); ctx.stroke();
+                }
+                ctx.restore();
+
+                ctx.save();
+                ctx.fillStyle = 'rgba(255,255,255,0.8)';
+                ctx.shadowColor = '#fff';
+                ctx.shadowBlur = 8;
+                for (let i = 0; i < 20; i++) {
+                    let angle = mirrorAngle + (i * Math.PI * 2 / 20);
+                    let r = ch * 0.35 + Math.sin(i * 123) * ch * 0.1;
+                    let dx = Math.cos(angle) * r * (cw / ch);
+                    let dy = Math.sin(angle) * r;
+
+                    ctx.beginPath();
+                    ctx.arc(cx + dx, cy + dy, 4, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                ctx.restore();
+            }
+
+            if (beats >= 51) {
+                ctx.save();
+                ctx.globalCompositeOperation = 'screen';
+                for (let w = 0; w < 3; w++) {
+                    ctx.beginPath();
+                    ctx.strokeStyle = `hsla(${(currentHue + w * 30) % 360}, 100%, 60%, 0.1)`;
+                    ctx.lineWidth = 40 + w * 20;
+                    for (let x = 0; x <= cw; x += 20) {
+                        let y = cy + Math.sin(x * 0.005 + waveOffset * 3 + w) * (ch * 0.3);
+                        if (x === 0) ctx.moveTo(x, y);
+                        else ctx.lineTo(x, y);
+                    }
+                    ctx.stroke();
+                }
+                ctx.restore();
+            }
+
+            for (let i = pulses.length - 1; i >= 0; i--) {
+                let p = pulses[i];
+                p.radius += 300 * dt;
+                let alpha = 1 - (p.radius / p.maxRadius);
+                if (alpha <= 0) {
+                    pulses.splice(i, 1);
+                    continue;
+                }
+
+                let grad = ctx.createLinearGradient(p.x - p.radius, p.y, p.x + p.radius, p.y);
+                grad.addColorStop(0, `rgba(168, 85, 247, ${alpha})`);
+                grad.addColorStop(1, `rgba(34, 211, 238, ${alpha})`);
+
+                ctx.save();
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+                ctx.strokeStyle = grad;
+                ctx.lineWidth = 4 + 6 * alpha;
+                ctx.stroke();
+                ctx.restore();
+            }
+
+            for (let i = particles.length - 1; i >= 0; i--) {
+                let p = particles[i];
+                p.x += p.vx * dt;
+                p.y += p.vy * dt;
+                p.vy += 400 * dt;
+
+                if (p.x < 0 || p.x > cw) p.vx *= -0.8;
+                if (p.y < 0 || p.y > ch) p.vy *= -0.8;
+
+                p.life -= dt;
+                if (p.life <= 0) {
+                    particles.splice(i, 1);
+                    continue;
+                }
+
+                let alpha = p.life / p.maxLife;
+                let color = p.color;
+                if (p.rainbow) {
+                    color = `hsl(${Math.random() * 360}, 100%, 50%)`;
+                }
+                ctx.save();
+                ctx.globalAlpha = alpha;
+                ctx.fillStyle = color;
+                ctx.shadowColor = color;
+                ctx.shadowBlur = 10 * alpha;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+
+            for (let i = musicNotes.length - 1; i >= 0; i--) {
+                let note = musicNotes[i];
+                note.x += note.vx * dt + Math.sin(time * 0.005 + i) * 0.5;
+                note.y += note.vy * dt;
+                note.life -= dt;
+
+                if (note.life <= 0) {
+                    musicNotes.splice(i, 1);
+                    continue;
+                }
+
+                let alpha = note.life / note.maxLife;
+                ctx.save();
+                ctx.globalAlpha = alpha;
+                ctx.fillStyle = '#fff';
+                ctx.shadowColor = '#a855f7';
+                ctx.shadowBlur = 10 * alpha;
+                ctx.font = `${note.size}px 'Bebas Neue'`;
+                ctx.fillText(note.text, note.x, note.y);
+                ctx.restore();
+            }
+
+            ctx.restore();
+            requestAnimationFrame(render);
+        }
+
+        requestAnimationFrame(render);
+    </script>
+</body>
+
+</html>

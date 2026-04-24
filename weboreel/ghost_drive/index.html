@@ -1,0 +1,933 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GHOST DRIVE</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Cormorant+Garamond:ital@1&family=Space+Mono&display=swap');
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            background: #000;
+            height: 2000vh;
+            overflow-x: hidden;
+            font-family: sans-serif;
+        }
+
+        canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 1;
+            pointer-events: none;
+            transform-origin: center center;
+        }
+
+        #hud {
+            position: fixed;
+            top: 30px;
+            left: 30px;
+            right: 30px;
+            display: flex;
+            justify-content: space-between;
+            z-index: 10;
+            color: rgba(255, 255, 255, 0.3);
+            font-family: 'Space Mono', monospace;
+            font-size: 14px;
+            pointer-events: none;
+            letter-spacing: 2px;
+        }
+
+        .cinematic-bar {
+            position: fixed;
+            left: 0;
+            width: 100%;
+            height: 80px;
+            background: #000;
+            z-index: 5;
+            transition: transform 0.8s cubic-bezier(0.25, 1, 0.5, 1);
+        }
+
+        .cinematic-bar.top {
+            top: 0;
+            transform: translateY(-100%);
+        }
+
+        .cinematic-bar.bottom {
+            bottom: 0;
+            transform: translateY(100%);
+        }
+
+        .cinematic-bar.active {
+            transform: translateY(0);
+        }
+
+        #fact-container {
+            position: fixed;
+            top: 30%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 6;
+            width: 90%;
+            max-width: 600px;
+            text-align: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 1s ease;
+        }
+
+        #fact-container.active {
+            opacity: 1;
+        }
+
+        #fact-number {
+            font-family: 'Bebas Neue', sans-serif;
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 24px;
+            letter-spacing: 4px;
+            margin-bottom: 20px;
+        }
+
+        #fact-headline {
+            font-family: 'Cormorant Garamond', serif;
+            font-style: italic;
+            color: #fff;
+            font-size: 42px;
+            line-height: 1.1;
+            margin-bottom: 24px;
+        }
+
+        #fact-body {
+            font-family: 'Space Mono', monospace;
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 14px;
+            line-height: 1.6;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.8);
+        }
+
+        #start-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: #000;
+            color: white;
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Space Mono', monospace;
+            cursor: pointer;
+            transition: opacity 1s;
+        }
+
+        @media (max-width: 768px) {
+            #fact-headline { font-size: 28px; }
+            #fact-body { font-size: 12px; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="start-overlay">
+        <h2>GHOST DRIVE</h2>
+        <p style="opacity: 0.5; margin-top: 20px;">[ CLICK TO START ENGINE ]</p>
+    </div>
+
+    <canvas id="canvas"></canvas>
+
+    <div id="hud">
+        <div id="hud-left">STOP 0 of 5</div>
+        <div id="hud-right">GHOST DRIVE</div>
+    </div>
+
+    <div id="bar-top" class="cinematic-bar top"></div>
+    <div id="bar-bottom" class="cinematic-bar bottom"></div>
+
+    <div id="fact-container">
+        <div id="fact-number">FACT 01</div>
+        <div id="fact-headline">Headline</div>
+        <div id="fact-body">Body</div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const barTop = document.getElementById('bar-top');
+        const barBottom = document.getElementById('bar-bottom');
+        const factContainer = document.getElementById('fact-container');
+        const factNumber = document.getElementById('fact-number');
+        const factHeadline = document.getElementById('fact-headline');
+        const factBody = document.getElementById('fact-body');
+        const hudLeft = document.getElementById('hud-left');
+        const startOverlay = document.getElementById('start-overlay');
+
+        let width = window.innerWidth;
+        let height = window.innerHeight;
+        canvas.width = width;
+        canvas.height = height;
+
+        window.addEventListener('resize', () => {
+            width = window.innerWidth;
+            height = window.innerHeight;
+            canvas.width = width;
+            canvas.height = height;
+        });
+
+        // State
+        let scrollProgress = 0;
+        let currentProgress = 0;
+        let lastProgress = 0;
+        let speed = 0;
+        let currentSpeed = 0;
+        let time = 0;
+        let isStarted = false;
+
+        const facts = [
+            {
+                trigger: 0.18,
+                num: "FACT 01",
+                headline: "Your car is parked 95% of its life",
+                body: "The average car moves for less than 1 hour per day. For 23 hours, it simply waits — consuming space, costing money, going nowhere."
+            },
+            {
+                trigger: 0.36,
+                num: "FACT 02",
+                headline: "Rain makes you drive slower than fog",
+                body: "Studies show drivers reduce speed more in light fog than heavy rain — because fog feels uncertain while rain feels familiar. Fog causes 3x more fatal accidents per mile."
+            },
+            {
+                trigger: 0.54,
+                num: "FACT 03",
+                headline: "The new car smell is toxic",
+                body: "That iconic scent is a cocktail of VOCs — volatile organic compounds — off-gassing from plastics, adhesives and sealants. Highest concentration in the first 6 months."
+            },
+            {
+                trigger: 0.72,
+                num: "FACT 04",
+                headline: "Cars have gotten 1,000 lbs heavier since 1980",
+                body: "Safety features, batteries, screens and comfort added massive weight. A 1980 Honda Civic weighed 1,700 lbs. Today's Civic: 2,900 lbs. We made cars safer by making them heavier."
+            },
+            {
+                trigger: 1.00,
+                num: "FACT 05",
+                headline: "The last manual car will be made in 2030",
+                body: "Every major manufacturer has announced full discontinuation of manual transmission by 2030. A skill humans spent 100 years perfecting — gone in one decade."
+            }
+        ];
+
+        let activeStopIndex = -1;
+        let isStopped = false;
+
+        // Visual Assets
+        const stars = Array.from({length: 80}, () => ({
+            x: Math.random(),
+            y: Math.random() * 0.6,
+            size: Math.random() * 1.5 + 0.5,
+            blinkSpeed: Math.random() * 0.05 + 0.01
+        }));
+
+        const rainDrops = Array.from({length: 200}, () => ({
+            x: Math.random(),
+            y: Math.random(),
+            len: Math.random() * 10 + 15,
+            speed: Math.random() * 0.02 + 0.03
+        }));
+
+        const windowDrops = Array.from({length: 15}, () => ({
+            x: Math.random(),
+            y: Math.random(),
+            size: Math.random() * 3 + 2,
+            speed: Math.random() * 0.001 + 0.0005
+        }));
+
+        const tunnelLights = Array.from({length: 20}, (_, i) => ({
+            z: i / 20
+        }));
+
+        // Audio System
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        let engineOsc1, engineOsc2, engineGain, tremoloLFO, tremoloGain;
+        let rainNoise, rainFilter, rainGain;
+        let tunnelReverb, tunnelMix;
+        let isAudioInit = false;
+
+        function initAudio() {
+            if (isAudioInit) return;
+            
+            // Engine
+            engineOsc1 = audioCtx.createOscillator();
+            engineOsc2 = audioCtx.createOscillator();
+            engineOsc1.type = 'sawtooth';
+            engineOsc2.type = 'sawtooth';
+            
+            tremoloLFO = audioCtx.createOscillator();
+            tremoloLFO.type = 'sine';
+            tremoloLFO.frequency.value = 6;
+            
+            tremoloGain = audioCtx.createGain();
+            engineGain = audioCtx.createGain();
+            
+            engineOsc1.connect(tremoloGain);
+            engineOsc2.connect(tremoloGain);
+            tremoloLFO.connect(tremoloGain.gain);
+            tremoloGain.connect(engineGain);
+            
+            // Tunnel Reverb setup
+            let bufferSize = audioCtx.sampleRate * 0.3; // 0.3s
+            let impulse = audioCtx.createBuffer(2, bufferSize, audioCtx.sampleRate);
+            for (let i = 0; i < bufferSize; i++) {
+                impulse.getChannelData(0)[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / bufferSize, 2);
+                impulse.getChannelData(1)[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / bufferSize, 2);
+            }
+            tunnelReverb = audioCtx.createConvolver();
+            tunnelReverb.buffer = impulse;
+            tunnelMix = audioCtx.createGain();
+            tunnelMix.gain.value = 0;
+            
+            engineGain.connect(audioCtx.destination);
+            engineGain.connect(tunnelReverb);
+            tunnelReverb.connect(tunnelMix);
+            tunnelMix.connect(audioCtx.destination);
+            
+            engineOsc1.start();
+            engineOsc2.start();
+            tremoloLFO.start();
+            
+            // Rain Noise
+            const noiseSize = audioCtx.sampleRate * 2;
+            const noiseBuffer = audioCtx.createBuffer(1, noiseSize, audioCtx.sampleRate);
+            const output = noiseBuffer.getChannelData(0);
+            for (let i = 0; i < noiseSize; i++) {
+                output[i] = Math.random() * 2 - 1;
+            }
+            rainNoise = audioCtx.createBufferSource();
+            rainNoise.buffer = noiseBuffer;
+            rainNoise.loop = true;
+            
+            rainFilter = audioCtx.createBiquadFilter();
+            rainFilter.type = 'lowpass';
+            rainFilter.frequency.value = 1000;
+            
+            rainGain = audioCtx.createGain();
+            rainGain.gain.value = 0;
+            
+            rainNoise.connect(rainFilter);
+            rainFilter.connect(rainGain);
+            rainGain.connect(audioCtx.destination);
+            rainNoise.start();
+
+            isAudioInit = true;
+        }
+
+        function playChime() {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'sine';
+            osc.frequency.value = 528;
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            
+            gain.gain.setValueAtTime(0, audioCtx.currentTime);
+            gain.gain.linearRampToValueAtTime(0.04, audioCtx.currentTime + 0.1);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 1.5);
+            
+            osc.start();
+            osc.stop(audioCtx.currentTime + 1.5);
+        }
+
+        startOverlay.addEventListener('click', () => {
+            if(audioCtx.state === 'suspended') audioCtx.resume();
+            initAudio();
+            startOverlay.style.opacity = 0;
+            setTimeout(() => {
+                startOverlay.style.display = 'none';
+                isStarted = true;
+            }, 1000);
+        });
+
+        window.addEventListener('scroll', () => {
+            let maxScroll = document.body.scrollHeight - window.innerHeight;
+            scrollProgress = window.scrollY / maxScroll;
+            if (scrollProgress < 0) scrollProgress = 0;
+            if (scrollProgress > 1) scrollProgress = 1;
+        });
+
+        // Utils
+        function lerp(start, end, amt) {
+            return (1 - amt) * start + amt * end;
+        }
+
+        function getEnvParams(progress) {
+            // 0.0-0.18: Night, 0.18-0.36: Rain, 0.36-0.54: Tunnel, 0.54-0.72: Mountain, 0.72-1.0: Desert
+            const envs = [
+                { night: 1, rain: 0, tunnel: 0, mountain: 0, desert: 0 },
+                { night: 0, rain: 1, tunnel: 0, mountain: 0, desert: 0 },
+                { night: 0, rain: 0, tunnel: 1, mountain: 0, desert: 0 },
+                { night: 0, rain: 0, tunnel: 0, mountain: 1, desert: 0 },
+                { night: 0, rain: 0, tunnel: 0, mountain: 0, desert: 1 }
+            ];
+            
+            const stops = [0.09, 0.27, 0.45, 0.63, 0.86]; // Midpoints
+            const transitionWidth = 0.08;
+
+            let result = { night: 0, rain: 0, tunnel: 0, mountain: 0, desert: 0 };
+            
+            // Linear blending between environments
+            let p = progress * 4; // 0 to 4
+            let idx = Math.floor(p);
+            let fract = p - idx;
+            
+            if (idx >= 4) {
+                return envs[4];
+            } else {
+                for (let key in result) {
+                    result[key] = lerp(envs[idx][key], envs[idx+1][key], fract);
+                }
+            }
+            return result;
+        }
+
+        function drawPerspectiveLines(ctx, x, y, width, height, progress, env, curSpeed) {
+            ctx.save();
+            ctx.translate(x, y);
+
+            const vpy = height * 0.45;
+            const vpx = width * 0.5;
+
+            // Base Road
+            ctx.fillStyle = '#1a1a1a';
+            ctx.beginPath();
+            ctx.moveTo(vpx, vpy);
+            ctx.lineTo(width, height);
+            ctx.lineTo(0, height);
+            ctx.fill();
+
+            // Mountain curve adjustment
+            let curve = env.mountain * Math.sin(progress * Math.PI * 8) * 200;
+
+            // Center Dashes
+            ctx.strokeStyle = `rgba(255, 255, 255, ${0.4 + env.night * 0.4})`;
+            ctx.lineWidth = 2;
+            
+            let dashOffset = (progress * 100) % 1;
+            
+            for (let i = 0.01; i < 1; i += 0.1) {
+                let z1 = Math.max(0.01, (i + dashOffset) % 1);
+                let z2 = Math.max(0.01, z1 + 0.05);
+
+                let y1 = vpy + Math.pow(z1, 2) * (height - vpy);
+                let y2 = vpy + Math.pow(z2, 2) * (height - vpy);
+
+                let scale1 = Math.pow(z1, 2);
+                let scale2 = Math.pow(z2, 2);
+
+                let x1 = vpx + curve * scale1;
+                let x2 = vpx + curve * scale2;
+
+                ctx.lineWidth = 1 + scale1 * 8;
+                ctx.beginPath();
+                ctx.moveTo(x1 - scale1 * 10, y1);
+                ctx.lineTo(x2 - scale2 * 10, y2);
+                ctx.stroke();
+
+                ctx.beginPath();
+                ctx.moveTo(x1 + scale1 * 10, y1);
+                ctx.lineTo(x2 + scale2 * 10, y2);
+                ctx.stroke();
+            }
+
+            // Road Edges
+            ctx.strokeStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.moveTo(vpx, vpy);
+            for(let i=0.01; i<=1; i+=0.1) {
+                let scale = Math.pow(i, 2);
+                ctx.lineTo(vpx + curve * scale - scale * width * 0.4, vpy + scale * (height - vpy));
+            }
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.moveTo(vpx, vpy);
+            for(let i=0.01; i<=1; i+=0.1) {
+                let scale = Math.pow(i, 2);
+                ctx.lineTo(vpx + curve * scale + scale * width * 0.4, vpy + scale * (height - vpy));
+            }
+            ctx.stroke();
+
+            ctx.restore();
+        }
+
+        function drawDashboard(ctx, w, h, curSpeed, steerVib) {
+            ctx.save();
+            const dashHeight = h * 0.45;
+            const dashY = h - dashHeight;
+
+            // Main Dashboard Shape
+            ctx.fillStyle = '#1a1a1a';
+            ctx.beginPath();
+            ctx.moveTo(0, h);
+            ctx.lineTo(0, dashY + 40);
+            ctx.quadraticCurveTo(w * 0.5, dashY - 20, w, dashY + 40);
+            ctx.lineTo(w, h);
+            ctx.fill();
+
+            // Highlight edge
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(0, dashY + 40);
+            ctx.quadraticCurveTo(w * 0.5, dashY - 20, w, dashY + 40);
+            ctx.stroke();
+
+            // Speedometer
+            const speedoX = w * 0.35;
+            const speedoY = dashY + dashHeight * 0.4;
+            const speedoR = Math.min(w, h) * 0.08;
+
+            ctx.fillStyle = '#0a0a0a';
+            ctx.beginPath();
+            ctx.arc(speedoX, speedoY, speedoR, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = '#333';
+            ctx.lineWidth = 4;
+            ctx.stroke();
+
+            // Numbers
+            ctx.fillStyle = '#aaa';
+            ctx.font = '10px Space Mono';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            for (let i = 0; i <= 220; i += 20) {
+                let angle = Math.PI * 0.75 + (i / 220) * Math.PI * 1.5;
+                let nx = speedoX + Math.cos(angle) * (speedoR * 0.75);
+                let ny = speedoY + Math.sin(angle) * (speedoR * 0.75);
+                ctx.fillText(i, nx, ny);
+            }
+
+            // Needle
+            let displaySpeed = curSpeed * 10000;
+            if (displaySpeed > 220) displaySpeed = 220;
+            let needleAngle = Math.PI * 0.75 + (displaySpeed / 220) * Math.PI * 1.5;
+            
+            ctx.strokeStyle = '#ff5500';
+            ctx.shadowColor = '#ff5500';
+            ctx.shadowBlur = 10;
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(speedoX, speedoY);
+            ctx.lineTo(speedoX + Math.cos(needleAngle) * (speedoR * 0.8), speedoY + Math.sin(needleAngle) * (speedoR * 0.8));
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+
+            // Center Hub
+            ctx.fillStyle = '#222';
+            ctx.beginPath();
+            ctx.arc(speedoX, speedoY, 10, 0, Math.PI * 2);
+            ctx.fill();
+
+            // RPM
+            const rpmX = w * 0.48;
+            const rpmY = speedoY;
+            const rpmR = speedoR * 0.8;
+
+            ctx.fillStyle = '#0a0a0a';
+            ctx.beginPath();
+            ctx.arc(rpmX, rpmY, rpmR, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = '#333';
+            ctx.lineWidth = 4;
+            ctx.stroke();
+
+            let rpmDisplay = curSpeed * 400;
+            if (rpmDisplay > 8) rpmDisplay = 8 + Math.random() * 0.2; // redline
+            if (rpmDisplay < 0.8) rpmDisplay = 0.8; // idle
+            let rpmAngle = Math.PI * 0.75 + (rpmDisplay / 8) * Math.PI * 1.5;
+
+            ctx.strokeStyle = '#ff5500';
+            ctx.shadowColor = '#ff5500';
+            ctx.shadowBlur = 10;
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(rpmX, rpmY);
+            ctx.lineTo(rpmX + Math.cos(rpmAngle) * (rpmR * 0.8), rpmY + Math.sin(rpmAngle) * (rpmR * 0.8));
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+
+            // Center Console
+            ctx.fillStyle = '#111';
+            ctx.fillRect(w * 0.55, dashY + 50, w * 0.15, dashHeight * 0.6);
+            ctx.fillStyle = '#ff5500';
+            ctx.font = '16px Space Mono';
+            ctx.fillText('D', w * 0.625, dashY + 80);
+
+            // Vents
+            ctx.fillStyle = '#050505';
+            for(let i=0; i<3; i++) {
+                ctx.fillRect(w * 0.6 + i * 15, dashY + 20, 10, 30);
+            }
+
+            // Glove box line
+            ctx.strokeStyle = '#222';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(w * 0.75, dashY + 60);
+            ctx.lineTo(w * 0.95, dashY + 70);
+            ctx.stroke();
+
+            // Steering Wheel
+            ctx.save();
+            ctx.translate(speedoX + steerVib.x, dashY + dashHeight * 0.8 + steerVib.y);
+            
+            // Subtle rotation based on scroll speed / curve
+            let steerRotation = 0;
+            // Very fake steering based on time & speed
+            if (curSpeed > 0.001) {
+                steerRotation = Math.sin(time * 2) * 0.05 * (curSpeed / 0.01);
+            }
+            ctx.rotate(steerRotation);
+
+            const wheelR = Math.min(w, h) * 0.25;
+            
+            // Wheel shadow
+            ctx.fillStyle = 'rgba(0,0,0,0.5)';
+            ctx.beginPath();
+            ctx.arc(0, 20, wheelR, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Rim
+            ctx.strokeStyle = '#111';
+            ctx.lineWidth = 25;
+            ctx.beginPath();
+            ctx.arc(0, 0, wheelR, 0, Math.PI * 2);
+            ctx.stroke();
+
+            // Highlight
+            ctx.strokeStyle = '#222';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(0, 0, wheelR - 10, Math.PI, Math.PI * 2);
+            ctx.stroke();
+
+            // Spokes
+            ctx.fillStyle = '#222';
+            ctx.beginPath();
+            ctx.moveTo(-wheelR * 0.8, 20);
+            ctx.lineTo(wheelR * 0.8, 20);
+            ctx.lineTo(30, wheelR * 0.8);
+            ctx.lineTo(-30, wheelR * 0.8);
+            ctx.fill();
+
+            // Hub
+            ctx.fillStyle = '#151515';
+            ctx.beginPath();
+            ctx.arc(0, 30, 40, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.restore(); // end steering wheel
+
+            ctx.restore(); // end dashboard
+        }
+
+        function drawWindshieldFrame(ctx, w, h) {
+            ctx.save();
+            ctx.fillStyle = '#0d0d0d';
+            
+            // Left Pillar
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(w * 0.1, 0);
+            ctx.lineTo(w * 0.05, h * 0.6);
+            ctx.lineTo(0, h * 0.6);
+            ctx.fill();
+
+            // Right Pillar
+            ctx.beginPath();
+            ctx.moveTo(w, 0);
+            ctx.lineTo(w * 0.9, 0);
+            ctx.lineTo(w * 0.95, h * 0.6);
+            ctx.lineTo(w, h * 0.6);
+            ctx.fill();
+
+            // Headliner
+            ctx.fillRect(0, 0, w, h * 0.05);
+
+            // Mirror
+            ctx.fillStyle = '#111';
+            ctx.fillRect(w * 0.45, h * 0.02, w * 0.1, h * 0.08);
+            
+            // Mirror glass
+            let grad = ctx.createLinearGradient(w * 0.45, 0, w * 0.55, 0);
+            grad.addColorStop(0, '#222');
+            grad.addColorStop(0.5, '#444');
+            grad.addColorStop(1, '#222');
+            ctx.fillStyle = grad;
+            ctx.fillRect(w * 0.46, h * 0.03, w * 0.08, h * 0.06);
+
+            ctx.restore();
+        }
+
+        function updateAndDraw(timestamp) {
+            time = timestamp * 0.001;
+
+            // Calculate speeds
+            let targetSpeed = (scrollProgress - lastProgress) / 0.016; // approx based on frame time
+            if (targetSpeed < 0) targetSpeed = 0; // only forward
+            
+            lastProgress = scrollProgress;
+            
+            // Lerp progress and speed
+            currentProgress += (scrollProgress - currentProgress) * 0.04;
+            currentSpeed += (targetSpeed - currentSpeed) * 0.05;
+
+            // Clamping
+            if (currentSpeed < 0.00001) currentSpeed = 0;
+
+            const env = getEnvParams(currentProgress);
+
+            // Audio Updates
+            if (isAudioInit && isStarted) {
+                const baseFreq = 80;
+                let engFreq = baseFreq + currentSpeed * 3000;
+                let engGainValue = 0.06 + currentSpeed * 2;
+                
+                // Idle when completely stopped
+                if (currentSpeed < 0.001) {
+                    engFreq = baseFreq;
+                    engGainValue = 0.04;
+                }
+                
+                engineOsc1.frequency.setTargetAtTime(engFreq, audioCtx.currentTime, 0.1);
+                engineOsc2.frequency.setTargetAtTime(engFreq * 2.01, audioCtx.currentTime, 0.1);
+                engineGain.gain.setTargetAtTime(engGainValue, audioCtx.currentTime, 0.1);
+                
+                rainGain.gain.setTargetAtTime(env.rain * 0.04, audioCtx.currentTime, 0.5);
+                tunnelMix.gain.setTargetAtTime(env.tunnel * 0.8, audioCtx.currentTime, 0.2);
+            }
+
+            // Check Stops
+            let foundStop = -1;
+            let minDist = 0.002; // tolerance for stop
+            for (let i = 0; i < facts.length; i++) {
+                if (Math.abs(currentProgress - facts[i].trigger) < minDist && targetSpeed < 0.001) {
+                    foundStop = i;
+                    break;
+                }
+            }
+
+            if (foundStop !== -1 && !isStopped && currentSpeed < 0.001) {
+                isStopped = true;
+                activeStopIndex = foundStop;
+                
+                // Show cinematic bars
+                barTop.classList.add('active');
+                barBottom.classList.add('active');
+                
+                // Show fact
+                const fact = facts[activeStopIndex];
+                factNumber.innerText = fact.num;
+                factHeadline.innerText = fact.headline;
+                factBody.innerText = fact.body;
+                factContainer.classList.add('active');
+                
+                if(isStarted) playChime();
+
+                hudLeft.innerText = `STOP ${activeStopIndex + 1} of 5`;
+            } else if ((targetSpeed > 0.001 || Math.abs(currentProgress - (facts[activeStopIndex]?.trigger || 0)) > minDist) && isStopped) {
+                isStopped = false;
+                barTop.classList.remove('active');
+                barBottom.classList.remove('active');
+                factContainer.classList.remove('active');
+            }
+
+            // --- DRAWING ---
+            ctx.clearRect(0, 0, width, height);
+
+            // Car Sway Effect
+            ctx.save();
+            let sway = env.mountain * Math.sin(time * 2) * 0.5 * (currentSpeed * 100);
+            ctx.translate(width/2, height/2);
+            ctx.rotate(sway * Math.PI / 180);
+            ctx.translate(-width/2, -height/2);
+
+            // 1. SKY / BACKGROUND
+            let skyGrad = ctx.createLinearGradient(0, 0, 0, height * 0.5);
+            
+            // Night: #050510 -> #000
+            // Rain: #222 -> #333
+            // Tunnel: #000
+            // Mountain: #100020 -> #ff5500
+            // Desert: #ff3300 -> #aa0000
+            
+            let rTop = env.night*5 + env.rain*34 + env.tunnel*0 + env.mountain*16 + env.desert*255;
+            let gTop = env.night*5 + env.rain*34 + env.tunnel*0 + env.mountain*0 + env.desert*51;
+            let bTop = env.night*16 + env.rain*34 + env.tunnel*0 + env.mountain*32 + env.desert*0;
+            
+            let rBot = env.night*0 + env.rain*51 + env.tunnel*0 + env.mountain*255 + env.desert*170;
+            let gBot = env.night*0 + env.rain*51 + env.tunnel*0 + env.mountain*85 + env.desert*0;
+            let bBot = env.night*0 + env.rain*51 + env.tunnel*0 + env.mountain*0 + env.desert*0;
+
+            skyGrad.addColorStop(0, `rgb(${rTop},${gTop},${bTop})`);
+            skyGrad.addColorStop(1, `rgb(${rBot},${gBot},${bBot})`);
+            ctx.fillStyle = skyGrad;
+            ctx.fillRect(0, 0, width, height * 0.5);
+
+            // Stars (Night)
+            if (env.night > 0) {
+                ctx.fillStyle = `rgba(255, 255, 255, ${env.night})`;
+                stars.forEach(s => {
+                    let blink = (Math.sin(time * s.blinkSpeed * 100) + 1) * 0.5;
+                    ctx.globalAlpha = env.night * blink;
+                    ctx.beginPath();
+                    ctx.arc(s.x * width, s.y * height, s.size, 0, Math.PI * 2);
+                    ctx.fill();
+                });
+                ctx.globalAlpha = 1;
+            }
+
+            // Mountain Silhouettes
+            if (env.mountain > 0) {
+                ctx.fillStyle = `rgba(10, 5, 20, ${env.mountain})`;
+                ctx.beginPath();
+                ctx.moveTo(0, height * 0.5);
+                for(let i=0; i<=width; i+=50) {
+                    let y = height * 0.45 - Math.sin(i * 0.01) * 50 - Math.cos(i * 0.03) * 30;
+                    ctx.lineTo(i, y);
+                }
+                ctx.lineTo(width, height * 0.5);
+                ctx.fill();
+            }
+
+            // Sun (Desert)
+            if (env.desert > 0) {
+                ctx.fillStyle = `rgba(255, 100, 0, ${env.desert})`;
+                ctx.beginPath();
+                ctx.arc(width * 0.5, height * 0.45, 60, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            // Tunnel Rings
+            if (env.tunnel > 0) {
+                ctx.strokeStyle = `rgba(50, 50, 50, ${env.tunnel})`;
+                ctx.lineWidth = 5;
+                
+                let tunnelZOffset = (currentProgress * 50) % 1;
+                
+                for(let i=0.01; i<1; i+=0.1) {
+                    let z = (i + tunnelZOffset) % 1;
+                    if (z < 0.01) continue;
+                    let w = width * (1/z);
+                    let h2 = height * 0.8 * (1/z);
+                    let x = width/2 - w/2;
+                    let y = height*0.45 - h2/2;
+                    
+                    ctx.beginPath();
+                    ctx.ellipse(width/2, height*0.45, w/2, h2/2, 0, Math.PI, 0);
+                    ctx.stroke();
+
+                    // Lights
+                    ctx.fillStyle = `rgba(255, 150, 0, ${env.tunnel})`;
+                    ctx.beginPath();
+                    ctx.arc(width/2, y, 10 * (1/z), 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+
+            // 2. ROAD
+            drawPerspectiveLines(ctx, 0, 0, width, height, currentProgress, env, currentSpeed);
+
+            // Headlights (Night)
+            if (env.night > 0) {
+                let lightGrad = ctx.createLinearGradient(width/2, height, width/2, height * 0.45);
+                lightGrad.addColorStop(0, `rgba(255, 255, 200, ${0.3 * env.night})`);
+                lightGrad.addColorStop(1, 'rgba(255, 255, 200, 0)');
+                ctx.fillStyle = lightGrad;
+                ctx.beginPath();
+                ctx.moveTo(width * 0.2, height);
+                ctx.lineTo(width * 0.45, height * 0.45);
+                ctx.lineTo(width * 0.55, height * 0.45);
+                ctx.lineTo(width * 0.8, height);
+                ctx.fill();
+            }
+
+            // Rain
+            if (env.rain > 0) {
+                ctx.strokeStyle = `rgba(200, 200, 220, ${0.3 * env.rain})`;
+                ctx.lineWidth = 1;
+                rainDrops.forEach(r => {
+                    r.y += r.speed + currentSpeed * 2;
+                    r.x -= r.speed * 0.5; // slight angle
+                    if (r.y > 1) { r.y = 0; r.x = Math.random(); }
+                    if (r.x < 0) { r.x = 1; r.y = Math.random(); }
+
+                    ctx.beginPath();
+                    ctx.moveTo(r.x * width, r.y * height);
+                    ctx.lineTo((r.x - 0.01) * width, (r.y + r.len / height) * height);
+                    ctx.stroke();
+                });
+
+                // Window drops
+                ctx.fillStyle = `rgba(200, 200, 220, ${0.4 * env.rain})`;
+                windowDrops.forEach(wDrop => {
+                    wDrop.y += wDrop.speed;
+                    if (wDrop.y > 1) { wDrop.y = 0; wDrop.x = Math.random(); }
+                    ctx.beginPath();
+                    ctx.arc(wDrop.x * width, wDrop.y * height * 0.6, wDrop.size, 0, Math.PI*2);
+                    ctx.fill();
+                });
+
+                // Wipers
+                let wiperPhase = (time % 2) / 2; // 0 to 1 every 2 sec
+                if (isStopped && activeStopIndex === 1) wiperPhase = 0.5; // Freeze mid sweep
+                let wiperAngle = Math.sin(wiperPhase * Math.PI) * Math.PI * 0.5; // 0 to 90 deg
+
+                ctx.strokeStyle = `rgba(10, 10, 10, ${env.rain})`;
+                ctx.lineWidth = 8;
+                ctx.lineCap = 'round';
+
+                // Left Wiper
+                ctx.save();
+                ctx.translate(width * 0.2, height * 0.6);
+                ctx.rotate(wiperAngle - Math.PI * 0.1);
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                ctx.lineTo(0, -height * 0.4);
+                ctx.stroke();
+                ctx.restore();
+
+                // Right Wiper
+                ctx.save();
+                ctx.translate(width * 0.7, height * 0.6);
+                ctx.rotate(wiperAngle - Math.PI * 0.1);
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                ctx.lineTo(0, -height * 0.4);
+                ctx.stroke();
+                ctx.restore();
+            }
+
+            // 3. CAR INTERIOR
+            let steerVib = {x: 0, y: 0};
+            if (currentSpeed > 0.003) {
+                steerVib.x = Math.sin(time * 50) * 1;
+                steerVib.y = Math.cos(time * 45) * 1;
+            }
+
+            drawDashboard(ctx, width, height, currentSpeed, steerVib);
+            drawWindshieldFrame(ctx, width, height);
+
+            ctx.restore(); // End Car Sway
+
+            requestAnimationFrame(updateAndDraw);
+        }
+
+        requestAnimationFrame(updateAndDraw);
+    </script>
+</body>
+</html>
