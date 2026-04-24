@@ -1,0 +1,965 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>DOPAMINE FEED</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@1,400;1,600&family=Space+Mono:wght@400;700&display=swap');
+
+body, html {
+    margin: 0;
+    padding: 0;
+    background-color: #000;
+    overflow-x: hidden;
+    font-family: system-ui, -apple-system, sans-serif;
+    touch-action: pan-y;
+}
+body {
+    height: 1800vh;
+}
+canvas {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: 0;
+    display: block;
+}
+#hud {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    z-index: 10;
+    pointer-events: none;
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    color: rgba(255,255,255,0.3);
+    transition: color 0.5s;
+}
+#progress-bar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 2px;
+    background: rgba(255,255,255,0.2);
+    z-index: 10;
+    width: 0%;
+    transition: background-color 0.5s;
+}
+#mute-btn {
+    position: fixed;
+    top: 15px;
+    right: 45px;
+    z-index: 10;
+    background: rgba(0,0,0,0.5);
+    color: #fff;
+    border: 1px solid rgba(255,255,255,0.2);
+    padding: 6px 10px;
+    border-radius: 20px;
+    font-family: system-ui, sans-serif;
+    font-size: 12px;
+    cursor: pointer;
+    backdrop-filter: blur(5px);
+    transition: all 0.5s;
+}
+#notif-bubble {
+    position: fixed;
+    top: 10px;
+    right: 15px;
+    width: 20px;
+    height: 20px;
+    background-color: #ff4444;
+    color: #fff;
+    border-radius: 50%;
+    font-size: 10px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-family: system-ui, sans-serif;
+    font-weight: bold;
+    z-index: 15;
+    pointer-events: none;
+    box-shadow: 0 0 10px rgba(255,0,0,0.5);
+}
+#scroll-hint {
+    position: fixed;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    color: rgba(255,255,255,0.5);
+    font-family: system-ui, sans-serif;
+    font-size: 14px;
+    z-index: 10;
+    pointer-events: none;
+    transition: opacity 0.5s;
+    animation: bounce 2s infinite;
+}
+@keyframes bounce {
+    0%, 20%, 50%, 80%, 100% { transform: translateY(0) translateX(-50%); }
+    40% { transform: translateY(-10px) translateX(-50%); }
+    60% { transform: translateY(-5px) translateX(-50%); }
+}
+</style>
+</head>
+<body>
+
+<div id="progress-bar"></div>
+<div id="hud">FEED</div>
+<button id="mute-btn">🔔 OFF</button>
+<div id="notif-bubble">1</div>
+<div id="scroll-hint">↓ keep scrolling</div>
+<canvas id="c"></canvas>
+
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+let width, height;
+
+function resize() {
+    width = window.innerWidth;
+    height = window.innerHeight;
+    canvas.width = width;
+    canvas.height = height;
+}
+window.addEventListener('resize', resize);
+resize();
+
+// Global states
+let scrollY = 0;
+let targetProgress = 0;
+let currentProgress = 0;
+let t = 0;
+
+window.addEventListener('scroll', () => {
+    scrollY = window.scrollY;
+    playScrollSound();
+}, {passive: true});
+
+// Audio Engine
+const AudioContext = window.AudioContext || window.webkitAudioContext;
+let audioCtx;
+let isMuted = true;
+let audioInit = false;
+
+let bassGain, droneGain1, droneGain2;
+let bassOsc, droneOsc1, droneOsc2;
+let lastScrollSoundTime = 0;
+
+function initAudio() {
+    if (audioInit) return;
+    
+    audioCtx = new AudioContext();
+    if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+    }
+    
+    // Layer 2: Dopamine Bass
+    bassOsc = audioCtx.createOscillator();
+    bassOsc.type = 'sine';
+    bassOsc.frequency.value = 55;
+    bassGain = audioCtx.createGain();
+    bassGain.gain.value = 0;
+    bassOsc.connect(bassGain);
+    bassGain.connect(audioCtx.destination);
+    bassOsc.start();
+    
+    // Layer 3: Anxiety Drone
+    droneOsc1 = audioCtx.createOscillator();
+    droneOsc1.type = 'sine';
+    droneOsc1.frequency.value = 200;
+    droneGain1 = audioCtx.createGain();
+    droneGain1.gain.value = 0;
+    droneOsc1.connect(droneGain1);
+    droneGain1.connect(audioCtx.destination);
+    droneOsc1.start();
+    
+    droneOsc2 = audioCtx.createOscillator();
+    droneOsc2.type = 'sine';
+    droneOsc2.frequency.value = 207;
+    droneGain2 = audioCtx.createGain();
+    droneGain2.gain.value = 0;
+    droneOsc2.connect(droneGain2);
+    droneGain2.connect(audioCtx.destination);
+    droneOsc2.start();
+    
+    audioInit = true;
+    isMuted = false;
+    document.getElementById('mute-btn').innerText = '🔔 ON';
+    schedulePing();
+}
+
+let nextPingTime = 0;
+function schedulePing() {
+    if (!audioInit) return;
+    if (currentProgress >= 0.88) {
+        setTimeout(schedulePing, 500);
+        return;
+    }
+    
+    const now = audioCtx.currentTime;
+    if (nextPingTime < now) nextPingTime = now + 0.1;
+    
+    while (nextPingTime < now + 0.5) {
+        if (!isMuted && currentProgress < 0.88) {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            
+            osc.frequency.setValueAtTime(880, nextPingTime);
+            osc.frequency.setValueAtTime(1100, nextPingTime + 0.08);
+            
+            gain.gain.setValueAtTime(0, nextPingTime);
+            gain.gain.linearRampToValueAtTime(0.06, nextPingTime + 0.01);
+            gain.gain.setValueAtTime(0.06, nextPingTime + 0.08);
+            gain.gain.linearRampToValueAtTime(0.06, nextPingTime + 0.09);
+            gain.gain.linearRampToValueAtTime(0, nextPingTime + 0.13);
+            
+            osc.start(nextPingTime);
+            osc.stop(nextPingTime + 0.13);
+        }
+        
+        let interval = 2.5 - (currentProgress * (2.5 - 0.8));
+        if (interval < 0.8) interval = 0.8;
+        nextPingTime += interval;
+    }
+    
+    setTimeout(schedulePing, 100);
+}
+
+function playScrollSound() {
+    if (!audioInit || isMuted || currentProgress >= 0.88) return;
+    const now = audioCtx.currentTime;
+    if (now - lastScrollSoundTime < 0.05) return;
+    lastScrollSoundTime = now;
+    
+    const bufferSize = audioCtx.sampleRate * 0.02;
+    const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i=0; i<bufferSize; i++) {
+        data[i] = Math.random() * 2 - 1;
+    }
+    
+    const noiseSource = audioCtx.createBufferSource();
+    noiseSource.buffer = buffer;
+    const gain = audioCtx.createGain();
+    gain.gain.value = 0.02;
+    noiseSource.connect(gain);
+    gain.connect(audioCtx.destination);
+    noiseSource.start();
+}
+
+function updateAudio() {
+    if (!audioInit) return;
+    
+    if (isMuted || currentProgress >= 0.88) {
+        bassGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.1);
+        droneGain1.gain.setTargetAtTime(0, audioCtx.currentTime, 0.1);
+        droneGain2.gain.setTargetAtTime(0, audioCtx.currentTime, 0.1);
+        return;
+    }
+    
+    let bGain = 0.04 + currentProgress * 0.05;
+    const pulse = (Math.sin(audioCtx.currentTime * Math.PI) + 1) / 2;
+    bGain = bGain * (0.5 + 0.5 * pulse);
+    bassGain.gain.setTargetAtTime(bGain, audioCtx.currentTime, 0.1);
+    
+    if (currentProgress > 0.40) {
+        let dGain = (currentProgress - 0.4) / 0.4 * 0.04;
+        if (dGain > 0.04) dGain = 0.04;
+        droneGain1.gain.setTargetAtTime(dGain, audioCtx.currentTime, 0.1);
+        droneGain2.gain.setTargetAtTime(dGain, audioCtx.currentTime, 0.1);
+    } else {
+        droneGain1.gain.setTargetAtTime(0, audioCtx.currentTime, 0.1);
+        droneGain2.gain.setTargetAtTime(0, audioCtx.currentTime, 0.1);
+    }
+}
+
+document.addEventListener('click', initAudio, {once: true});
+document.addEventListener('touchstart', initAudio, {once: true});
+document.addEventListener('keydown', initAudio, {once: true});
+
+document.getElementById('mute-btn').addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (!audioInit) initAudio();
+    isMuted = !isMuted;
+    document.getElementById('mute-btn').innerText = isMuted ? '🔔 OFF' : '🔔 ON';
+});
+
+// Data generators
+const usernames = [
+    'travel.vibes', 'daily.aesthetic', 'golden.hour.only', 'lifestyle.unlocked',
+    'mood.board.daily', 'soft.life.era', 'core.memories', 'that.girl.energy'
+];
+
+const gradients = [
+    ['#ff6b6b','#ffd93d'], ['#6bcb77','#4d96ff'], ['#ff922b','#cc5de8'],
+    ['#4d96ff','#339af0'], ['#f783ac','#cc5de8'], ['#20c997','#4d96ff'],
+    ['#ff6b6b','#f783ac'], ['#ffd43b','#ff922b']
+];
+
+const captions = [
+    'living my best life ✨', 'this view though 🌅', 'caught in golden hour 🌙',
+    'soft life szn 🤍', 'main character energy', 'grateful for this moment',
+    'no bad days ☀️', 'the aesthetic is immaculate'
+];
+
+const posts = [];
+for (let i=0; i<20; i++) {
+    posts.push({
+        username: usernames[Math.floor(Math.random()*usernames.length)] + '_' + Math.floor(Math.random()*1000),
+        gradient: gradients[Math.floor(Math.random()*gradients.length)],
+        caption: captions[Math.floor(Math.random()*captions.length)],
+        likes: Math.floor(Math.random()*900) + 100
+    });
+}
+
+const statsData = [
+    { val: 2400000000, label: "daily active users\non Instagram alone", color: "#ff4444", scroll: 0.60 },
+    { val: 96, label: "times the average person\nchecks their phone daily", color: "#ff6644", scroll: 0.63 },
+    { val: 47, label: "minutes of average daily\nInstagram use — per person", color: "#ff8844", scroll: 0.66 },
+    { val: 200, label: "engineers whose full-time job\nat Meta is to increase\n'time on app'", color: "#ffaa44", scroll: 0.69 },
+    { val: 1300000000, label: "dollars Meta spent in 2023\nstudying user psychology", color: "#ffcc44", scroll: 0.72 }
+];
+
+const terminalLines = [
+    { text: "analyzing your usage patterns...", type: 'typing', time: 0.01, color: '#0f0' },
+    { text: "TIME SPENT TODAY: 3h 47m", type: 'stat', time: 0.03, color: '#0f0' },
+    { text: "POSTS SCROLLED: 847", type: 'stat', time: 0.04, color: '#0f0' },
+    { text: "POSTS YOU REMEMBER: 0", type: 'stat', time: 0.05, color: '#0f0' },
+    { text: "TIMES YOU CHECKED FOR NOTIFICATIONS: 43", type: 'stat', time: 0.06, color: '#0f0' },
+    { text: "TIMES THERE WERE NOTIFICATIONS: 7", type: 'stat', time: 0.07, color: '#0f0' },
+    { text: "AVERAGE MOOD AFTER SCROLLING: ↓ 23%", type: 'stat', time: 0.08, color: '#0f0' },
+    { text: "ESTIMATED HOURS LOST THIS YEAR: 1,380", type: 'stat', time: 0.10, color: '#f00' },
+    { text: "EQUIVALENT DAYS: 57.5 DAYS", type: 'stat', time: 0.11, color: '#f00' },
+    { text: "EQUIVALENT YEARS BY AGE 70: 11.4 YEARS", type: 'stat', time: 0.12, color: '#f00' },
+    { text: "this is not about you specifically", type: 'final', time: 0.14, color: '#0f0' },
+    { text: "this is about everyone", type: 'final', time: 0.15, color: '#0f0' },
+    { text: "including you", type: 'final', time: 0.16, color: '#0f0' }
+];
+
+const notifDots = [];
+for(let i=0; i<30; i++) {
+    notifDots.push({ x: Math.random(), y: Math.random(), threshold: Math.random() });
+}
+
+// Particles systems
+let heartParticles = [];
+function spawnHeartParticle(x, y) {
+    heartParticles.push({
+        x: x, y: y,
+        vx: (Math.random() - 0.5) * 2,
+        vy: -1 - Math.random() * 2,
+        alpha: 1,
+        life: 60
+    });
+}
+
+function drawHeartParticles() {
+    ctx.fillStyle = '#ff4444';
+    for (let i = heartParticles.length - 1; i >= 0; i--) {
+        let p = heartParticles[i];
+        p.x += p.vx;
+        p.y += p.vy;
+        p.alpha = p.life / 60;
+        p.life--;
+        ctx.globalAlpha = p.alpha;
+        ctx.beginPath();
+        // Simple heart path
+        ctx.arc(p.x, p.y, 4, 0, Math.PI*2);
+        ctx.fill();
+        if (p.life <= 0) heartParticles.splice(i, 1);
+    }
+    ctx.globalAlpha = 1;
+}
+
+let breakParticles = [];
+let matrixParticles = [];
+
+function updateMatrixParticles() {
+    if (matrixParticles.length < 40) {
+        matrixParticles.push({
+            x: Math.random() * width,
+            y: 0,
+            speed: 2 + Math.random() * 2,
+            char: String.fromCharCode(0x30A0 + Math.random() * 96)
+        });
+    }
+    ctx.fillStyle = '#0f0';
+    ctx.font = '14px "Space Mono"';
+    for (let i = matrixParticles.length - 1; i >= 0; i--) {
+        let p = matrixParticles[i];
+        p.y += p.speed;
+        ctx.globalAlpha = 0.4;
+        ctx.fillText(p.char, p.x, p.y);
+        if (p.y > height) {
+            matrixParticles.splice(i, 1);
+        }
+    }
+    ctx.globalAlpha = 1;
+}
+
+// Helpers
+function roundRect(ctx, x, y, width, height, radius) {
+    ctx.beginPath();
+    ctx.moveTo(x + radius, y);
+    ctx.lineTo(x + width - radius, y);
+    ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+    ctx.lineTo(x + width, y + height - radius);
+    ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+    ctx.lineTo(x + radius, y + height);
+    ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+    ctx.lineTo(x, y + radius);
+    ctx.quadraticCurveTo(x, y, x + radius, y);
+    ctx.closePath();
+}
+
+function drawCrack(ctx, x, y, w, h) {
+    ctx.fillStyle = '#000';
+    ctx.fillRect(x, y, w, h);
+    ctx.fillStyle = '#f00';
+    ctx.font = '16px "Space Mono"';
+    ctx.textAlign = 'center';
+    ctx.fillText("YOU HAVE BEEN SCROLLING", x + w/2, y + h/2 - 15);
+    ctx.fillText("FOR 47 MINUTES", x + w/2, y + h/2 + 15);
+    
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(x + w/2, y + h/2); ctx.lineTo(x + 20, y + 20);
+    ctx.moveTo(x + w/2, y + h/2); ctx.lineTo(x + w - 30, y + 10);
+    ctx.moveTo(x + w/2, y + h/2); ctx.lineTo(x + 10, y + h - 20);
+    ctx.moveTo(x + w/2, y + h/2); ctx.lineTo(x + w - 10, y + h - 10);
+    ctx.stroke();
+}
+
+function drawBrain(p) {
+    const cx = width/2;
+    const cy = height/2;
+    const scale = Math.min(width/400, 1.5);
+    
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.scale(scale, scale);
+    
+    ctx.strokeStyle = 'rgba(255,100,100,0.3)';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(0, -90);
+    ctx.bezierCurveTo(80, -90, 130, -40, 110, 20);
+    ctx.bezierCurveTo(90, 60, 50, 90, 0, 90);
+    ctx.bezierCurveTo(-50, 90, -90, 60, -110, 20);
+    ctx.bezierCurveTo(-130, -40, -80, -90, 0, -90);
+    ctx.stroke();
+    
+    ctx.beginPath();
+    ctx.moveTo(-50, -60); ctx.quadraticCurveTo(-20, -30, -40, 0);
+    ctx.moveTo(50, -60); ctx.quadraticCurveTo(20, -30, 40, 0);
+    ctx.moveTo(0, -90); ctx.lineTo(0, 90);
+    ctx.stroke();
+    
+    const p3 = (p - 0.4)/0.2; 
+    ctx.fillStyle = `rgba(100,100,255,${0.5 * (1 - p3)})`;
+    ctx.beginPath();
+    ctx.arc(-80, -20, 40, 0, Math.PI*2);
+    ctx.fill();
+    
+    ctx.fillStyle = `rgba(100,100,255,${1 - p3})`;
+    ctx.font = 'bold 12px "Space Mono"';
+    ctx.textAlign = 'center';
+    ctx.fillText("PREFRONTAL CORTEX", -80, -70);
+    ctx.font = '10px "Space Mono"';
+    ctx.fillText("rational thinking", -80, -55);
+    ctx.fillText("being suppressed", -80, -40);
+    
+    ctx.fillStyle = `rgba(255,50,50,${0.2 + p3 * 0.8})`;
+    ctx.beginPath();
+    ctx.arc(0, 20, 20, 0, Math.PI*2);
+    ctx.fill();
+    
+    ctx.fillStyle = `rgba(255,50,50,${p3})`;
+    ctx.font = 'bold 12px "Space Mono"';
+    ctx.fillText("NUCLEUS ACCUMBENS", 0, 60);
+    ctx.font = '10px "Space Mono"';
+    ctx.fillText("dopamine center", 0, 75);
+    ctx.fillText("being activated", 0, 90);
+    
+    ctx.restore();
+}
+
+// Rendering Phases
+function drawFeed(p) {
+    const cardWidth = Math.min(480, width * 0.92);
+    const cardHeight = 450;
+    const spacing = 16;
+    const totalPosts = posts.length;
+    
+    const feedHeight = totalPosts * (cardHeight + spacing);
+    const scrollOffset = p * feedHeight * 3; 
+    
+    const isPhase2 = p > 0.2 && p <= 0.4;
+    const isPhase3 = p > 0.4 && p <= 0.6;
+    
+    let separation = 0;
+    if (p > 0.4) {
+        separation = (p - 0.4) * 800;
+    }
+    
+    if (isPhase3) {
+        drawBrain(p);
+    }
+
+    for (let i=0; i<posts.length; i++) {
+        const post = posts[i];
+        let x = (width - cardWidth) / 2;
+        let y = height / 2 + i * (cardHeight + spacing) - scrollOffset + (i * separation);
+        
+        if (y < -cardHeight - 200 || y > height + 200) continue;
+        
+        let driftX = 0;
+        let driftAngle = 0;
+        if (p > 0.4) {
+            const phase3Prog = (p - 0.4) / 0.2;
+            driftX = Math.sin(i + t*0.01) * 100 * phase3Prog;
+            driftAngle = Math.sin(i*2 + t*0.02) * 0.2 * phase3Prog;
+        }
+        
+        ctx.save();
+        ctx.translate(x + cardWidth/2 + driftX, y + cardHeight/2);
+        ctx.rotate(driftAngle);
+        
+        let currentX = -cardWidth/2;
+        let currentY = -cardHeight/2;
+        
+        const isGlitchPost = (i % 5 === 1 && isPhase2);
+        const isCrackPost = (i === 6 && p > 0.3);
+        const isFakeLikePost = (i === 8 && isPhase2);
+        
+        ctx.fillStyle = '#111111';
+        roundRect(ctx, currentX, currentY, cardWidth, cardHeight, 12);
+        ctx.fill();
+        
+        const avatarGrad = ctx.createLinearGradient(currentX + 14, currentY + 14, currentX + 46, currentY + 46);
+        avatarGrad.addColorStop(0, post.gradient[0]);
+        avatarGrad.addColorStop(1, post.gradient[1]);
+        ctx.fillStyle = avatarGrad;
+        ctx.beginPath();
+        ctx.arc(currentX + 30, currentY + 30, 16, 0, Math.PI*2);
+        ctx.fill();
+        
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 14px system-ui, sans-serif';
+        ctx.textAlign = 'left';
+        ctx.fillText(post.username, currentX + 55, currentY + 35);
+        
+        ctx.fillStyle = '#0095f6';
+        ctx.fillText('Follow', currentX + cardWidth - 80, currentY + 35);
+        
+        ctx.fillStyle = '#fff';
+        ctx.beginPath();
+        ctx.arc(currentX + cardWidth - 20, currentY + 30, 2, 0, Math.PI*2);
+        ctx.arc(currentX + cardWidth - 20, currentY + 24, 2, 0, Math.PI*2);
+        ctx.arc(currentX + cardWidth - 20, currentY + 36, 2, 0, Math.PI*2);
+        ctx.fill();
+        
+        if (isGlitchPost && Math.random() < 0.2) {
+            ctx.fillStyle = '#000';
+            ctx.fillRect(currentX, currentY + 60, cardWidth, 300);
+            ctx.fillStyle = '#f00';
+            ctx.font = '16px "Space Mono"';
+            ctx.textAlign = 'center';
+            ctx.fillText("ENGAGEMENT RATE: 0.3%", currentX + cardWidth/2, currentY + 180);
+            ctx.fillText("TIME SPENT: 47 min today", currentX + cardWidth/2, currentY + 210);
+            ctx.fillText("POSTS SEEN: 0 remembered", currentX + cardWidth/2, currentY + 240);
+        } else {
+            const grad = ctx.createLinearGradient(currentX, currentY + 60, currentX, currentY + 360);
+            grad.addColorStop(0, post.gradient[0]);
+            grad.addColorStop(1, post.gradient[1]);
+            ctx.fillStyle = grad;
+            ctx.fillRect(currentX, currentY + 60, cardWidth, 300);
+            
+            if (isCrackPost) {
+                drawCrack(ctx, currentX, currentY + 60, cardWidth, 300);
+            }
+        }
+        
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 2;
+        
+        ctx.beginPath();
+        ctx.moveTo(currentX + 30, currentY + 385);
+        ctx.bezierCurveTo(currentX + 30, currentY + 382, currentX + 25, currentY + 375, currentX + 20, currentY + 375);
+        ctx.bezierCurveTo(currentX + 10, currentY + 375, currentX + 10, currentY + 387, currentX + 10, currentY + 387);
+        ctx.bezierCurveTo(currentX + 10, currentY + 395, currentX + 20, currentY + 402, currentX + 30, currentY + 408);
+        ctx.bezierCurveTo(currentX + 40, currentY + 402, currentX + 50, currentY + 395, currentX + 50, currentY + 387);
+        ctx.bezierCurveTo(currentX + 50, currentY + 387, currentX + 50, currentY + 375, currentX + 40, currentY + 375);
+        ctx.bezierCurveTo(currentX + 35, currentY + 375, currentX + 30, currentY + 382, currentX + 30, currentY + 385);
+        ctx.stroke();
+        
+        ctx.beginPath();
+        ctx.arc(currentX + 75, currentY + 388, 10, 0, Math.PI*2);
+        ctx.moveTo(currentX + 68, currentY + 395);
+        ctx.lineTo(currentX + 65, currentY + 405);
+        ctx.lineTo(currentX + 75, currentY + 398);
+        ctx.stroke();
+        
+        ctx.beginPath();
+        ctx.moveTo(currentX + 110, currentY + 388);
+        ctx.lineTo(currentX + 130, currentY + 380);
+        ctx.lineTo(currentX + 110, currentY + 398);
+        ctx.lineTo(currentX + 115, currentY + 392);
+        ctx.closePath();
+        ctx.stroke();
+        
+        ctx.beginPath();
+        ctx.moveTo(currentX + cardWidth - 25, currentY + 375);
+        ctx.lineTo(currentX + cardWidth - 10, currentY + 375);
+        ctx.lineTo(currentX + cardWidth - 10, currentY + 405);
+        ctx.lineTo(currentX + cardWidth - 17.5, currentY + 395);
+        ctx.lineTo(currentX + cardWidth - 25, currentY + 405);
+        ctx.closePath();
+        ctx.stroke();
+        
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 14px system-ui, sans-serif';
+        ctx.textAlign = 'left';
+        let displayLikes = post.likes;
+        if (isFakeLikePost) {
+            displayLikes = Math.floor(post.likes + (t * 50) % 10000);
+        }
+        ctx.fillText(`${displayLikes.toLocaleString()} likes`, currentX + 20, currentY + 425);
+        
+        ctx.font = '14px system-ui, sans-serif';
+        const usrWidth = ctx.measureText(`${post.username} `).width;
+        ctx.fillText(post.caption, currentX + 20 + usrWidth, currentY + 445);
+        ctx.font = 'bold 14px system-ui, sans-serif';
+        ctx.fillText(`${post.username}`, currentX + 20, currentY + 445);
+        
+        if (p < 0.2 && y > height/2 - 100 && y < height/2 + 100) {
+            if (Math.random() < 0.05) spawnHeartParticle(currentX + 30 + (x + cardWidth/2), currentY + 385 + (y + cardHeight/2));
+        }
+        
+        if (isPhase3 && Math.random() < 0.1) {
+            breakParticles.push({
+                x: (x + cardWidth/2) + (Math.random() - 0.5) * cardWidth,
+                y: (y + cardHeight/2) + (Math.random() - 0.5) * cardHeight,
+                vx: (Math.random() - 0.5) * 4,
+                vy: (Math.random() - 0.5) * 4,
+                color: Math.random() > 0.5 ? post.gradient[0] : post.gradient[1],
+                life: 60
+            });
+        }
+
+        if ((isPhase2 || isPhase3) && Math.random() < 0.05) {
+            ctx.restore();
+            const sliceY = y + Math.random() * cardHeight;
+            const sliceH = 10 + Math.random() * 20;
+            const offset = (Math.random() - 0.5) * 40;
+            try {
+                const imgData = ctx.getImageData(0, sliceY, width, sliceH);
+                ctx.putImageData(imgData, offset, sliceY);
+            } catch(e) {}
+            ctx.save();
+        } else {
+            ctx.restore();
+        }
+    }
+
+    drawHeartParticles();
+    
+    if (isPhase3) {
+        for (let i = breakParticles.length - 1; i >= 0; i--) {
+            let bp = breakParticles[i];
+            bp.x += bp.vx;
+            bp.y += bp.vy;
+            bp.life--;
+            ctx.fillStyle = bp.color;
+            ctx.globalAlpha = bp.life / 60;
+            ctx.fillRect(bp.x, bp.y, 4, 4);
+            if (bp.life <= 0) breakParticles.splice(i, 1);
+        }
+        ctx.globalAlpha = 1;
+    }
+
+    if (isPhase2) {
+        const fade = Math.max(0, Math.sin((p - 0.2) / 0.2 * Math.PI));
+        ctx.fillStyle = `rgba(255,255,255,${0.15 * fade})`;
+        ctx.font = 'italic 30px "Cormorant Garamond", serif';
+        ctx.textAlign = 'center';
+        ctx.fillText("The average person checks their", width/2, height/2 - 20);
+        ctx.fillText("phone 96 times per day", width/2, height/2 + 20);
+    }
+
+    if (isPhase3) {
+        const p3 = (p - 0.4) / 0.2;
+        ctx.fillStyle = `rgba(255,255,255,${Math.max(0, Math.sin(p3 * Math.PI))})`;
+        ctx.font = '24px "Cormorant Garamond", serif';
+        ctx.textAlign = 'center';
+        
+        if (p3 < 0.33) {
+            ctx.fillText("Instagram was designed by former", width/2, height/2 - 20);
+            ctx.fillText("slot machine engineers", width/2, height/2 + 10);
+            ctx.fillText("The infinite scroll was", width/2, height/2 + 50);
+            ctx.fillText("patented as a compulsion loop", width/2, height/2 + 80);
+        } else if (p3 < 0.66) {
+            ctx.fillText("Your brain cannot distinguish", width/2, height/2 - 30);
+            ctx.fillText("between a slot machine jackpot", width/2, height/2);
+            ctx.fillText("and a post getting 100 likes", width/2, height/2 + 30);
+            ctx.fillText("Same dopamine pathway", width/2, height/2 + 70);
+            ctx.fillText("Same neurological addiction", width/2, height/2 + 100);
+        } else {
+            ctx.fillText("The average teenager spends", width/2, height/2 - 30);
+            ctx.fillText("9 hours per day on social media", width/2, height/2);
+            ctx.fillText("More time than they spend sleeping", width/2, height/2 + 40);
+            ctx.fillText("More time than they spend", width/2, height/2 + 70);
+            ctx.fillText("with other humans", width/2, height/2 + 100);
+        }
+    }
+
+    if (p > 0.55) {
+        const fade = Math.min(1, Math.max(0, (p - 0.55) / 0.05));
+        ctx.fillStyle = `rgba(0,0,5,${fade})`; 
+        ctx.fillRect(0,0,width,height);
+    }
+}
+
+function drawStats(p) {
+    const isMobile = width < 768;
+    const positions = isMobile ? [
+        {x: width * 0.5, y: height * 0.15},
+        {x: width * 0.5, y: height * 0.35},
+        {x: width * 0.5, y: height * 0.55},
+        {x: width * 0.5, y: height * 0.75},
+        {x: width * 0.5, y: height * 0.90}
+    ] : [
+        {x: width * 0.25, y: height * 0.25},
+        {x: width * 0.75, y: height * 0.35},
+        {x: width * 0.25, y: height * 0.65},
+        {x: width * 0.75, y: height * 0.75},
+        {x: width * 0.5, y: height * 0.85}
+    ];
+    
+    ctx.strokeStyle = 'rgba(255,100,100,0.15)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    
+    for (let i=0; i<statsData.length; i++) {
+        if (p > statsData[i].scroll) {
+            for (let j=i+1; j<statsData.length; j++) {
+                if (p > statsData[j].scroll) {
+                    ctx.moveTo(positions[i].x, positions[i].y);
+                    ctx.lineTo(positions[j].x, positions[j].y);
+                }
+            }
+        }
+    }
+    ctx.stroke();
+    
+    for (let i=0; i<statsData.length; i++) {
+        const stat = statsData[i];
+        if (p > stat.scroll) {
+            let progress = (p - stat.scroll) / 0.02;
+            if (progress > 1) progress = 1;
+            
+            const currentVal = Math.floor(stat.val * progress);
+            
+            ctx.textAlign = 'center';
+            ctx.fillStyle = stat.color;
+            ctx.globalAlpha = Math.min(1, (p - stat.scroll) / 0.01);
+            
+            let fontSize = width < 600 ? 24 : 36;
+            ctx.font = `bold ${fontSize}px "Space Mono"`;
+            ctx.fillText(currentVal.toLocaleString(), positions[i].x, positions[i].y);
+            
+            ctx.fillStyle = 'rgba(255,255,255,0.7)';
+            ctx.font = '14px "Space Mono"';
+            const lines = stat.label.split('\n');
+            for (let l=0; l<lines.length; l++) {
+                ctx.fillText(lines[l], positions[i].x, positions[i].y + 25 + l*18);
+            }
+            ctx.globalAlpha = 1;
+        }
+    }
+}
+
+function drawMirror(p) {
+    updateMatrixParticles();
+    
+    const prog = p - 0.75;
+    ctx.textAlign = 'left';
+    ctx.font = '16px "Space Mono"';
+    
+    let startY = height/2 - 150;
+    let isMobile = width < 600;
+    let startX = isMobile ? 20 : width/2 - 250;
+    
+    for (let i=0; i<terminalLines.length; i++) {
+        const line = terminalLines[i];
+        if (prog > line.time) {
+            const lineProg = (prog - line.time) / 0.01;
+            const charsToShow = Math.floor(Math.min(1, lineProg) * line.text.length);
+            
+            ctx.fillStyle = line.color;
+            ctx.fillText(line.text.substring(0, charsToShow), startX, startY + i * 25);
+            
+            if (i === terminalLines.length - 1 || prog < terminalLines[i+1]?.time) {
+                if (Math.floor(t / 20) % 2 === 0) {
+                    ctx.fillText("_", startX + ctx.measureText(line.text.substring(0, charsToShow)).width, startY + i * 25);
+                }
+            }
+        }
+    }
+}
+
+function drawExit(p) {
+    const prog = (p - 0.88) / 0.12;
+    
+    if (prog < 0.4) {
+        ctx.strokeStyle = '#ddd';
+        ctx.lineWidth = 4;
+        const phoneW = Math.min(250, width * 0.6);
+        const phoneH = phoneW * 2;
+        roundRect(ctx, width/2 - phoneW/2, height/2 - phoneH/2, phoneW, phoneH, 20);
+        ctx.stroke();
+        
+        ctx.fillStyle = '#111';
+        roundRect(ctx, width/2 - phoneW/2 + 10, height/2 - phoneH/2 + 10, phoneW - 20, phoneH - 20, 10);
+        ctx.fill();
+        
+        const dotProgress = prog / 0.4;
+        ctx.fillStyle = '#f00';
+        for(let i=0; i<notifDots.length; i++) {
+            const dot = notifDots[i];
+            if (dotProgress < dot.threshold) {
+                const rx = width/2 - phoneW/2 + 20 + dot.x * (phoneW - 40);
+                const ry = height/2 - phoneH/2 + 20 + dot.y * (phoneH - 40);
+                ctx.beginPath();
+                ctx.arc(rx, ry, 8, 0, Math.PI*2);
+                ctx.fill();
+            }
+        }
+    } else {
+        const textProg = (prog - 0.4) / 0.6;
+        ctx.fillStyle = '#000';
+        ctx.textAlign = 'center';
+        
+        const fontSize = Math.max(24, Math.min(width * 0.05, 64));
+        ctx.font = `italic ${fontSize}px "Cormorant Garamond", serif`;
+        
+        if (textProg < 0.25) {
+            ctx.globalAlpha = Math.max(0, Math.sin(textProg/0.25 * Math.PI));
+            ctx.fillText("The average person will spend", width/2, height/2 - 20);
+            ctx.fillText("13 years of their life", width/2, height/2 + 20);
+            ctx.fillText("on social media", width/2, height/2 + 60);
+        } else if (textProg < 0.5) {
+            ctx.globalAlpha = Math.max(0, Math.sin((textProg-0.25)/0.25 * Math.PI));
+            ctx.fillText("The app designers spend their", width/2, height/2 - 20);
+            ctx.fillText("own time very differently", width/2, height/2 + 20);
+        } else if (textProg < 0.8) {
+            ctx.globalAlpha = Math.max(0, Math.sin((textProg-0.5)/0.3 * Math.PI));
+            let lh = fontSize * 1.2;
+            ctx.fillText("Tristan Harris — former Google", width/2, height/2 - lh*1.5);
+            ctx.fillText("design ethicist — said:", width/2, height/2 - lh*0.5);
+            ctx.fillText("'A handful of people working at", width/2, height/2 + lh*0.5);
+            ctx.fillText("a handful of tech companies", width/2, height/2 + lh*1.5);
+            ctx.fillText("steer the thoughts of 2 billion people", width/2, height/2 + lh*2.5);
+            ctx.fillText("every day'", width/2, height/2 + lh*3.5);
+        } else {
+            ctx.globalAlpha = Math.min(1, Math.max(0, (textProg-0.8)/0.1));
+            ctx.fillText("Put the phone down.", width/2, height/2 - 20);
+            ctx.fillText("Look at something real.", width/2, height/2 + 30);
+        }
+        ctx.globalAlpha = 1;
+    }
+}
+
+function updateHUD() {
+    document.getElementById('progress-bar').style.width = (currentProgress * 100) + '%';
+    
+    let p = currentProgress;
+    let barColor = 'rgba(255,255,255,0.2)';
+    let label = "FEED";
+    
+    if (p < 0.2) { label = "FEED"; barColor = "rgba(255,255,255,0.2)"; }
+    else if (p < 0.4) { label = "GLITCHING"; barColor = "rgba(255,255,255,0.2)"; }
+    else if (p < 0.6) { label = "BREAKING"; barColor = "rgba(255,100,100,0.5)"; }
+    else if (p < 0.75) { label = "DATA"; barColor = "rgba(255,100,100,0.5)"; }
+    else if (p < 0.88) { label = "MIRROR"; barColor = "rgba(0,255,100,0.5)"; }
+    else { label = "FREEDOM"; barColor = "rgba(0,0,0,0.3)"; }
+    
+    document.getElementById('hud').innerText = label;
+    document.getElementById('progress-bar').style.background = barColor;
+    
+    if (p > 0.88) {
+        document.getElementById('hud').style.color = "rgba(0,0,0,0.5)";
+        document.getElementById('mute-btn').style.display = "none";
+    } else {
+        document.getElementById('hud').style.color = "rgba(255,255,255,0.3)";
+        document.getElementById('mute-btn').style.display = "block";
+    }
+    
+    const hint = document.getElementById('scroll-hint');
+    if (p > 0.05) {
+        hint.style.opacity = 0;
+    } else {
+        hint.style.opacity = 1;
+    }
+    
+    const bubble = document.getElementById('notif-bubble');
+    if (p < 0.88) {
+        bubble.innerText = Math.floor(p * 200) + 1;
+        const scale = 1 + Math.sin(t * 0.2) * 0.1;
+        bubble.style.transform = `scale(${scale})`;
+        bubble.style.display = 'flex';
+    } else {
+        bubble.style.display = 'none';
+    }
+}
+
+// Main loop
+function render() {
+    t++;
+    requestAnimationFrame(render);
+    
+    const docHeight = document.body.scrollHeight;
+    targetProgress = scrollY / (docHeight - window.innerHeight);
+    if (targetProgress < 0) targetProgress = 0;
+    if (targetProgress > 1) targetProgress = 1;
+    
+    currentProgress += (targetProgress - currentProgress) * 0.05;
+    
+    updateAudio();
+    updateHUD();
+    
+    ctx.clearRect(0, 0, width, height);
+    
+    let bgR = 0, bgG = 0, bgB = 0;
+    if (currentProgress > 0.88) {
+        const fade = Math.max(0, Math.min(1, (currentProgress - 0.88) / 0.12));
+        bgR = bgG = bgB = fade * 255;
+    } else if (currentProgress > 0.60 && currentProgress <= 0.75) {
+        bgB = 5;
+    }
+    ctx.fillStyle = `rgb(${bgR}, ${bgG}, ${bgB})`;
+    ctx.fillRect(0, 0, width, height);
+    
+    if (currentProgress < 0.88) {
+        drawFeed(currentProgress);
+    }
+    if (currentProgress > 0.60 && currentProgress <= 0.75) {
+        drawStats(currentProgress);
+    }
+    if (currentProgress > 0.75 && currentProgress <= 0.88) {
+        drawMirror(currentProgress);
+    }
+    if (currentProgress > 0.88) {
+        drawExit(currentProgress);
+    }
+}
+
+requestAnimationFrame(render);
+</script>
+</body>
+</html>
