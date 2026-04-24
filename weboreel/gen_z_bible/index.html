@@ -1,0 +1,1013 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>GEN Z BIBLE</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Cormorant+Garamond:ital,wght@1,400&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --hot-pink: #ff006e;
+            --electric-blue: #3a86ff;
+            --acid-green: #8aff00;
+            --purple: #8338ec;
+            --orange: #fb5607;
+            --yellow: #ffbe0b;
+            --white: #ffffff;
+            --black: #0a0a0a;
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            background: var(--black);
+            font-family: 'Space Mono', monospace;
+            color: var(--white);
+            overscroll-behavior-y: none;
+        }
+
+        body {
+            height: 2000vh; /* For vertical scrolling */
+        }
+
+        #bg-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        #entries-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 1500vw; /* 15 * 100vw */
+            height: 100vh;
+            display: flex;
+            flex-direction: row;
+            z-index: 1;
+            will-change: transform;
+        }
+
+        .entry {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            padding: 5vw 10vw;
+            box-sizing: border-box;
+            flex-shrink: 0;
+            transition: opacity 0.5s cubic-bezier(0.25,0.46,0.45,0.94), transform 0.5s cubic-bezier(0.25,0.46,0.45,0.94);
+            transform-origin: center center;
+        }
+
+        .bleed {
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 15vw;
+            height: 100vh;
+            z-index: 1;
+            pointer-events: none;
+        }
+
+        .entry-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            width: 100%;
+            position: relative;
+            z-index: 2;
+        }
+
+        .top-area {
+            margin-bottom: 2vh;
+        }
+
+        .entry-num {
+            font-size: 12px;
+            letter-spacing: 0.4em;
+            color: rgba(255,255,255,0.4);
+        }
+
+        .entry-word {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: clamp(5rem, 15vw, 14rem);
+            margin: 0;
+            line-height: 0.9;
+            text-transform: uppercase;
+            text-shadow: 0 4px 30px rgba(0,0,0,0.4);
+        }
+
+        .category-tag {
+            font-size: clamp(0.6rem, 1vw, 0.8rem);
+            padding: 6px 16px;
+            border-radius: 30px;
+            font-weight: bold;
+            display: inline-block;
+            margin-top: 3vh;
+            margin-bottom: 2vh;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--black);
+        }
+
+        .definition {
+            font-family: 'Space Mono', monospace;
+            font-size: clamp(1rem, 2vw, 1.5rem);
+            font-weight: bold;
+            margin-bottom: 2vh;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.5);
+        }
+
+        .explanation {
+            font-family: 'Cormorant Garamond', serif;
+            font-style: italic;
+            font-size: clamp(1.2rem, 2.5vw, 2rem);
+            line-height: 1.4;
+            opacity: 0.95;
+            max-width: 800px;
+            margin-bottom: 3vh;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.5);
+        }
+
+        .example {
+            font-family: 'Space Mono', monospace;
+            font-size: clamp(0.9rem, 1.5vw, 1.1rem);
+            opacity: 0.8;
+            max-width: 600px;
+            border-left: 3px solid rgba(255,255,255,0.4);
+            padding-left: 1.5rem;
+            margin: 0;
+            background: rgba(0,0,0,0.2);
+            padding-top: 10px;
+            padding-bottom: 10px;
+            border-radius: 0 10px 10px 0;
+        }
+
+        .year {
+            font-family: 'Space Mono', monospace;
+            font-size: clamp(0.7rem, 1vw, 0.9rem);
+            color: var(--yellow);
+            margin-top: 3vh;
+            opacity: 0.9;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .aesthetics-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+            max-width: 800px;
+        }
+
+        .aesthetics-grid span {
+            padding: 0.5rem 1rem;
+            border: 1px solid rgba(0,0,0,0.8);
+            border-radius: 50px;
+            font-size: clamp(0.7rem, 1.2vw, 1rem);
+            font-family: 'Space Mono', monospace;
+            color: var(--black);
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(4px);
+            font-weight: bold;
+        }
+
+        /* UI Overlays */
+        #ui-layer {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100vw; height: 100vh;
+            pointer-events: none;
+            z-index: 100;
+        }
+
+        #top-left {
+            position: absolute;
+            top: 4vh; left: 4vw;
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: clamp(2rem, 5vw, 4rem);
+            color: rgba(255,255,255,0.2);
+            mix-blend-mode: overlay;
+        }
+
+        #mute-btn {
+            position: absolute;
+            top: 4vh; right: 4vw;
+            pointer-events: auto;
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.2);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 30px;
+            font-family: system-ui, -apple-system, sans-serif;
+            font-weight: 600;
+            font-size: 0.9rem;
+            cursor: pointer;
+            backdrop-filter: blur(10px);
+            transition: background 0.3s, transform 0.2s;
+        }
+
+        #mute-btn:hover {
+            background: rgba(255,255,255,0.2);
+            transform: scale(1.05);
+        }
+
+        #bottom-bar {
+            position: absolute;
+            bottom: 5vh;
+            left: 0;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+        }
+
+        #dots-container {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            height: 10px;
+        }
+
+        .dot {
+            width: 5px; height: 5px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.3);
+            transition: all 0.3s;
+        }
+
+        .dot.active {
+            width: 8px; height: 8px;
+            background: var(--white);
+            box-shadow: 0 0 10px rgba(255,255,255,0.5);
+        }
+
+        #current-name {
+            font-family: 'Space Mono', monospace;
+            font-size: 10px;
+            letter-spacing: 0.3em;
+            color: rgba(255,255,255,0.6);
+            text-transform: uppercase;
+        }
+
+        #scroll-hint {
+            position: absolute;
+            top: 50%; left: 4vw;
+            transform: translateY(-50%) rotate(-90deg);
+            transform-origin: left center;
+            font-family: 'Space Mono', monospace;
+            font-size: 10px;
+            letter-spacing: 0.2em;
+            color: rgba(255,255,255,0.4);
+            animation: fadeOut 3s forwards 3s;
+        }
+
+        #flash {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100vw; height: 100vh;
+            background: white;
+            opacity: 0;
+            pointer-events: none;
+            z-index: 999;
+            transition: opacity 0.08s ease-out;
+        }
+
+        @keyframes fadeOut {
+            to { opacity: 0; }
+        }
+
+        @media (max-width: 768px) {
+            .entry {
+                padding: 10vh 5vw;
+            }
+            .aesthetics-grid span {
+                font-size: 0.6rem;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <canvas id="bg-canvas"></canvas>
+    
+    <div id="entries-container"></div>
+    
+    <div id="ui-layer">
+        <div id="top-left">
+            <div id="counter">01 / 15</div>
+        </div>
+        <button id="mute-btn">🎧 OFF</button>
+        <div id="bottom-bar">
+            <div id="dots-container"></div>
+            <div id="current-name">NPC</div>
+        </div>
+        <div id="scroll-hint">SCROLL ↓</div>
+    </div>
+
+    <div id="flash"></div>
+
+    <script>
+        const entriesData = [
+            {
+                word: "NPC", category: "INTERNET CULTURE", def: "Non-Playable Character",
+                exp: "When someone acts like they have no independent thoughts — just repeating the same patterns, responses, and behaviors like a video game background character. 'He just smiled and nodded the whole time. Total NPC energy.'",
+                ex: "My coworker is such an NPC. Same sandwich every day. Same response to everything. Literally scripted.",
+                year: "2022 — peak TikTok", bg: "#0a0a0a", wordColor: "#00ff88", accent: "#00ff88"
+            },
+            {
+                word: "RIZZ", category: "SOCIAL SKILLS", def: "Natural charm and charisma — the ability to attract without trying",
+                exp: "Derived from 'charisma' — rizz is the effortless magnetism some people have that makes others inexplicably drawn to them. You either have it or you're working on it.",
+                ex: "He walked in and said three words and she was down. Unspoken rizz is a different level.",
+                year: "Oxford Word of the Year 2023", bg: "linear-gradient(135deg, #ff006e, #8338ec)", wordColor: "#ffffff", accent: "#ffbe0b"
+            },
+            {
+                word: "DELULU", category: "MINDSET", def: "Delusional — but make it a lifestyle",
+                exp: "The philosophy that believing something hard enough can manifest it into reality. Part self-delusion, part genuine manifestation culture. 'Delulu is the solulu' became a genuine self-help motto for Gen Z.",
+                ex: "I'm manifesting that job with zero qualifications. Delulu is the solulu bestie.",
+                year: "2023 — went mainstream", bg: "#ffb3c6", wordColor: "#c9184a", accent: "#ff4d6d"
+            },
+            {
+                word: "SLAY", category: "AFFIRMATION", def: "To absolutely dominate something with excellence and confidence",
+                exp: "Originally Black drag culture slang from the 1980s — popularized by RuPaul's Drag Race — absorbed into mainstream Gen Z vocabulary by 2020. The journey from underground to Oxford Dictionary in 40 years.",
+                ex: "She walked in with that presentation and just slayed. Not a single question. Boardroom feared her.",
+                year: "1980s origin → 2020 mainstream", bg: "#1a1a2e", wordColor: "#e94560", accent: "#f5a623"
+            },
+            {
+                word: "CORE AESTHETICS", category: "AESTHETIC CULTURE", def: "Every vibe has a name now",
+                exp: "Gen Z categorized human aesthetic experience into hundreds of named 'cores' — each a complete lifestyle, visual language, and value system. You don't just like nature — you're 'cottagecore.' You don't just like the 90s — you're 'y2k aesthetic.'",
+                grid: ["COTTAGECORE", "DARK ACADEMIA", "Y2K", "LIGHT ACADEMIA", "GOBLINCORE", "FAIRYCORE", "WEIRDCORE", "DREAMCORE", "VOIDCORE", "ANGELCORE"],
+                year: "", bg: "#ffffff", wordColor: "#000000", accent: "#000000"
+            },
+            {
+                word: "UNDERSTOOD THE ASSIGNMENT", category: "ACHIEVEMENT", def: "Perfectly executed exactly what was needed",
+                exp: "When someone reads the room so perfectly and delivers beyond expectations — they didn't just do it, they UNDERSTOOD it. Used for fashion, performances, presentations, comebacks.",
+                ex: "She showed up to the villain era party in all black with a single red lip. Understood the assignment.",
+                year: "", bg: "#8338ec", wordColor: "#ffbe0b", accent: "#ffffff"
+            },
+            {
+                word: "NO CAP", category: "AUTHENTICITY", def: "No lie. Absolutely for real. I am being completely honest.",
+                exp: "'Cap' = lie. 'No cap' = no lie. Originally AAVE (African American Vernacular English) — the phrase spread globally through hip-hop and became universal Gen Z truth verification.",
+                ex: "That was the best movie I've seen this year, no cap. I cried three times. No cap.",
+                year: "Saying 'no cap' has become so mainstream that saying it ironically and sincerely are now indistinguishable. No cap.", bg: "#fb5607", wordColor: "#ffffff", accent: "#ffbe0b"
+            },
+            {
+                word: "MAIN CHARACTER", category: "IDENTITY", def: "Living like you are the protagonist of your own story",
+                exp: "The shift from being a supporting character in others' narratives to centering yourself as the hero of your own life. Part narcissism. Part necessary self-respect. The line is thin and Gen Z walks it daily.",
+                ex: "She quit the job, moved cities, cut her hair short. Full main character arc. We love to see it.",
+                year: "", bg: "linear-gradient(180deg, #3a86ff, #023e8a)", wordColor: "#ffffff", accent: "#48cae4"
+            },
+            {
+                word: "RENT FREE", category: "MENTAL SPACE", def: "Something lives in your head without paying rent — you can't stop thinking about it",
+                exp: "Thoughts, people, or moments that occupy mental real estate without permission or payment. Can be positive (a crush) or negative (an embarrassing memory from 2009 at 3am).",
+                ex: "That conversation from three years ago is living rent free in my head. I said 'you too' when the waiter said enjoy your meal.",
+                year: "", bg: "#2d6a4f", wordColor: "#d8f3dc", accent: "#95d5b2"
+            },
+            {
+                word: "ERA", category: "PERSONAL EVOLUTION", def: "A distinct phase of personal identity, style, or energy",
+                exp: "Popularized by Taylor Swift's 'Eras Tour' concept — but adopted universally. Every mood shift, style change, or personal growth period is now an 'era.' Gives people permission to change without explaining themselves.",
+                ex: "I'm in my unbothered era.\nShe's in her villain era.\nCurrently in my 6am gym era. Ask me about it. Please.",
+                year: "", bg: "#ff9f1c", wordColor: "#2ec4b6", accent: "#ffffff"
+            },
+            {
+                word: "BASED", category: "AUTHENTICITY", def: "Holding an opinion so confidently it cannot be challenged",
+                exp: "Originally from Lil B — 'Based God' — meaning uncompromisingly yourself. Evolved to mean anyone who states an unpopular opinion with complete confidence and doesn't care about the response.",
+                ex: "He said pineapple belongs on pizza in front of 50 people and didn't flinch once. Extremely based.",
+                year: "", bg: "#10002b", wordColor: "#e0aaff", accent: "#7b2d8b"
+            },
+            {
+                word: "HITTING DIFFERENT", category: "EMOTIONAL EXPERIENCE", def: "An experience that affects you in a uniquely profound way compared to before",
+                exp: "When context changes meaning. The same song, food, or place creates a completely different emotional response based on who you are when you encounter it. Growth is hitting different in reverse.",
+                ex: "Watching that movie after the breakup hit different. I understood every line differently. I was a different person watching it.",
+                year: "", bg: "#ffd6ff", wordColor: "#7b2f8b", accent: "#c77dff"
+            },
+            {
+                word: "IT'S GIVING", category: "VIBES", def: "It has the energy of / it reminds me of / it is radiating",
+                exp: "A flexible descriptor for identifying the energy something gives off. Can be positive or neutral — never negative (negative things just 'give nothing'). Used for aesthetics, people, moments, and fashion.",
+                ex: "This cafe is giving 1970s Paris artist loft. Her outfit is giving corporate villain main character. This whole situation is giving unhinged but in a good way.",
+                year: "", bg: "#f72585", wordColor: "#ffffff", accent: "#ffbe0b"
+            },
+            {
+                word: "CAUGHT IN 4K", category: "ACCOUNTABILITY", def: "Undeniably caught doing something — documented in perfect clarity",
+                exp: "4K = ultra high definition video. When someone is caught on camera doing something undeniable — lying, cheating, contradicting themselves — they are 'caught in 4K.' Evidence so clear there is no possible defense.",
+                ex: "He said he was home sick and someone posted a video of him at the concert. Caught in 4K. Full resolution. No escape.",
+                year: "", bg: "#000814", wordColor: "#4cc9f0", accent: "#4361ee"
+            },
+            {
+                word: "UNDERSTOOD", category: "THE META ENTRY", def: "Gen Z didn't invent new feelings. They invented new words for feelings that always existed.",
+                exp: "Every generation creates language for its experience. Boomers had their slang. Millennials had theirs. Gen Z inherited a world of climate anxiety, digital identity, economic instability and social media comparison — and they made it funny. That's the real flex.",
+                ex: "The words will change. The feelings won't. That's very human of you. No cap.",
+                year: "", bg: "#000000", wordColor: "#ffffff", accent: "#d4af37"
+            }
+        ];
+
+        // --- DOM GENERATION ---
+        const container = document.getElementById('entries-container');
+        const dotsContainer = document.getElementById('dots-container');
+
+        entriesData.forEach((data, index) => {
+            const el = document.createElement('div');
+            el.className = 'entry';
+            el.style.background = data.bg;
+            
+            if (index < entriesData.length - 1) {
+                const bleed = document.createElement('div');
+                bleed.className = 'bleed';
+                const nextBg = entriesData[index+1].bg;
+                bleed.style.background = `linear-gradient(to right, transparent, ${nextBg.includes('gradient') ? nextBg.split(',')[1] : nextBg})`;
+                el.appendChild(bleed);
+            }
+            
+            let contentHTML = `
+                <div class="entry-content">
+                    <div class="top-area">
+                        <span class="entry-num">${String(index+1).padStart(2, '0')}</span>
+                    </div>
+                    <div class="main-area">
+                        <h1 class="entry-word" style="color: ${data.wordColor};">${data.word}</h1>
+                    </div>
+                    <div class="bottom-area">
+                        <span class="category-tag" style="background: ${data.accent};">${data.category}</span>
+                        <p class="definition">${data.def}</p>
+                        <p class="explanation">${data.exp}</p>
+            `;
+            
+            if (data.grid) {
+                contentHTML += `<div class="aesthetics-grid">`;
+                data.grid.forEach(g => {
+                    contentHTML += `<span>${g}</span>`;
+                });
+                contentHTML += `</div>`;
+            } else if (data.ex) {
+                contentHTML += `<p class="example">${data.ex.replace(/\n/g, '<br>')}</p>`;
+            }
+            
+            if (data.year) {
+                contentHTML += `<p class="year">${data.year}</p>`;
+            }
+            
+            contentHTML += `</div></div>`;
+            el.innerHTML += contentHTML;
+            container.appendChild(el);
+
+            // Add dot indicator
+            const dot = document.createElement('div');
+            dot.className = 'dot';
+            if(index === 0) dot.classList.add('active');
+            dotsContainer.appendChild(dot);
+        });
+
+        // --- SCROLL ENGINE ---
+        const totalEntries = entriesData.length;
+        let targetProgress = 0;
+        let lerpedProgress = 0;
+        let currentEntry = 0;
+        let lastEntry = -1;
+
+        // Native scroll sync
+        window.addEventListener('scroll', () => {
+            const maxScroll = document.body.clientHeight - window.innerHeight;
+            if (maxScroll > 0) {
+                targetProgress = window.scrollY / maxScroll;
+            }
+        });
+
+        // Touch handling
+        let touchStartY = 0;
+        window.addEventListener('touchstart', (e) => {
+            touchStartY = e.touches[0].clientY;
+            // Attempt audio init
+            if (!audioCtx && !isMuted) initAudio();
+        }, {passive: false});
+
+        window.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            const touchY = e.touches[0].clientY;
+            const deltaY = touchStartY - touchY;
+            touchStartY = touchY;
+            
+            targetProgress += deltaY / 3000; 
+            targetProgress = Math.max(0, Math.min(1, targetProgress));
+            
+            const maxScroll = document.body.clientHeight - window.innerHeight;
+            window.scrollTo(0, targetProgress * maxScroll);
+        }, {passive: false});
+
+
+        function render() {
+            lerpedProgress += (targetProgress - lerpedProgress) * 0.05;
+            
+            const targetX = -lerpedProgress * (totalEntries - 1) * window.innerWidth;
+            container.style.transform = `translateX(${targetX}px)`;
+            
+            const newEntryIndex = Math.round(lerpedProgress * (totalEntries - 1));
+            
+            if (newEntryIndex !== currentEntry) {
+                lastEntry = currentEntry;
+                currentEntry = newEntryIndex;
+                onEntryChange(currentEntry, lastEntry);
+            }
+            
+            // Visual transitions for entries
+            const entryEls = document.querySelectorAll('.entry');
+            entryEls.forEach((el, index) => {
+                const dist = Math.abs(lerpedProgress * (totalEntries - 1) - index);
+                if (dist < 0.5) {
+                    el.style.opacity = 1;
+                    el.style.transform = `scale(1)`;
+                } else if (dist < 1.5) {
+                    el.style.opacity = 0.3;
+                    el.style.transform = `scale(0.95)`;
+                } else {
+                    el.style.opacity = 0;
+                    el.style.transform = `scale(0.9)`;
+                }
+            });
+
+            updateCanvasAnimation();
+            requestAnimationFrame(render);
+        }
+
+        let blendStart = 0;
+        let blendingFrom = -1;
+
+        function onEntryChange(newI, oldI) {
+            blendingFrom = oldI;
+            blendStart = Date.now();
+            
+            const words = document.querySelectorAll('.entry-word');
+            if(words[newI]) scrambleText(words[newI], entriesData[newI].word);
+            
+            playScratch();
+            triggerFlash();
+            
+            document.getElementById('counter').innerText = `${String(newI + 1).padStart(2, '0')} / 15`;
+            document.getElementById('current-name').innerText = entriesData[newI].word;
+            
+            document.querySelectorAll('.dot').forEach((dot, i) => {
+                dot.classList.toggle('active', i === newI);
+            });
+        }
+
+        // --- EFFECTS ---
+        function scrambleText(element, finalWord) {
+            const chars = '!<>-_\\/[]{}—=+*^?#________';
+            let iter = 0;
+            const maxIters = 12;
+            const originalHtml = element.innerHTML;
+            
+            const timer = setInterval(() => {
+                element.innerText = finalWord.split('').map((letter, index) => {
+                    if (index < (iter / maxIters) * finalWord.length) return letter;
+                    if (letter === ' ') return ' ';
+                    return chars[Math.floor(Math.random() * chars.length)];
+                }).join('');
+                
+                iter++;
+                if(iter >= maxIters) {
+                    clearInterval(timer);
+                    element.innerHTML = originalHtml;
+                }
+            }, 30);
+        }
+
+        function triggerFlash() {
+            const flash = document.getElementById('flash');
+            flash.style.opacity = '0.15';
+            setTimeout(() => flash.style.opacity = '0', 80);
+        }
+
+        // --- AUDIO ENGINE ---
+        let audioCtx;
+        let isMuted = true;
+        let isPlaying = false;
+        
+        const muteBtn = document.getElementById('mute-btn');
+        muteBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (!audioCtx) initAudio();
+            isMuted = !isMuted;
+            muteBtn.innerText = isMuted ? "🎧 OFF" : "🎧 ON";
+            if(!isMuted && audioCtx.state === 'suspended') audioCtx.resume();
+        });
+
+        // Initialize audio on any click/scroll
+        ['click', 'scroll', 'touchstart'].forEach(evt => {
+            window.addEventListener(evt, () => {
+                if (!audioCtx) {
+                    initAudio();
+                    isMuted = false;
+                    muteBtn.innerText = "🎧 ON";
+                }
+            }, {once: true});
+        });
+
+        function initAudio() {
+            if(audioCtx) return;
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            scheduleAudio();
+        }
+
+        const melodyNotes = [523, 659, 784, 880, 784, 659];
+        let melodyIdx = 0;
+
+        function scheduleAudio() {
+            let nextNoteTime = audioCtx.currentTime + 0.1;
+            let tick = 0;
+            
+            function scheduler() {
+                while (nextNoteTime < audioCtx.currentTime + 0.1) {
+                    playBeat(nextNoteTime, tick);
+                    nextNoteTime += 0.125; // 16th note at ~120BPM
+                    tick++;
+                }
+                if (isPlaying) requestAnimationFrame(scheduler);
+            }
+            
+            isPlaying = true;
+            scheduler();
+        }
+
+        function playBeat(time, tick) {
+            if (isMuted) return;
+            
+            // Layer 1: Bass pulse (every 4 ticks = 0.5s)
+            if (tick % 4 === 0) {
+                const osc = audioCtx.createOscillator();
+                const filter = audioCtx.createBiquadFilter();
+                const gain = audioCtx.createGain();
+                
+                osc.type = 'sawtooth';
+                osc.frequency.value = 80;
+                filter.type = 'lowpass';
+                filter.frequency.value = 300;
+                
+                osc.connect(filter); filter.connect(gain); gain.connect(audioCtx.destination);
+                
+                gain.gain.setValueAtTime(0, time);
+                gain.gain.linearRampToValueAtTime(0.12, time + 0.1);
+                gain.gain.linearRampToValueAtTime(0.07, time + 0.2);
+                gain.gain.linearRampToValueAtTime(0, time + 0.4);
+                
+                osc.start(time); osc.stop(time + 0.4);
+            }
+            
+            // Layer 2: Synth melody (every 2 ticks = 0.25s)
+            if (tick % 2 === 0) {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.value = melodyNotes[melodyIdx];
+                melodyIdx = (melodyIdx + 1) % melodyNotes.length;
+                
+                osc.connect(gain); gain.connect(audioCtx.destination);
+                
+                gain.gain.setValueAtTime(0, time);
+                gain.gain.linearRampToValueAtTime(0.04, time + 0.05);
+                gain.gain.linearRampToValueAtTime(0, time + 0.25);
+                
+                osc.start(time); osc.stop(time + 0.25);
+            }
+            
+            // Layer 3: Hi-hat (every 2 ticks)
+            if (tick % 2 === 0) {
+                playNoise(time, (tick % 4 === 0) ? 0.05 : 0.02, 'highpass', 8000, 0.05);
+            }
+            
+            // Layer 5: 808 Kick (every 4 ticks)
+            if (tick % 4 === 0) {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(150, time);
+                osc.frequency.exponentialRampToValueAtTime(40, time + 0.3);
+                
+                osc.connect(gain); gain.connect(audioCtx.destination);
+                
+                gain.gain.setValueAtTime(0, time);
+                gain.gain.linearRampToValueAtTime(0.15, time + 0.05);
+                gain.gain.exponentialRampToValueAtTime(0.001, time + 0.3);
+                
+                osc.start(time); osc.stop(time + 0.3);
+            }
+        }
+
+        function playNoise(time, vol, filterType, filterFreq, duration) {
+            if(!audioCtx || isMuted) return;
+            const bufferSize = audioCtx.sampleRate * duration;
+            const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+            const output = buffer.getChannelData(0);
+            for(let i=0; i<bufferSize; i++) output[i] = Math.random() * 2 - 1;
+            
+            const noise = audioCtx.createBufferSource();
+            noise.buffer = buffer;
+            const filter = audioCtx.createBiquadFilter();
+            filter.type = filterType; filter.frequency.value = filterFreq;
+            const gain = audioCtx.createGain();
+            
+            gain.gain.setValueAtTime(vol, time);
+            gain.gain.exponentialRampToValueAtTime(0.001, time + duration);
+            
+            noise.connect(filter); filter.connect(gain); gain.connect(audioCtx.destination);
+            noise.start(time);
+        }
+
+        function playScratch() {
+            if(isMuted || !audioCtx) return;
+            const time = audioCtx.currentTime;
+            
+            const bufferSize = audioCtx.sampleRate * 0.1;
+            const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+            const output = buffer.getChannelData(0);
+            for(let i=0; i<bufferSize; i++) output[i] = Math.random() * 2 - 1;
+            
+            const noise = audioCtx.createBufferSource();
+            noise.buffer = buffer;
+            
+            const filter = audioCtx.createBiquadFilter();
+            filter.type = 'bandpass';
+            filter.frequency.setValueAtTime(200, time);
+            filter.frequency.exponentialRampToValueAtTime(2000, time + 0.1);
+            
+            const gain = audioCtx.createGain();
+            gain.gain.setValueAtTime(0, time);
+            gain.gain.linearRampToValueAtTime(0.08, time + 0.02);
+            gain.gain.linearRampToValueAtTime(0, time + 0.1);
+            
+            noise.connect(filter); filter.connect(gain); gain.connect(audioCtx.destination);
+            noise.start(time);
+        }
+
+        // --- CANVAS ANIMATIONS ---
+        const canvas = document.getElementById('bg-canvas');
+        const ctx = canvas.getContext('2d');
+        let cw, ch;
+        let isMobile = false;
+
+        function resize() {
+            cw = canvas.width = window.innerWidth;
+            ch = canvas.height = window.innerHeight;
+            isMobile = cw < 768;
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        let animationTime = 0;
+
+        function updateCanvasAnimation() {
+            animationTime += 0.016;
+            ctx.clearRect(0, 0, cw, ch);
+            
+            let elapsed = Date.now() - blendStart;
+            
+            if (blendingFrom >= 0 && elapsed < 500) {
+                let alpha = elapsed / 500;
+                drawAnimation(blendingFrom, animationTime, 1 - alpha);
+                drawAnimation(currentEntry, animationTime, alpha);
+            } else {
+                blendingFrom = -1;
+                drawAnimation(currentEntry, animationTime, 1.0);
+            }
+        }
+
+        function drawAnimation(idx, time, alpha) {
+            if (alpha <= 0) return;
+            ctx.globalAlpha = alpha;
+            ctx.save();
+            
+            const pCount = isMobile ? 0.5 : 1;
+
+            switch(idx) {
+                case 0: // NPC - Matrix
+                    ctx.fillStyle = "#00ff88";
+                    ctx.font = "20px 'Space Mono'";
+                    let cols = Math.floor(50 * pCount);
+                    for(let i=0; i<cols; i++) {
+                        let x = (i/cols) * cw;
+                        let speed = 50 + (i%10)*20;
+                        let y = (time * speed) % (ch + 100) - 50;
+                        let char = String.fromCharCode(0x30A0 + Math.random() * 96);
+                        ctx.fillText(char, x, y);
+                    }
+                    break;
+                    
+                case 1: // RIZZ - Hearts
+                    let hearts = Math.floor(20 * pCount);
+                    for(let i=0; i<hearts; i++) {
+                        let rOffset = (i * 1234) % (Math.PI * 2);
+                        let dist = (time * 100 + i * 50) % (cw/2);
+                        let x = cw/2 + Math.cos(rOffset + time*0.5) * dist;
+                        let y = ch/2 + Math.sin(rOffset + time*0.5) * dist;
+                        let size = Math.max(0, 20 - dist/20);
+                        ctx.fillStyle = (i%2===0) ? "#ff006e" : "#ffbe0b";
+                        ctx.beginPath();
+                        ctx.arc(x, y, size, 0, Math.PI*2);
+                        ctx.fill();
+                    }
+                    break;
+                    
+                case 2: // DELULU - Clouds
+                    ctx.fillStyle = "rgba(255,255,255,0.2)";
+                    for(let i=0; i<5; i++) {
+                        let x = (time * 50 + i * 300) % (cw + 400) - 200;
+                        let y = ch * 0.2 + (i * 100) + Math.sin(time + i)*50;
+                        ctx.beginPath();
+                        ctx.arc(x, y, 100*pCount, 0, Math.PI*2);
+                        ctx.arc(x+80*pCount, y-40*pCount, 80*pCount, 0, Math.PI*2);
+                        ctx.arc(x+150*pCount, y, 90*pCount, 0, Math.PI*2);
+                        ctx.fill();
+                    }
+                    break;
+                    
+                case 3: // SLAY - Crown
+                    ctx.translate(cw/2, ch/2);
+                    let scale = (1 + Math.sin(time*2)*0.05) * (isMobile ? 0.6 : 1);
+                    ctx.scale(scale, scale);
+                    ctx.strokeStyle = "#f5a623";
+                    ctx.lineWidth = 5;
+                    ctx.beginPath();
+                    ctx.moveTo(-100, 50); ctx.lineTo(100, 50); ctx.lineTo(120, -50);
+                    ctx.lineTo(50, 0); ctx.lineTo(0, -80); ctx.lineTo(-50, 0); ctx.lineTo(-120, -50);
+                    ctx.closePath();
+                    ctx.stroke();
+                    for(let i=0; i<5; i++) {
+                        let r = time + i * (Math.PI*2/5);
+                        ctx.fillStyle = "rgba(255,255,255," + (0.5 + Math.sin(time*5+i)*0.5) + ")";
+                        ctx.beginPath();
+                        ctx.arc(Math.cos(r)*150, Math.sin(r)*150, 5, 0, Math.PI*2);
+                        ctx.fill();
+                    }
+                    break;
+                    
+                case 4: // CORE AESTHETICS
+                    const cores = ["COTTAGECORE", "DARK ACADEMIA", "Y2K", "FAIRYCORE", "WEIRDCORE"];
+                    ctx.font = `bold ${isMobile ? 20 : 30}px 'Cormorant Garamond'`;
+                    cores.forEach((c, i) => {
+                        let x = (time * 30 + i * 200) % (cw + 200) - 100;
+                        let y = (ch * 0.8) - ((time * 40 + i * 150) % (ch + 100));
+                        ctx.fillStyle = `hsl(${time*50 + i*70}, 50%, 80%)`;
+                        ctx.fillText(c, x, y);
+                    });
+                    break;
+                    
+                case 5: // UNDERSTOOD
+                    ctx.fillStyle = "rgba(255, 190, 11, 0.15)";
+                    ctx.font = "bold 100px sans-serif";
+                    for(let i=0; i<15*pCount; i++) {
+                        let x = ((i*73 + time*100) % cw);
+                        let y = ((i*113 + time*120) % ch);
+                        ctx.fillText("✓", x, y);
+                    }
+                    break;
+                    
+                case 6: // NO CAP
+                    for(let i=0; i<10*pCount; i++) {
+                        let x = (i * cw/(10*pCount));
+                        let y = (time * 200 + i * 150) % (ch + 100) - 50;
+                        ctx.fillStyle = "#ff0000";
+                        ctx.font = "50px sans-serif";
+                        ctx.fillText("🧢", x, y);
+                        ctx.strokeStyle = "red";
+                        ctx.lineWidth = 5;
+                        ctx.beginPath();
+                        ctx.moveTo(x-10, y-40); ctx.lineTo(x+60, y+10);
+                        ctx.stroke();
+                    }
+                    break;
+                    
+                case 7: // MAIN CHARACTER
+                    ctx.fillStyle = "#000";
+                    ctx.fillRect(0, 0, cw, ch * 0.15);
+                    ctx.fillRect(0, ch * 0.85, cw, ch * 0.15);
+                    let sx = Math.cos(time*0.5)*cw/4 + cw/2;
+                    let sy = Math.sin(time*0.3)*ch/4 + ch/2;
+                    let grad = ctx.createRadialGradient(sx, sy, 0, sx, sy, 300);
+                    grad.addColorStop(0, "rgba(255,255,255,0.15)");
+                    grad.addColorStop(1, "transparent");
+                    ctx.fillStyle = grad;
+                    ctx.fillRect(0,0,cw,ch);
+                    break;
+                    
+                case 8: // RENT FREE
+                    ctx.translate(cw/2, ch/2);
+                    ctx.scale(isMobile ? 0.7 : 1, isMobile ? 0.7 : 1);
+                    ctx.fillStyle = "rgba(255,255,255,0.05)";
+                    ctx.beginPath();
+                    ctx.moveTo(0, -100); ctx.lineTo(100, 0); ctx.lineTo(100, 100);
+                    ctx.lineTo(-100, 100); ctx.lineTo(-100, 0);
+                    ctx.fill();
+                    const emojis = ['🧠', '💭', '😳', '😍', '💀'];
+                    ctx.font = "40px sans-serif";
+                    ctx.fillText(emojis[Math.floor(time * 2) % emojis.length], -20, 50);
+                    break;
+                    
+                case 9: // ERA
+                    ctx.strokeStyle = "rgba(255,255,255,0.2)";
+                    ctx.lineWidth = 4;
+                    ctx.beginPath();
+                    ctx.moveTo(0, ch/2); ctx.lineTo(cw, ch/2);
+                    ctx.stroke();
+                    ctx.fillStyle = "#ffffff";
+                    let lx = (time * 100) % cw;
+                    ctx.beginPath();
+                    ctx.arc(lx, ch/2, 10, 0, Math.PI*2);
+                    ctx.fill();
+                    ctx.font = "14px 'Space Mono'";
+                    ctx.fillText("CURRENT ERA", lx - 40, ch/2 - 20);
+                    break;
+                    
+                case 10: // BASED
+                    ctx.fillStyle = "#3c096c";
+                    ctx.beginPath();
+                    ctx.moveTo(0, ch); ctx.lineTo(cw*0.2, ch-300); ctx.lineTo(cw*0.5, ch-100);
+                    ctx.lineTo(cw*0.8, ch-400); ctx.lineTo(cw, ch-200); ctx.lineTo(cw, ch);
+                    ctx.fill();
+                    ctx.strokeStyle = "rgba(255,255,255,0.1)";
+                    ctx.lineWidth = 2;
+                    for(let i=0; i<5; i++) {
+                        let wx = (time * 500 + i*200) % (cw + 200) - 200;
+                        let wy = ch/2 + i*50;
+                        ctx.beginPath();
+                        ctx.moveTo(wx, wy); ctx.lineTo(wx+100, wy);
+                        ctx.stroke();
+                    }
+                    break;
+                    
+                case 11: // HITTING DIFFERENT
+                    ctx.translate(0, ch/2);
+                    ctx.strokeStyle = "rgba(255,255,255,0.2)";
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    for(let x=0; x<cw; x+=10) ctx.lineTo(x, Math.sin(x*0.02 + time)*20);
+                    ctx.stroke();
+                    ctx.strokeStyle = "rgba(199, 125, 255, 0.8)";
+                    ctx.beginPath();
+                    for(let x=0; x<cw; x+=10) ctx.lineTo(x, Math.sin(x*0.02 + time)*(20 + Math.sin(time*5)*100));
+                    ctx.stroke();
+                    break;
+                    
+                case 12: // IT'S GIVING
+                    ctx.translate(cw/2, ch/2);
+                    for(let i=0; i<4; i++) {
+                        let r = ((time * 50) + i * 200) % 800;
+                        ctx.strokeStyle = `hsla(${i*80 + time*20}, 100%, 60%, ${1 - r/800})`;
+                        ctx.lineWidth = 10;
+                        ctx.beginPath();
+                        ctx.arc(0, 0, r, 0, Math.PI*2);
+                        ctx.stroke();
+                    }
+                    break;
+                    
+                case 13: // CAUGHT IN 4K
+                    ctx.strokeStyle = "rgba(255,255,255,0.3)";
+                    ctx.lineWidth = 4;
+                    let m = isMobile ? 20 : 50; let s = isMobile ? 20 : 40;
+                    ctx.beginPath(); ctx.moveTo(m, m+s); ctx.lineTo(m, m); ctx.lineTo(m+s, m); ctx.stroke();
+                    ctx.beginPath(); ctx.moveTo(cw-m, m+s); ctx.lineTo(cw-m, m); ctx.lineTo(cw-m-s, m); ctx.stroke();
+                    ctx.beginPath(); ctx.moveTo(m, ch-m-s); ctx.lineTo(m, ch-m); ctx.lineTo(m+s, ch-m); ctx.stroke();
+                    ctx.beginPath(); ctx.moveTo(cw-m, ch-m-s); ctx.lineTo(cw-m, ch-m); ctx.lineTo(cw-m-s, ch-m); ctx.stroke();
+                    
+                    ctx.fillStyle = Math.floor(time*2)%2 ? "red" : "transparent";
+                    ctx.beginPath(); ctx.arc(cw-m-40, m+30, 10, 0, Math.PI*2); ctx.fill();
+                    ctx.fillStyle = "#fff"; ctx.font = "20px sans-serif"; ctx.fillText("REC 4K", cw-m-20, m+36);
+                    break;
+                    
+                case 14: // UNDERSTOOD (META)
+                    ctx.textAlign = "center";
+                    let localTime = time - (blendStart/1000);
+                    if (localTime > 4) {
+                        ctx.fillStyle = `rgba(255,255,255,${Math.min(1, (localTime - 4)*0.5)})`;
+                        ctx.fillRect(0,0,cw,ch);
+                        ctx.fillStyle = "#d4af37";
+                        ctx.font = `bold ${isMobile ? 50 : 80}px 'Bebas Neue'`;
+                        ctx.fillText("GEN Z BIBLE", cw/2, ch/2);
+                    } else {
+                        entriesData.slice(0, 14).forEach((d, i) => {
+                            let cx = (Math.sin(i*123 + time*0.5)*0.4 + 0.5) * cw;
+                            let cy = (Math.cos(i*321 + time*0.5)*0.4 + 0.5) * ch;
+                            ctx.fillStyle = d.wordColor;
+                            ctx.globalAlpha = Math.max(0, 0.5 - localTime/4); // Fade out over 4s
+                            ctx.font = "20px 'Bebas Neue'";
+                            ctx.fillText(d.word, cx, cy);
+                        });
+                    }
+                    break;
+            }
+            ctx.restore();
+        }
+
+        // Start loop
+        requestAnimationFrame(render);
+    </script>
+</body>
+</html>
