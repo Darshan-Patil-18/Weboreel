@@ -1,0 +1,1183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>MIND MAZE</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Cormorant+Garamond:ital,wght@0,400;0,700;1,400&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap');
+
+    :root {
+      --bg: #0a0a12;
+      --wall: #2d2d5e;
+      --wall-stroke: rgba(100,100,255,0.3);
+      --floor: #050510;
+      --path: #0d0d1a;
+      --player: #00ff88;
+      --exit: #ffd700;
+      --ui: #3a86ff;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    
+    body {
+      background: var(--bg);
+      color: white;
+      font-family: 'Space Mono', monospace;
+      overflow: hidden;
+      touch-action: none;
+      user-select: none;
+    }
+
+    #game-container {
+      position: absolute;
+      top: 0; left: 0; width: 100vw; height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    canvas {
+      display: block;
+    }
+
+    #ui-layer {
+      position: absolute;
+      top: 0; left: 0; width: 100%; height: 100%;
+      pointer-events: none;
+      z-index: 10;
+    }
+
+    /* HUD */
+    .hud-top-left {
+      position: absolute;
+      top: 20px; left: 20px;
+      text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+    }
+    .level-text { font-size: 14px; font-weight: bold; }
+    .wrong-turns { font-size: 12px; margin-top: 5px; transition: color 0.3s; }
+
+    .hud-top-center {
+      position: absolute;
+      top: 20px; left: 50%;
+      transform: translateX(-50%);
+      font-size: 28px;
+      font-weight: bold;
+      transition: color 0.3s;
+      text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+    }
+
+    .hud-top-right {
+      position: absolute;
+      top: 20px; right: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 10px;
+    }
+
+    #mute-btn {
+      pointer-events: auto;
+      background: rgba(0,0,0,0.5);
+      border: 1px solid rgba(255,255,255,0.2);
+      color: white;
+      font-size: 16px;
+      padding: 5px 10px;
+      cursor: pointer;
+      font-family: 'Space Mono', monospace;
+      border-radius: 4px;
+    }
+
+    #minimap {
+      width: 80px; height: 80px;
+      border: 1px solid rgba(255,255,255,0.2);
+      background: rgba(0,0,0,0.5);
+      border-radius: 4px;
+    }
+
+    /* D-PAD */
+    #dpad {
+      position: absolute;
+      bottom: 30px; left: 50%;
+      transform: translateX(-50%);
+      display: none;
+      pointer-events: auto;
+      grid-template-columns: 60px 60px 60px;
+      grid-template-rows: 60px 60px 60px;
+      gap: 10px;
+    }
+    
+    @media (max-width: 768px) {
+      #dpad { display: grid; }
+    }
+
+    .dpad-btn {
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 8px;
+      color: white;
+      font-size: 24px;
+      display: flex; justify-content: center; align-items: center;
+      user-select: none;
+    }
+    .dpad-btn:active { background: rgba(255,255,255,0.3); }
+    #btn-up { grid-column: 2; grid-row: 1; }
+    #btn-left { grid-column: 1; grid-row: 2; }
+    #btn-right { grid-column: 3; grid-row: 2; }
+    #btn-down { grid-column: 2; grid-row: 3; }
+
+    /* Modals */
+    .overlay {
+      position: absolute;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.85);
+      display: flex; flex-direction: column;
+      justify-content: center; align-items: center;
+      z-index: 100;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.5s;
+    }
+    .overlay.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .modal-card {
+      border: 1px solid rgba(100,100,255,0.4);
+      padding: 2.5rem;
+      max-width: 450px;
+      width: 90%;
+      background: rgba(10,10,20,0.95);
+      position: relative;
+      overflow: hidden;
+      text-align: center;
+      border-radius: 4px;
+      box-shadow: 0 0 30px rgba(0,0,0,0.8);
+    }
+
+    /* Start Screen */
+    #start-title {
+      font-family: 'Bebas Neue', cursive;
+      font-size: 80px;
+      color: var(--player);
+      text-shadow: 0 0 20px rgba(0,255,136,0.5);
+      margin-bottom: 5px;
+      letter-spacing: 5px;
+      line-height: 1;
+    }
+    .subtitle { font-size: 14px; color: rgba(255,255,255,0.5); margin-bottom: 30px; }
+    .stats-fake { font-size: 12px; margin-bottom: 40px; color: #888; line-height: 2; }
+    .primary-btn {
+      background: transparent;
+      border: 2px solid var(--player);
+      color: var(--player);
+      font-family: 'Space Mono', monospace;
+      font-size: 16px;
+      padding: 12px 30px;
+      cursor: pointer;
+      transition: all 0.3s;
+      border-radius: 4px;
+      text-transform: uppercase;
+      font-weight: bold;
+    }
+    .primary-btn:hover { background: var(--player); color: black; box-shadow: 0 0 15px var(--player); }
+    .link-btn {
+      margin-top: 25px;
+      font-size: 12px; color: #888; cursor: pointer; text-decoration: underline;
+    }
+
+    /* Dead End Fact */
+    .fact-header { font-size: 11px; color: #888; margin-bottom: 15px; letter-spacing: 2px; }
+    .fact-title { font-family: 'Cormorant Garamond', serif; font-size: 28px; font-style: italic; margin-bottom: 20px; color: white; line-height: 1.2; }
+    .fact-body { font-size: 13px; line-height: 1.6; color: #ccc; }
+    .progress-bar {
+      position: absolute; bottom: 0; left: 0; height: 3px; background: var(--ui); width: 0%;
+      transition: width linear;
+    }
+
+    /* Level Complete */
+    #level-complete h2 { font-family: 'Bebas Neue', cursive; font-size: 50px; color: white; margin-bottom: 20px; line-height: 1; }
+    .level-stats { font-size: 14px; margin-bottom: 25px; line-height: 1.8; color: #ddd; }
+    .level-insight { font-size: 13px; color: #aaa; font-style: italic; margin-bottom: 35px; line-height: 1.5; font-family: 'Cormorant Garamond', serif; }
+
+    /* Victory */
+    #victory-screen { background: black; text-align: center; }
+    .victory-title { font-family: 'Bebas Neue', cursive; font-size: 80px; color: var(--player); margin-bottom: 30px; line-height: 1; text-shadow: 0 0 20px rgba(0,255,136,0.3); }
+    .victory-stats { font-size: 16px; color: white; line-height: 2; margin-bottom: 50px; }
+    .victory-reveal { font-size: 15px; color: #888; line-height: 2; max-width: 500px; margin: 0 auto 30px auto; opacity: 0; }
+    
+    .shake { animation: shake 0.3s cubic-bezier(.36,.07,.19,.97) both; }
+    @keyframes shake {
+      10%, 90% { transform: translate3d(-2px, 0, 0); }
+      20%, 80% { transform: translate3d(3px, 0, 0); }
+      30%, 50%, 70% { transform: translate3d(-5px, 0, 0); }
+      40%, 60% { transform: translate3d(5px, 0, 0); }
+    }
+    
+    #red-vignette {
+      position: absolute; top:0; left:0; width:100%; height:100%;
+      box-shadow: inset 0 0 100px rgba(255,0,0,0);
+      pointer-events: none; transition: box-shadow 0.5s; z-index: 5;
+    }
+    
+    .bg-maze {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0.1; z-index: -1;
+      background-image: 
+        linear-gradient(rgba(100,100,255,0.3) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(100,100,255,0.3) 1px, transparent 1px);
+      background-size: 40px 40px;
+      animation: drift 60s linear infinite;
+    }
+    @keyframes drift {
+      0% { background-position: 0 0; }
+      100% { background-position: -400px -400px; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="bg-maze"></div>
+
+  <div id="game-container">
+    <canvas id="game"></canvas>
+  </div>
+  
+  <div id="red-vignette"></div>
+
+  <div id="ui-layer">
+    <div class="hud-top-left">
+      <div class="level-text" id="hud-level">LEVEL 1 / 5</div>
+      <div class="wrong-turns" id="hud-turns">WRONG TURNS: 0</div>
+      <div id="hud-score" style="font-size:10px; color:#888; margin-top:5px;">SCORE: 0</div>
+    </div>
+
+    <div class="hud-top-center" id="hud-time">00:00</div>
+
+    <div class="hud-top-right">
+      <button id="mute-btn">🔊</button>
+      <canvas id="minimap" width="80" height="80"></canvas>
+    </div>
+
+    <div id="dpad">
+      <div class="dpad-btn" id="btn-up">↑</div>
+      <div class="dpad-btn" id="btn-left">←</div>
+      <div class="dpad-btn" id="btn-right">→</div>
+      <div class="dpad-btn" id="btn-down">↓</div>
+    </div>
+  </div>
+
+  <!-- Start Screen -->
+  <div class="overlay active" id="start-screen">
+    <div class="modal-card" style="border:none; background:transparent; box-shadow:none;">
+      <h1 id="start-title">MIND MAZE</h1>
+      <div class="subtitle">A maze that knows how you think</div>
+      <div class="stats-fake">
+        AVERAGE WRONG TURNS: 23<br>
+        AVERAGE COMPLETION: 67%<br>
+        MOST COMMON DEAD END: Level 3
+      </div>
+      <button class="primary-btn" id="btn-start">START GAME</button>
+      <div class="link-btn" id="btn-how">HOW TO PLAY</div>
+    </div>
+  </div>
+
+  <!-- How To Play -->
+  <div class="overlay" id="how-screen">
+    <div class="modal-card">
+      <h2 style="font-family:'Bebas Neue', cursive; font-size:35px; margin-bottom:20px; color:white;">HOW TO PLAY</h2>
+      <div style="font-size:14px; line-height:2; text-align:left; margin-bottom:30px; color:#ddd;">
+        • Arrow keys or WASD to move<br>
+        • Reach the gold star to escape<br>
+        • Each dead end reveals a truth<br>
+        • 5 levels. Increasing difficulty.<br>
+        • Level 4: darkness<br>
+        • Level 5: the maze shifts
+      </div>
+      <button class="primary-btn" id="btn-close-how" style="padding: 8px 25px; font-size:14px;">GOT IT</button>
+    </div>
+  </div>
+
+  <!-- Dead End Fact -->
+  <div class="overlay" id="fact-screen">
+    <div class="modal-card">
+      <div class="fact-header">DEAD END</div>
+      <div class="fact-title" id="fact-title">Your brain chose this path</div>
+      <div class="fact-body" id="fact-body">...</div>
+      <div class="progress-bar" id="fact-progress"></div>
+    </div>
+  </div>
+
+  <!-- Level Intro / Warning -->
+  <div class="overlay" id="intro-screen">
+    <div class="modal-card">
+      <div class="fact-title" id="intro-title" style="margin-bottom:0;"></div>
+      <div class="fact-body" id="intro-body" style="margin-top:20px;"></div>
+    </div>
+  </div>
+
+  <!-- Level Complete -->
+  <div class="overlay" id="level-complete">
+    <div class="modal-card">
+      <h2 id="lc-title">LEVEL 1 COMPLETE</h2>
+      <div class="level-stats">
+        Time: <span id="lc-time"></span>s<br>
+        Wrong turns: <span id="lc-turns"></span><br>
+        Brain efficiency: <span id="lc-eff"></span>%
+      </div>
+      <div class="level-insight" id="lc-insight"></div>
+      <button class="primary-btn" id="btn-next">NEXT LEVEL</button>
+    </div>
+  </div>
+
+  <!-- Victory Screen -->
+  <div class="overlay" id="victory-screen">
+    <div style="max-width:600px; padding:2rem;">
+      <div class="victory-title">YOU ESCAPED THE MAZE</div>
+      <div class="victory-stats">
+        5 LEVELS COMPLETED<br>
+        TOTAL WRONG TURNS: <span id="vic-turns"></span><br>
+        TOTAL TIME: <span id="vic-time"></span><br>
+        DEAD ENDS EXPLORED: <span id="vic-deadends"></span><br>
+        FINAL SCORE: <span id="vic-score"></span> (<span id="vic-rank" style="color:var(--player)"></span>)
+      </div>
+      <div id="vic-reveals">
+        <div class="victory-reveal">Everything you just did was predictable.</div>
+        <div class="victory-reveal">The maze knew your right-turn bias.<br>It knew you'd speed up then slow down.<br>It knew which dead ends would attract you most.</div>
+        <div class="victory-reveal">You navigated it anyway.</div>
+        <div class="victory-reveal">That is the only thing the maze could not predict.</div>
+        <div class="victory-reveal" style="color:white; font-size:18px;">Free will tastes like a maze exit.</div>
+      </div>
+      <button class="primary-btn" id="btn-restart" style="opacity:0; transition:opacity 1s; margin-top:30px;">PLAY AGAIN</button>
+    </div>
+  </div>
+
+<script>
+// --- AUDIO ENGINE ---
+const audio = {
+  ctx: null, masterGain: null,
+  bgOsc: null, bgGain: null, bgLfo: null,
+  melodyOsc: null, melodyGain: null,
+  stressBassOsc: null, stressBassGain: null,
+  dangerDrone1: null, dangerDrone2: null, dangerGain: null,
+  
+  muted: false,
+  melodyNotes: [220, 246, 261, 220, 196, 175],
+  melodyIdx: 0,
+  nextMelodyTime: 0,
+  melodySpeed: 0.6,
+  
+  stressState: false, dangerState: false,
+  nextHeartTime: 0, nextHihatTime: 0,
+
+  init() {
+    if(this.ctx) return;
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    this.ctx = new AudioContext();
+    this.masterGain = this.ctx.createGain();
+    this.masterGain.connect(this.ctx.destination);
+    
+    // Ambient Pulse
+    this.bgOsc = this.ctx.createOscillator();
+    this.bgOsc.type = 'sine';
+    this.bgOsc.frequency.value = 110;
+    this.bgGain = this.ctx.createGain();
+    this.bgGain.gain.value = 0.04;
+    this.bgOsc.connect(this.bgGain);
+    this.bgGain.connect(this.masterGain);
+    
+    this.bgLfo = this.ctx.createOscillator();
+    this.bgLfo.type = 'sine';
+    this.bgLfo.frequency.value = 0.3;
+    const lfoGain = this.ctx.createGain();
+    lfoGain.gain.value = 0.02;
+    this.bgLfo.connect(lfoGain);
+    lfoGain.connect(this.bgGain.gain);
+    
+    this.bgOsc.start(); this.bgLfo.start();
+
+    // Melody
+    this.melodyOsc = this.ctx.createOscillator();
+    this.melodyOsc.type = 'triangle';
+    this.melodyGain = this.ctx.createGain();
+    this.melodyGain.gain.value = 0;
+    this.melodyOsc.connect(this.melodyGain);
+    this.melodyGain.connect(this.masterGain);
+    this.melodyOsc.start();
+    
+    // Stress Bass
+    this.stressBassOsc = this.ctx.createOscillator();
+    this.stressBassOsc.type = 'sine';
+    this.stressBassOsc.frequency.value = 55;
+    this.stressBassGain = this.ctx.createGain();
+    this.stressBassGain.gain.value = 0;
+    this.stressBassOsc.connect(this.stressBassGain);
+    this.stressBassGain.connect(this.masterGain);
+    this.stressBassOsc.start();
+    
+    // Danger Drone
+    this.dangerDrone1 = this.ctx.createOscillator();
+    this.dangerDrone1.type = 'sawtooth';
+    this.dangerDrone1.frequency.value = 147;
+    this.dangerDrone2 = this.ctx.createOscillator();
+    this.dangerDrone2.type = 'sawtooth';
+    this.dangerDrone2.frequency.value = 155;
+    this.dangerGain = this.ctx.createGain();
+    this.dangerGain.gain.value = 0;
+    const dangerFilter = this.ctx.createBiquadFilter();
+    dangerFilter.type = 'lowpass';
+    dangerFilter.frequency.value = 800;
+    this.dangerDrone1.connect(this.dangerGain);
+    this.dangerDrone2.connect(this.dangerGain);
+    this.dangerGain.connect(dangerFilter);
+    dangerFilter.connect(this.masterGain);
+    this.dangerDrone1.start(); this.dangerDrone2.start();
+
+    this.nextMelodyTime = this.ctx.currentTime + 0.1;
+  },
+
+  update() {
+    if(!this.ctx || this.ctx.state !== 'running') return;
+    const t = this.ctx.currentTime;
+    
+    // Melody Scheduler
+    if(t >= this.nextMelodyTime) {
+      this.melodyOsc.frequency.setValueAtTime(this.melodyNotes[this.melodyIdx], t);
+      this.melodyGain.gain.setValueAtTime(0, t);
+      this.melodyGain.gain.linearRampToValueAtTime(this.dangerState ? 0.045 : 0.03, t + 0.1);
+      this.melodyGain.gain.linearRampToValueAtTime(0, t + this.melodySpeed - 0.05);
+      
+      this.melodyIdx = (this.melodyIdx + 1) % this.melodyNotes.length;
+      this.nextMelodyTime = t + this.melodySpeed;
+    }
+
+    // Stress Heartbeat
+    if(this.stressState && t >= this.nextHeartTime) {
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.frequency.setValueAtTime(80, t);
+      osc.frequency.exponentialRampToValueAtTime(40, t + 0.2);
+      gain.gain.setValueAtTime(this.dangerState ? 0.12 : 0.08, t);
+      gain.gain.exponentialRampToValueAtTime(0.01, t + 0.2);
+      osc.connect(gain); gain.connect(this.masterGain);
+      osc.start(t); osc.stop(t+0.3);
+      this.nextHeartTime = t + 0.7;
+    }
+
+    // Danger Hi-hat
+    if(this.dangerState && t >= this.nextHihatTime) {
+      const bs = this.ctx.createBufferSource();
+      const buf = this.ctx.createBuffer(1, this.ctx.sampleRate * 0.05, this.ctx.sampleRate);
+      const data = buf.getChannelData(0);
+      for(let i=0; i<data.length; i++) data[i] = Math.random()*2-1;
+      bs.buffer = buf;
+      const f = this.ctx.createBiquadFilter();
+      f.type = 'highpass'; f.frequency.value = 5000;
+      const g = this.ctx.createGain();
+      g.gain.setValueAtTime(0.05, t);
+      g.gain.exponentialRampToValueAtTime(0.01, t+0.04);
+      bs.connect(f); f.connect(g); g.connect(this.masterGain);
+      bs.start(t);
+      this.nextHihatTime = t + 0.2;
+    }
+  },
+
+  setStress(stress) {
+    this.stressState = stress;
+    if(!this.ctx) return;
+    const t = this.ctx.currentTime;
+    this.melodySpeed = stress ? 0.3 : 0.6;
+    this.stressBassGain.gain.setTargetAtTime(stress ? (this.dangerState?0.075:0.05) : 0, t, 1);
+  },
+
+  setDanger(danger) {
+    this.dangerState = danger;
+    if(!this.ctx) return;
+    const t = this.ctx.currentTime;
+    this.bgGain.gain.setTargetAtTime(danger ? 0.06 : 0.04, t, 1);
+    this.dangerGain.gain.setTargetAtTime(danger ? 0.05 : 0, t, 1);
+    this.setStress(this.stressState); // updates bass
+  },
+
+  playFootstep() {
+    if(!this.ctx) return;
+    const t = this.ctx.currentTime;
+    const bs = this.ctx.createBufferSource();
+    const buf = this.ctx.createBuffer(1, this.ctx.sampleRate * 0.04, this.ctx.sampleRate);
+    const data = buf.getChannelData(0);
+    for(let i=0; i<data.length; i++) data[i] = Math.random()*2-1;
+    bs.buffer = buf;
+    const f = this.ctx.createBiquadFilter();
+    f.type = 'lowpass'; f.frequency.value = 400;
+    const g = this.ctx.createGain();
+    g.gain.setValueAtTime(0.06, t);
+    g.gain.exponentialRampToValueAtTime(0.01, t+0.03);
+    bs.connect(f); f.connect(g); g.connect(this.masterGain);
+    bs.start(t);
+  },
+
+  playBump() {
+    if(!this.ctx) return;
+    const t = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(100, t);
+    osc.frequency.exponentialRampToValueAtTime(50, t+0.1);
+    const g = this.ctx.createGain();
+    g.gain.setValueAtTime(0.1, t);
+    g.gain.exponentialRampToValueAtTime(0.01, t+0.1);
+    osc.connect(g); g.connect(this.masterGain);
+    osc.start(t); osc.stop(t+0.1);
+  },
+
+  playVictory() {
+    if(!this.ctx) return;
+    const t = this.ctx.currentTime;
+    [261.63, 329.63, 392.00].forEach(freq => {
+      const osc = this.ctx.createOscillator();
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      const g = this.ctx.createGain();
+      g.gain.setValueAtTime(0, t);
+      g.gain.linearRampToValueAtTime(0.08, t+0.1);
+      g.gain.setTargetAtTime(0, t+1.5, 0.3);
+      osc.connect(g); g.connect(this.masterGain);
+      osc.start(t); osc.stop(t+2.5);
+    });
+  },
+
+  playGameOver() {
+    if(!this.ctx) return;
+    const t = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(400, t);
+    osc.frequency.exponentialRampToValueAtTime(80, t+1.5);
+    const g = this.ctx.createGain();
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(0.1, t+0.1);
+    g.gain.setTargetAtTime(0, t+1.5, 0.5);
+    osc.connect(g); g.connect(this.masterGain);
+    osc.start(t); osc.stop(t+3);
+  },
+
+  toggleMute() {
+    this.muted = !this.muted;
+    if(this.masterGain) this.masterGain.gain.value = this.muted ? 0 : 1;
+    return this.muted;
+  }
+};
+
+// --- DATA ---
+const deadEndFacts = [
+  { headline: "Your brain chose this path", body: "The human brain uses heuristics — mental shortcuts — to navigate. You didn't analyze every option. You felt which way was right. That feeling is 3 million years old." },
+  { headline: "Dead ends aren't mistakes", body: "Neuroscientists found that wrong turns activate the same brain regions as discoveries. Your brain learns more from where not to go than where to go." },
+  { headline: "You will turn right more", body: "Studies show humans have a systematic right-turn bias in mazes and real environments. Shopping malls are designed around this exact tendency." },
+  { headline: "Memory is your map", body: "Your hippocampus creates a cognitive map as you navigate. London taxi drivers have measurably larger hippocampi than average — grown by years of navigation." },
+  { headline: "Stress shrinks your map", body: "Cortisol — the stress hormone — physically reduces hippocampus size. Anxious people genuinely have worse spatial navigation. The maze is harder when you panic." },
+  { headline: "You backtrack like everyone", body: "In maze studies, 94% of people return to their last decision point when hitting a dead end — rather than trying to find a shortcut through." },
+  { headline: "The center is a trap", body: "Humans instinctively move toward the center of enclosed spaces. Maze designers exploit this — placing dead ends at the psychological center." },
+  { headline: "You slow down before exits", body: "Players unconsciously decelerate near maze exits — as if doubting success is real. The closer you are to winning, the more carefully you move." },
+  { headline: "Pattern seeking is your flaw", body: "Your brain invents patterns that don't exist. In random mazes humans see 'intentional' paths and traps — even when the algorithm has no intention at all." },
+  { headline: "You remember wrong turns longer", body: "Negative experiences in navigation create stronger memories than successful paths. You will remember this dead end better than the correct route you will take next." },
+  { headline: "Tunnel vision is real", body: "When focused on a goal, peripheral vision narrows. You might have missed alternative routes because your eyes literally stopped seeing them." },
+  { headline: "The illusion of control", body: "We prefer paths we choose over forced ones, even if they take longer. You feel in control, but the walls dictate your every move." },
+  { headline: "Spatial anxiety", body: "Getting lost triggers the same physiological response as physical danger. Your heart rate is likely elevated right now." },
+  { headline: "Landmark reliance", body: "Without distinct landmarks, human navigation degrades rapidly to a random walk. In this maze, every corner looks the same." },
+  { headline: "The gambler's fallacy in space", body: "After three left turns, you subconsciously feel 'due' for a right turn. The maze algorithm doesn't care." },
+  { headline: "Chunking distance", body: "Your brain compresses straight corridors in memory, but elongates paths with many turns. The route back feels longer." },
+  { headline: "Dopamine drops", body: "Hitting a dead end causes a micro-drop in baseline dopamine. This physical sensation of disappointment drives you to seek the exit harder." },
+  { headline: "Ego-centric vs Allo-centric", body: "You are navigating from your perspective (ego-centric), while the minimap shows an absolute (allo-centric) view. Translating between them takes cognitive effort." },
+  { headline: "Symmetry bias", body: "Humans prefer symmetrical paths and will often choose them over asymmetrical but shorter routes. This maze has no symmetry." },
+  { headline: "The sunk cost fallacy", body: "You kept walking down this corridor because you had already invested time in it, ignoring signs it was the wrong way." }
+];
+
+const levelsConfig = [
+  { w:11, h:11, time:90,  intro: null },
+  { w:15, h:15, time:120, intro: null },
+  { w:19, h:19, time:150, intro: null },
+  { w:21, h:21, time:120, intro: { title: "Level 4: Darkness", body: "You are about to experience navigation by memory alone. This is how your ancestors moved through forests at night. Your brain remembers more than you think it does." } },
+  { w:17, h:17, time:180, intro: { title: "WARNING: Shifting Maze", body: "This maze is alive. Stop moving and it changes. Trust your instincts." } }
+];
+
+// --- GAME STATE ---
+const state = {
+  level: 0,
+  score: 0,
+  totalWrongTurns: 0,
+  totalTime: 0,
+  deadEndsExplored: 0,
+  
+  maze: [],
+  width: 0, height: 0,
+  cellSize: 40,
+  
+  player: { x:1, y:1, trail:[] },
+  exit: { x:1, y:1 },
+  
+  wrongTurns: 0,
+  timeLeft: 0,
+  
+  playing: false,
+  paused: false,
+  lastTime: 0,
+  
+  lastMoveTime: 0,
+  
+  factsPool: [...deadEndFacts],
+  
+  // Visual effects
+  particles: [],
+  starRot: 0,
+  playerRadiusOsc: 0
+};
+
+// --- DOM ELEMENTS ---
+const cvs = document.getElementById('game');
+const ctx = cvs.getContext('2d');
+const mCvs = document.getElementById('minimap');
+const mCtx = mCvs.getContext('2d');
+
+const hudLevel = document.getElementById('hud-level');
+const hudTurns = document.getElementById('hud-turns');
+const hudTime = document.getElementById('hud-time');
+const hudScore = document.getElementById('hud-score');
+const uiLayer = document.getElementById('ui-layer');
+const redVignette = document.getElementById('red-vignette');
+
+const startScreen = document.getElementById('start-screen');
+const howScreen = document.getElementById('how-screen');
+const factScreen = document.getElementById('fact-screen');
+const introScreen = document.getElementById('intro-screen');
+const lcScreen = document.getElementById('level-complete');
+const vicScreen = document.getElementById('victory-screen');
+
+// --- MAZE GENERATION ---
+function generateMaze(w, h) {
+  const grid = Array(h).fill().map(() => Array(w).fill(1));
+  function carve(x, y) {
+    grid[y][x] = 0;
+    const dirs = [[0,-2],[2,0],[0,2],[-2,0]];
+    dirs.sort(() => Math.random() - 0.5);
+    for (const [dx, dy] of dirs) {
+      const nx = x + dx; const ny = y + dy;
+      if (nx>0 && nx<w-1 && ny>0 && ny<h-1 && grid[ny][nx] === 1) {
+        grid[y + dy/2][x + dx/2] = 0;
+        carve(nx, ny);
+      }
+    }
+  }
+  carve(1, 1);
+  return grid;
+}
+
+// Find furthest point for exit using BFS
+function findExit(grid, sx, sy) {
+  const q = [[sx, sy]];
+  const dist = Array(grid.length).fill().map(()=>Array(grid[0].length).fill(-1));
+  dist[sy][sx] = 0;
+  let farX = sx, farY = sy, maxD = 0;
+  
+  while(q.length) {
+    const [x,y] = q.shift();
+    [[0,1],[1,0],[0,-1],[-1,0]].forEach(([dx,dy])=>{
+      const nx=x+dx, ny=y+dy;
+      if(nx>=0 && nx<grid[0].length && ny>=0 && ny<grid.length && grid[ny][nx]===0 && dist[ny][nx]===-1) {
+        dist[ny][nx] = dist[y][x] + 1;
+        q.push([nx,ny]);
+        if(dist[ny][nx] > maxD) { maxD = dist[ny][nx]; farX = nx; farY = ny; }
+      }
+    });
+  }
+  return {x: farX, y: farY, distMap: dist};
+}
+
+function isDeadEnd(x, y) {
+  let openDirs = 0;
+  [[0,1],[1,0],[0,-1],[-1,0]].forEach(([dx,dy])=>{
+    if(state.maze[y+dy] && state.maze[y+dy][x+dx]===0) openDirs++;
+  });
+  return openDirs === 1; // 1 means only the way back is open
+}
+
+// --- LOGIC ---
+function startLevel() {
+  const cfg = levelsConfig[state.level];
+  state.width = cfg.w;
+  state.height = cfg.h;
+  state.timeLeft = cfg.time;
+  state.wrongTurns = 0;
+  
+  // Recalculate cell size
+  const minDim = Math.min(window.innerWidth, window.innerHeight);
+  if(minDim > 768) state.cellSize = 40;
+  else if(minDim > 480) state.cellSize = 32;
+  else state.cellSize = 24;
+  
+  // Mobile adjust dims
+  if(minDim <= 480) {
+    state.width = Math.max(9, state.width - 2); 
+    state.height = Math.max(9, state.height - 2);
+  }
+  
+  state.maze = generateMaze(state.width, state.height);
+  state.player = { x:1, y:1, trail:[] };
+  state.exit = findExit(state.maze, 1, 1);
+  state.lastMoveTime = Date.now();
+  
+  updateHUD();
+  drawMinimap();
+  
+  audio.setStress(false);
+  audio.setDanger(false);
+  
+  if(cfg.intro) {
+    document.getElementById('intro-title').innerText = cfg.intro.title;
+    document.getElementById('intro-body').innerText = cfg.intro.body;
+    introScreen.classList.add('active');
+    setTimeout(() => {
+      introScreen.classList.remove('active');
+      state.playing = true;
+      state.lastTime = Date.now();
+    }, 4000);
+  } else {
+    state.playing = true;
+    state.lastTime = Date.now();
+  }
+}
+
+function resize() {
+  cvs.width = window.innerWidth;
+  cvs.height = window.innerHeight;
+}
+window.addEventListener('resize', resize);
+resize();
+
+function move(dx, dy) {
+  if(!state.playing || state.paused) return;
+  audio.init();
+  
+  const nx = state.player.x + dx;
+  const ny = state.player.y + dy;
+  
+  if(state.maze[ny] && state.maze[ny][nx] === 0) {
+    // Check distance to exit for pulse
+    const oldD = Math.abs(state.player.x-state.exit.x) + Math.abs(state.player.y-state.exit.y);
+    const newD = Math.abs(nx-state.exit.x) + Math.abs(ny-state.exit.y);
+    
+    if(newD > oldD) {
+      // moving away
+      redVignette.style.boxShadow = 'inset 0 0 100px rgba(255,0,0,0.4)';
+      setTimeout(()=>redVignette.style.boxShadow = 'inset 0 0 100px rgba(255,0,0,0)', 500);
+    }
+    
+    state.player.trail.push({x: state.player.x, y: state.player.y, alpha: 1});
+    if(state.player.trail.length > 8) state.player.trail.shift();
+    
+    state.player.x = nx;
+    state.player.y = ny;
+    audio.playFootstep();
+    state.lastMoveTime = Date.now();
+    
+    // Check exit
+    if(nx === state.exit.x && ny === state.exit.y) {
+      levelComplete();
+      return;
+    }
+    
+    // Check dead end
+    if(isDeadEnd(nx, ny) && (nx !== state.exit.x || ny !== state.exit.y)) {
+      state.wrongTurns++;
+      state.totalWrongTurns++;
+      state.deadEndsExplored++;
+      updateHUD();
+      showFact();
+    }
+    
+    drawMinimap();
+  } else {
+    // Bump wall
+    document.body.classList.add('shake');
+    setTimeout(()=>document.body.classList.remove('shake'), 300);
+    audio.playBump();
+  }
+}
+
+function showFact() {
+  state.paused = true;
+  if(state.factsPool.length === 0) state.factsPool = [...deadEndFacts];
+  const fact = state.factsPool.splice(Math.floor(Math.random() * state.factsPool.length), 1)[0];
+  
+  document.getElementById('fact-title').innerText = fact.headline;
+  document.getElementById('fact-body').innerText = fact.body;
+  const pb = document.getElementById('fact-progress');
+  pb.style.transition = 'none'; pb.style.width = '0%';
+  
+  factScreen.classList.add('active');
+  
+  setTimeout(() => {
+    pb.style.transition = 'width 3s linear';
+    pb.style.width = '100%';
+  }, 50);
+  
+  setTimeout(() => {
+    factScreen.classList.remove('active');
+    state.paused = false;
+    state.lastTime = Date.now(); // reset delta
+  }, 3050);
+}
+
+function levelComplete() {
+  state.playing = false;
+  audio.playVictory();
+  
+  // Burst particles
+  for(let i=0; i<80; i++) {
+    state.particles.push({
+      x: state.exit.x * state.cellSize + state.cellSize/2,
+      y: state.exit.y * state.cellSize + state.cellSize/2,
+      vx: (Math.random()-0.5)*15,
+      vy: (Math.random()-0.5)*15 - 5,
+      life: 1.5, maxLife: 1.5,
+      color: Math.random()>0.5 ? '#ffd700' : (Math.random()>0.5 ? '#fff' : '#00ff88')
+    });
+  }
+  
+  const timeSpent = levelsConfig[state.level].time - state.timeLeft;
+  state.totalTime += timeSpent;
+  let eff = 100 - (state.wrongTurns * 5);
+  if(eff < 0) eff = 0;
+  
+  const levelScore = (state.timeLeft * 10) - (state.wrongTurns * 50) + ((state.level+1)*100);
+  state.score += Math.max(0, levelScore);
+  
+  setTimeout(() => {
+    if(state.level === 4) {
+      showVictory();
+    } else {
+      document.getElementById('lc-title').innerText = `LEVEL ${state.level+1} COMPLETE`;
+      document.getElementById('lc-time').innerText = Math.floor(timeSpent);
+      document.getElementById('lc-turns').innerText = state.wrongTurns;
+      document.getElementById('lc-eff').innerText = eff;
+      
+      let insight = "";
+      if(eff > 80) insight = "Your spatial reasoning is exceptional. You likely have an enlarged right parietal cortex — the navigation center.";
+      else if(eff >= 50) insight = "Average human maze performance. Your brain is healthy and normal. Also, there is no normal.";
+      else insight = "High wrong turn count suggests you explore rather than plan. Creative thinkers score lower in maze tests. Coincidence?";
+      document.getElementById('lc-insight').innerText = insight;
+      
+      lcScreen.classList.add('active');
+    }
+  }, 1000);
+}
+
+function showVictory() {
+  vicScreen.classList.add('active');
+  document.getElementById('vic-turns').innerText = state.totalWrongTurns;
+  const mins = Math.floor(state.totalTime / 60);
+  const secs = Math.floor(state.totalTime % 60);
+  document.getElementById('vic-time').innerText = `${mins}:${secs.toString().padStart(2,'0')}`;
+  document.getElementById('vic-deadends').innerText = state.deadEndsExplored;
+  document.getElementById('vic-score').innerText = Math.floor(state.score);
+  
+  let rank = "THE MAZE WINS TODAY";
+  if(state.score > 2000) rank = "MAZE MASTER";
+  else if(state.score > 1500) rank = "SHARP MIND";
+  else if(state.score > 1000) rank = "SOLID NAVIGATOR";
+  else if(state.score > 500) rank = "LEARNING THE PATHS";
+  document.getElementById('vic-rank').innerText = rank;
+  
+  const reveals = document.querySelectorAll('.victory-reveal');
+  reveals.forEach((r, i) => {
+    setTimeout(() => { r.style.opacity = 1; r.style.transition = "opacity 2s"; }, 1000 + i*2500);
+  });
+  
+  setTimeout(() => {
+    document.getElementById('btn-restart').style.opacity = 1;
+    document.getElementById('btn-restart').style.pointerEvents = 'auto';
+  }, 1000 + reveals.length * 2500);
+}
+
+function updateHUD() {
+  hudLevel.innerText = `LEVEL ${state.level + 1} / 5`;
+  hudTurns.innerText = `WRONG TURNS: ${state.wrongTurns}`;
+  hudTurns.style.color = state.wrongTurns > 5 ? '#ff3366' : 'white';
+  hudScore.innerText = `SCORE: ${Math.floor(state.score)}`;
+  
+  const mins = Math.floor(state.timeLeft / 60);
+  const secs = Math.floor(state.timeLeft % 60);
+  hudTime.innerText = `${mins.toString().padStart(2,'0')}:${secs.toString().padStart(2,'0')}`;
+  
+  if(state.timeLeft < 20) hudTime.style.color = '#ff3366';
+  else if(state.timeLeft < 45) hudTime.style.color = '#ffaa00';
+  else hudTime.style.color = 'white';
+}
+
+function drawMinimap() {
+  mCtx.clearRect(0,0,80,80);
+  if(!state.playing && state.level === 0 && state.timeLeft === levelsConfig[0].time) return; // Hide on very first start
+  
+  const cw = 80 / state.width;
+  const ch = 80 / state.height;
+  
+  mCtx.fillStyle = 'rgba(255,255,255,0.3)';
+  for(let y=0; y<state.height; y++){
+    for(let x=0; x<state.width; x++){
+      if(state.maze[y] && state.maze[y][x]===1) mCtx.fillRect(x*cw, y*ch, cw, ch);
+    }
+  }
+  
+  mCtx.fillStyle = '#00ff88';
+  mCtx.beginPath();
+  mCtx.arc(state.player.x*cw + cw/2, state.player.y*ch + ch/2, Math.max(1, cw/2), 0, Math.PI*2);
+  mCtx.fill();
+  
+  mCtx.fillStyle = '#ffd700';
+  mCtx.fillRect(state.exit.x*cw, state.exit.y*ch, cw, ch);
+}
+
+// --- RENDER LOOP ---
+function render(time) {
+  requestAnimationFrame(render);
+  
+  if(!state.playing || state.paused) {
+    if(state.particles.length > 0) {
+      // Clear for particles on game over/win
+      ctx.fillStyle = '#0a0a12';
+      ctx.fillRect(0,0,cvs.width,cvs.height);
+      const cx = cvs.width/2 - (state.player.x * state.cellSize + state.cellSize/2);
+      const cy = cvs.height/2 - (state.player.y * state.cellSize + state.cellSize/2);
+      ctx.save();
+      ctx.translate(cx, cy);
+      renderParticles();
+      ctx.restore();
+    }
+    return;
+  }
+  
+  // Delta time
+  const dt = (Date.now() - state.lastTime) / 1000;
+  state.lastTime = Date.now();
+  
+  state.timeLeft -= dt;
+  if(state.timeLeft <= 0) {
+    state.timeLeft = 0;
+    state.playing = false;
+    audio.playGameOver();
+    showFact(); // reuse fact screen for death
+    document.getElementById('fact-title').innerText = "TIME EXPIRED";
+    document.getElementById('fact-body').innerText = "In high stress situations, the human brain loses track of time. You just experienced temporal distortion.";
+    setTimeout(() => {
+      // Restart current level
+      startLevel();
+    }, 4000);
+    return;
+  }
+  
+  updateHUD();
+  audio.setStress(state.wrongTurns > 5);
+  audio.setDanger(state.timeLeft < 20);
+  audio.update();
+  
+  // Level 5 Shifting mechanic
+  if(state.level === 4 && Date.now() - state.lastMoveTime > 5000) {
+    // shift maze
+    let shifted = 0;
+    while(shifted < 3) {
+      const rx = 1 + Math.floor(Math.random()*(state.width-2));
+      const ry = 1 + Math.floor(Math.random()*(state.height-2));
+      // Dont shift near player or exit
+      if(Math.abs(rx-state.player.x)>3 && Math.abs(ry-state.player.y)>3 && 
+         Math.abs(rx-state.exit.x)>2 && Math.abs(ry-state.exit.y)>2) {
+        state.maze[ry][rx] = state.maze[ry][rx] === 1 ? 0 : 1;
+        shifted++;
+      }
+    }
+    state.lastMoveTime = Date.now(); // reset timer
+    drawMinimap();
+    
+    // flash screen slightly
+    uiLayer.style.background = 'rgba(100,50,255,0.1)';
+    setTimeout(()=>uiLayer.style.background='transparent', 200);
+  }
+
+  // Draw setup
+  ctx.fillStyle = '#0a0a12';
+  ctx.fillRect(0,0,cvs.width,cvs.height);
+  
+  const cx = cvs.width/2 - (state.player.x * state.cellSize + state.cellSize/2);
+  const cy = cvs.height/2 - (state.player.y * state.cellSize + state.cellSize/2);
+  
+  ctx.save();
+  ctx.translate(cx, cy);
+  
+  // Draw Maze
+  for(let y=0; y<state.height; y++){
+    for(let x=0; x<state.width; x++){
+      if(state.maze[y][x] === 1) {
+        ctx.fillStyle = state.level === 4 ? '#2d1b69' : '#2d2d5e';
+        ctx.fillRect(x*state.cellSize, y*state.cellSize, state.cellSize, state.cellSize);
+        ctx.strokeStyle = 'rgba(100,100,255,0.3)';
+        ctx.strokeRect(x*state.cellSize, y*state.cellSize, state.cellSize, state.cellSize);
+      } else {
+        ctx.fillStyle = '#050510';
+        ctx.fillRect(x*state.cellSize, y*state.cellSize, state.cellSize, state.cellSize);
+      }
+    }
+  }
+
+  // Draw Trail
+  state.player.trail.forEach((t, i) => {
+    t.alpha -= dt * 2;
+    if(t.alpha > 0) {
+      ctx.beginPath();
+      ctx.arc(t.x*state.cellSize + state.cellSize/2, t.y*state.cellSize + state.cellSize/2, 4 * (i/8), 0, Math.PI*2);
+      ctx.fillStyle = `rgba(0,255,136,${t.alpha*0.3})`;
+      ctx.fill();
+    }
+  });
+
+  // Draw Exit
+  state.starRot += 0.02;
+  const ex = state.exit.x*state.cellSize + state.cellSize/2;
+  const ey = state.exit.y*state.cellSize + state.cellSize/2;
+  ctx.save();
+  ctx.translate(ex, ey);
+  ctx.rotate(state.starRot);
+  ctx.shadowBlur = 20;
+  ctx.shadowColor = '#ffd700';
+  ctx.fillStyle = '#ffd700';
+  ctx.beginPath();
+  for(let i=0; i<5; i++) {
+    ctx.lineTo(Math.cos((18+i*72)*Math.PI/180)*10, -Math.sin((18+i*72)*Math.PI/180)*10);
+    ctx.lineTo(Math.cos((54+i*72)*Math.PI/180)*4, -Math.sin((54+i*72)*Math.PI/180)*4);
+  }
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+
+  // Draw Player
+  state.playerRadiusOsc += dt * 5;
+  const pr = 7 + Math.sin(state.playerRadiusOsc)*1.5;
+  const px = state.player.x*state.cellSize + state.cellSize/2;
+  const py = state.player.y*state.cellSize + state.cellSize/2;
+  ctx.shadowBlur = 15;
+  const pColor = state.level === 4 ? '#b088ff' : '#00ff88';
+  ctx.shadowColor = pColor;
+  ctx.fillStyle = pColor;
+  ctx.beginPath();
+  ctx.arc(px, py, pr, 0, Math.PI*2);
+  ctx.fill();
+  ctx.shadowBlur = 0; // reset
+  
+  renderParticles();
+  
+  ctx.restore();
+
+  // Darkness Level 4
+  if(state.level === 3) {
+    const grd = ctx.createRadialGradient(cvs.width/2, cvs.height/2, 20, cvs.width/2, cvs.height/2, 120);
+    grd.addColorStop(0, 'rgba(0,0,0,0)');
+    grd.addColorStop(1, 'rgba(0,0,0,0.98)');
+    ctx.fillStyle = grd;
+    ctx.fillRect(0,0,cvs.width,cvs.height);
+  }
+}
+
+function renderParticles() {
+  for(let i=state.particles.length-1; i>=0; i--) {
+    let p = state.particles[i];
+    p.life -= 0.016;
+    if(p.life <= 0) {
+      state.particles.splice(i,1);
+      continue;
+    }
+    p.x += p.vx;
+    p.y += p.vy;
+    p.vy += 0.5; // gravity
+    ctx.globalAlpha = p.life / p.maxLife;
+    ctx.fillStyle = p.color;
+    ctx.fillRect(p.x, p.y, 4, 4);
+    ctx.globalAlpha = 1;
+  }
+}
+
+requestAnimationFrame(render);
+
+// --- INPUTS ---
+window.addEventListener('keydown', (e) => {
+  if(['ArrowUp','w','W'].includes(e.key)) move(0, -1);
+  if(['ArrowDown','s','S'].includes(e.key)) move(0, 1);
+  if(['ArrowLeft','a','A'].includes(e.key)) move(-1, 0);
+  if(['ArrowRight','d','D'].includes(e.key)) move(1, 0);
+});
+
+['up','down','left','right'].forEach(dir => {
+  document.getElementById(`btn-${dir}`).addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    if(dir==='up') move(0, -1);
+    if(dir==='down') move(0, 1);
+    if(dir==='left') move(-1, 0);
+    if(dir==='right') move(1, 0);
+  });
+});
+
+// Swipe logic
+let tx=0, ty=0;
+window.addEventListener('touchstart', e => { tx = e.touches[0].clientX; ty = e.touches[0].clientY; });
+window.addEventListener('touchend', e => {
+  if(!tx || !ty) return;
+  const dx = e.changedTouches[0].clientX - tx;
+  const dy = e.changedTouches[0].clientY - ty;
+  if(Math.abs(dx) > Math.abs(dy)) {
+    if(Math.abs(dx) > 30) move(dx > 0 ? 1 : -1, 0);
+  } else {
+    if(Math.abs(dy) > 30) move(0, dy > 0 ? 1 : -1);
+  }
+  tx=0; ty=0;
+});
+
+// UI Buttons
+document.getElementById('btn-start').addEventListener('click', () => {
+  audio.init();
+  startScreen.classList.remove('active');
+  startLevel();
+});
+document.getElementById('btn-how').addEventListener('click', () => {
+  howScreen.classList.add('active');
+});
+document.getElementById('btn-close-how').addEventListener('click', () => {
+  howScreen.classList.remove('active');
+});
+document.getElementById('btn-next').addEventListener('click', () => {
+  lcScreen.classList.remove('active');
+  state.level++;
+  startLevel();
+});
+document.getElementById('btn-restart').addEventListener('click', () => {
+  vicScreen.classList.remove('active');
+  const reveals = document.querySelectorAll('.victory-reveal');
+  reveals.forEach(r => r.style.opacity = 0);
+  document.getElementById('btn-restart').style.opacity = 0;
+  document.getElementById('btn-restart').style.pointerEvents = 'none';
+  state.level = 0;
+  state.score = 0;
+  state.totalWrongTurns = 0;
+  state.totalTime = 0;
+  state.deadEndsExplored = 0;
+  startLevel();
+});
+document.getElementById('mute-btn').addEventListener('click', (e) => {
+  e.target.innerText = audio.toggleMute() ? '🔈' : '🔊';
+});
+
+// Trigger audio on first keypress if not already started
+window.addEventListener('keydown', () => {
+  if(!state.playing && startScreen.classList.contains('active')) {
+    audio.init();
+  }
+}, {once: true});
+
+</script>
+</body>
+</html>
