@@ -1,0 +1,1360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Startup Pitch Generator</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400;1,600&family=DM+Sans:ital,wght@0,400;0,500;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-dark: #080808;
+            --bg-pitch: #060606;
+            --text-cream: #fff5dc;
+            --text-white: #ffffff;
+            --text-grey: #888888;
+            --accent-color: #00e5ff; /* Default, overridden via JS */
+            --accent-rgb: 0, 229, 255;
+            --gold: #ffcc00;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body, html {
+            width: 100%;
+            height: 100%;
+            overflow-x: hidden;
+            background-color: var(--bg-dark);
+            color: var(--text-white);
+            font-family: 'DM Sans', sans-serif;
+            scroll-behavior: smooth;
+        }
+
+        /* Screens */
+        .screen {
+            position: absolute;
+            inset: 0;
+            display: none;
+            opacity: 0;
+            transition: opacity 0.5s ease;
+            overflow-y: auto;
+            overflow-x: hidden;
+        }
+        .screen.active {
+            display: block;
+            opacity: 1;
+        }
+
+        /* --- SCREEN 1: BOARDROOM --- */
+        #screen-boardroom {
+            background-color: var(--bg-dark);
+            background-image: 
+                radial-gradient(circle at 50% 0%, rgba(255,245,220,0.06) 0%, transparent 40%),
+                repeating-linear-gradient(45deg, transparent, transparent 2px, rgba(255,245,220,0.02) 2px, rgba(255,245,220,0.02) 4px);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 2rem;
+            position: relative;
+        }
+
+        .particles {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            overflow: hidden;
+            z-index: 0;
+        }
+        .particle {
+            position: absolute;
+            width: 2px;
+            height: 2px;
+            background: rgba(255,245,220,0.3);
+            border-radius: 50%;
+            animation: floatUp linear infinite;
+        }
+        @keyframes floatUp {
+            0% { transform: translateY(100vh) translateX(0); opacity: 0; }
+            10% { opacity: 0.5; }
+            90% { opacity: 0.5; }
+            100% { transform: translateY(-10vh) translateX(20px); opacity: 0; }
+        }
+
+        .boardroom-content {
+            position: relative;
+            z-index: 1;
+            text-align: center;
+            width: 100%;
+            max-width: 800px;
+        }
+
+        .hexagon-outer {
+            width: 30px; height: 34.64px;
+            background: var(--gold);
+            clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+            display: flex; align-items: center; justify-content: center;
+            margin: 0 auto 2rem auto;
+        }
+        .hexagon-inner {
+            width: 26px; height: 30px;
+            background: var(--bg-dark);
+            clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+        }
+
+        #br-headline {
+            font-family: 'Cormorant Garamond', serif;
+            font-style: italic;
+            font-size: clamp(1.4rem, 3vw, 2rem);
+            color: var(--text-cream);
+            margin-bottom: 1rem;
+            min-height: 2.5rem; /* prevent layout shift */
+        }
+        .cursor {
+            animation: blink 1s step-end infinite;
+        }
+        @keyframes blink { 50% { opacity: 0; } }
+
+        .sub-headline {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 1rem;
+            letter-spacing: 0.5em;
+            color: var(--text-grey);
+            margin-bottom: 3rem;
+        }
+
+        .sector-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1rem;
+            justify-items: center;
+            margin-bottom: 4rem;
+        }
+
+        .sector-card {
+            width: 170px;
+            height: 120px;
+            background: rgba(255,255,255,0.03);
+            border-left: 3px solid var(--card-color);
+            border-top: 1px solid rgba(255,255,255,0.05);
+            border-right: 1px solid rgba(255,255,255,0.05);
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            backdrop-filter: blur(10px);
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-align: left;
+            position: relative;
+            overflow: hidden;
+        }
+        .sector-card:hover {
+            border-left-width: 6px;
+            transform: translateX(6px);
+        }
+        .sector-card::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: var(--card-color);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            z-index: -1;
+        }
+        .sector-card:hover::before {
+            opacity: 0.08;
+        }
+
+        .sector-icon {
+            font-size: 2.5rem;
+            line-height: 1;
+        }
+        .sector-name {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 1.3rem;
+            color: var(--text-white);
+            margin-top: 0.5rem;
+        }
+        .sector-tag {
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.7rem;
+            color: var(--text-grey);
+            align-self: flex-end;
+        }
+
+        .random-btn {
+            background: transparent;
+            border: 1px solid rgba(255,255,255,0.2);
+            color: var(--text-white);
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 1.2rem;
+            letter-spacing: 0.1em;
+            padding: 0.8rem 2rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border-radius: 4px;
+        }
+        .random-btn:hover {
+            background: rgba(255,255,255,0.05);
+            border-color: var(--text-white);
+        }
+        .random-sub {
+            font-family: 'DM Sans', sans-serif;
+            font-style: italic;
+            font-size: 0.75rem;
+            color: var(--text-grey);
+            margin-top: 0.5rem;
+        }
+
+        /* --- TRANSITION SCREEN --- */
+        #screen-transition {
+            background: #000;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        .equalizer {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+            justify-content: center;
+            height: 50px;
+            margin-bottom: 2rem;
+        }
+        .eq-bar {
+            width: 6px;
+            background: var(--accent-color);
+            animation: eqPulse 0.8s ease-in-out infinite alternate;
+        }
+        .eq-bar:nth-child(1) { height: 20px; animation-delay: 0s; }
+        .eq-bar:nth-child(2) { height: 40px; animation-delay: 0.2s; }
+        .eq-bar:nth-child(3) { height: 25px; animation-delay: 0.4s; }
+        @keyframes eqPulse {
+            0% { transform: scaleY(0.4); }
+            100% { transform: scaleY(1.2); }
+        }
+        .trans-text-container {
+            height: 3rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .trans-text {
+            font-family: 'DM Sans', sans-serif;
+            color: var(--text-white);
+            font-size: 1.2rem;
+            opacity: 0;
+            position: absolute;
+            transition: opacity 0.3s;
+        }
+        .trans-text.show { opacity: 1; }
+
+        /* --- SCREEN 2: PITCH DECK --- */
+        #screen-pitch {
+            background-color: var(--bg-pitch);
+        }
+        .pitch-bg-lines {
+            position: fixed;
+            inset: 0;
+            background: repeating-linear-gradient(45deg, transparent, transparent 15px, rgba(255,255,255,0.015) 15px, rgba(255,255,255,0.015) 16px);
+            animation: driftLines 60s linear infinite;
+            pointer-events: none;
+            z-index: 0;
+        }
+        @keyframes driftLines {
+            from { background-position: 0 0; }
+            to { background-position: -1000px -1000px; }
+        }
+        .pitch-glow {
+            position: fixed;
+            inset: 0;
+            background: radial-gradient(circle at 50% 50%, rgba(var(--accent-rgb), 0.05) 0%, transparent 60%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .top-accent-strip {
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 4px;
+            background: var(--accent-color);
+            z-index: 10;
+        }
+
+        .pitch-container {
+            position: relative;
+            z-index: 1;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 4rem 2rem;
+        }
+
+        /* Animation Classes */
+        .zone { opacity: 0; }
+        .zone.animate { animation: fadeInUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        .metric-card { opacity: 0; }
+        .metric-card.animate { animation: fadeInUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .delay-0 { animation-delay: 0ms; }
+        .delay-200 { animation-delay: 200ms; }
+        .delay-600 { animation-delay: 600ms; }
+        .delay-800 { animation-delay: 800ms; }
+        .delay-1000 { animation-delay: 1000ms; }
+        .delay-1100 { animation-delay: 1100ms; }
+        .delay-1200 { animation-delay: 1200ms; }
+        .delay-1300 { animation-delay: 1300ms; }
+        .delay-1500 { animation-delay: 1500ms; }
+        .delay-1700 { animation-delay: 1700ms; }
+
+        .m-delay-1 { animation-delay: 800ms; }
+        .m-delay-2 { animation-delay: 900ms; }
+        .m-delay-3 { animation-delay: 1000ms; }
+        .m-delay-4 { animation-delay: 1100ms; }
+
+        /* ZONE A */
+        .zone-a {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 4rem;
+        }
+        .sector-badge {
+            background: var(--accent-color);
+            color: #000;
+            padding: 0.4rem 1rem;
+            border-radius: 20px;
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 1.1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .sector-badge .icon { font-size: 1rem; }
+        .pitch-number {
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.75rem;
+            color: var(--text-grey);
+            letter-spacing: 0.1em;
+        }
+        .funding-stage {
+            border: 1px solid var(--accent-color);
+            color: var(--accent-color);
+            padding: 0.4rem 1rem;
+            border-radius: 20px;
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 1.1rem;
+            letter-spacing: 0.05em;
+        }
+
+        /* ZONE B */
+        .zone-b {
+            text-align: center;
+            margin-bottom: 4rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .startup-name {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: clamp(4rem, 12vw, 8rem);
+            color: var(--text-white);
+            line-height: 1;
+            letter-spacing: 0.02em;
+            text-shadow: 0 0 40px rgba(var(--accent-rgb), 0.2);
+            min-height: 1.2em; /* prevent layout shift during typewriter */
+        }
+        .category-tag {
+            font-family: 'DM Sans', sans-serif;
+            font-size: 1rem;
+            color: var(--text-grey);
+            margin-top: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+        .underline {
+            width: 0;
+            height: 4px;
+            background: var(--accent-color);
+            margin-top: 1.5rem;
+            transition: width 1s cubic-bezier(0.16, 1, 0.3, 1) 0.5s;
+        }
+        .zone.animate .underline { width: 150px; }
+
+        /* ZONE C */
+        .zone-c {
+            margin-bottom: 4rem;
+            max-width: 700px;
+            margin-left: auto;
+            margin-right: auto;
+            position: relative;
+        }
+        .ep-label {
+            font-family: 'Bebas Neue', sans-serif;
+            color: var(--accent-color);
+            font-size: 0.9rem;
+            letter-spacing: 0.4em;
+            margin-bottom: 1rem;
+            text-align: center;
+        }
+        .ep-content {
+            display: flex;
+            align-items: flex-start;
+            gap: 1rem;
+        }
+        .quote-mark {
+            font-family: 'Cormorant Garamond', serif;
+            color: var(--accent-color);
+            font-size: 4rem;
+            line-height: 0.8;
+            margin-top: -0.5rem;
+        }
+        .pitch-text {
+            font-family: 'Cormorant Garamond', serif;
+            font-style: italic;
+            font-size: clamp(1.2rem, 2.5vw, 1.7rem);
+            color: var(--text-cream);
+            line-height: 1.4;
+            flex-grow: 1;
+        }
+        .copy-btn {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            color: var(--text-white);
+            padding: 0.4rem 0.8rem;
+            border-radius: 20px;
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.75rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s;
+            white-space: nowrap;
+            margin-top: 0.5rem;
+        }
+        .copy-btn:hover { background: rgba(255,255,255,0.1); }
+
+        /* ZONE D */
+        .zone-d {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1rem;
+            margin-bottom: 4rem;
+        }
+        .metric-card {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.05);
+            border-top: 2px solid var(--accent-color);
+            backdrop-filter: blur(10px);
+            padding: 1.5rem 1rem;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        .m-val {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 2.2rem;
+            margin-bottom: 0.5rem;
+        }
+        .val-gold { color: var(--gold); }
+        .val-white { color: var(--text-white); }
+        .val-accent { color: var(--accent-color); }
+        .m-label {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 0.9rem;
+            color: var(--text-grey);
+            letter-spacing: 0.1em;
+        }
+
+        /* ZONE E */
+        .zone-e {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 2rem;
+            margin-bottom: 4rem;
+        }
+        .col-label {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 1.2rem;
+            letter-spacing: 0.1em;
+            margin-bottom: 1rem;
+        }
+        .col-text {
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.95rem;
+            color: var(--text-grey);
+            line-height: 1.6;
+        }
+
+        /* ZONE F */
+        .zone-f {
+            margin-bottom: 3rem;
+        }
+        .d-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.5rem;
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 1rem;
+            letter-spacing: 0.1em;
+        }
+        .d-label { color: var(--text-grey); }
+        .d-val { color: var(--text-white); }
+        .d-bar-bg {
+            width: 100%;
+            height: 8px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .d-bar-fill {
+            height: 100%;
+            width: 0%;
+            border-radius: 4px;
+            transition: width 1s cubic-bezier(0.16, 1, 0.3, 1), background-color 1s;
+        }
+
+        /* ZONE G */
+        .zone-g {
+            margin-bottom: 2rem;
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+        .comp-label {
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: var(--text-grey);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        .comp-pills { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+        .comp-pill {
+            background: rgba(255,255,255,0.05);
+            padding: 0.4rem 0.8rem;
+            border-radius: 4px;
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.85rem;
+            color: var(--text-white);
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .comp-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--text-grey); }
+        .comp-edge {
+            width: 100%;
+            margin-top: 0.5rem;
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.9rem;
+            color: var(--text-grey);
+        }
+        .comp-edge span {
+            color: var(--accent-color);
+            font-weight: 700;
+        }
+
+        /* ZONE H */
+        .zone-h {
+            margin-bottom: 4rem;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+        .stack-label {
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: var(--text-grey);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        .stack-pills { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+        .stack-pill {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.1);
+            padding: 0.4rem 0.8rem;
+            border-radius: 20px;
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.85rem;
+            color: var(--text-cream);
+        }
+
+        /* ZONE I */
+        .zone-i {
+            margin-bottom: 4rem;
+            position: relative;
+        }
+        .separator {
+            width: 100%;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+            margin-bottom: 3rem;
+        }
+        .inv-section-label {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 1.5rem;
+            color: var(--gold);
+            text-align: center;
+            margin-bottom: 2rem;
+            letter-spacing: 0.05em;
+        }
+        .inv-cards {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        .inv-card {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid rgba(255,255,255,0.05);
+            border-radius: 8px;
+            padding: 1.5rem;
+            position: relative;
+            overflow: hidden;
+        }
+        .inv-header {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+        .inv-avatar {
+            width: 40px; height: 40px;
+            border-radius: 50%;
+            background: #111;
+            border: 2px solid var(--accent-color);
+            display: flex; align-items: center; justify-content: center;
+            font-family: 'Bebas Neue', sans-serif;
+            color: var(--text-white);
+            font-size: 1.1rem;
+        }
+        .inv-name {
+            font-family: 'DM Sans', sans-serif;
+            font-weight: 700;
+            font-size: 0.9rem;
+            color: var(--text-white);
+        }
+        .inv-quote {
+            font-family: 'DM Sans', sans-serif;
+            font-style: italic;
+            font-size: 0.9rem;
+            color: var(--text-grey);
+            line-height: 1.5;
+            margin-bottom: 1rem;
+        }
+        .inv-stars {
+            color: var(--gold);
+            font-size: 1rem;
+            letter-spacing: 2px;
+        }
+        .verdict-container {
+            display: flex;
+            justify-content: center;
+        }
+        .verdict-badge {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid var(--gold);
+            color: var(--gold);
+            padding: 0.8rem 2rem;
+            border-radius: 30px;
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 1.5rem;
+            letter-spacing: 0.1em;
+            box-shadow: 0 0 20px rgba(255,204,0,0.1);
+        }
+
+        /* ZONE J */
+        .zone-j {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
+        }
+        .action-btn {
+            padding: 1rem 2rem;
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 1.2rem;
+            letter-spacing: 0.05em;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.3s;
+            border: none;
+        }
+        .btn-new {
+            background: var(--accent-color);
+            color: #000;
+        }
+        .btn-new:hover {
+            box-shadow: 0 0 20px rgba(var(--accent-rgb), 0.4);
+            transform: translateY(-2px);
+        }
+        .btn-back {
+            background: transparent;
+            border: 1px solid rgba(255,255,255,0.2);
+            color: var(--text-white);
+        }
+        .btn-back:hover {
+            border-color: var(--text-white);
+            background: rgba(255,255,255,0.05);
+        }
+        .btn-share {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            color: var(--text-white);
+        }
+        .btn-share:hover {
+            background: rgba(255,255,255,0.1);
+        }
+
+        /* Mute Button */
+        #mute-btn {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            color: var(--text-white);
+            width: 44px; height: 44px;
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.2rem;
+            cursor: pointer;
+            z-index: 100;
+            transition: all 0.3s;
+        }
+        #mute-btn:hover { background: rgba(255,255,255,0.1); }
+
+        /* Responsive */
+        @media (max-width: 900px) {
+            .sector-grid { grid-template-columns: repeat(2, 1fr); }
+            .zone-d { grid-template-columns: repeat(2, 1fr); }
+            .zone-e { grid-template-columns: 1fr; gap: 1.5rem; }
+            .inv-cards { grid-template-columns: 1fr; }
+        }
+        @media (max-width: 500px) {
+            .sector-card { width: 140px; height: 100px; }
+            .sector-icon { font-size: 2rem; }
+            .sector-name { font-size: 1.1rem; }
+            .startup-name { font-size: 3rem; }
+            .pitch-text { font-size: 1.1rem; }
+            .zone-j { flex-direction: column; width: 100%; }
+            .action-btn { width: 100%; }
+            .ep-content { flex-direction: column; align-items: center; text-align: center; }
+            .quote-mark { display: none; }
+        }
+
+    </style>
+</head>
+<body>
+
+    <!-- SCREEN 1: BOARDROOM -->
+    <div id="screen-boardroom" class="screen active">
+        <div class="particles" id="particles"></div>
+        <div class="boardroom-content">
+            <div class="hexagon-outer"><div class="hexagon-inner"></div></div>
+            <h1 id="br-headline"></h1>
+            <div class="sub-headline">PICK YOUR SECTOR</div>
+            <div class="sector-grid" id="sector-grid"></div>
+            <button class="random-btn" id="btn-random">⚡ RANDOM SECTOR</button>
+            <div class="random-sub">Powered by founder intuition</div>
+        </div>
+    </div>
+
+    <!-- SCREEN 2: TRANSITION -->
+    <div id="screen-transition" class="screen">
+        <div class="equalizer">
+            <div class="eq-bar"></div>
+            <div class="eq-bar"></div>
+            <div class="eq-bar"></div>
+        </div>
+        <div class="trans-text-container">
+            <div class="trans-text" id="tt-1">Assembling your pitch deck...</div>
+            <div class="trans-text" id="tt-2">Calculating market size...</div>
+            <div class="trans-text" id="tt-3">Finding your edge...</div>
+        </div>
+    </div>
+
+    <!-- SCREEN 3: PITCH DECK -->
+    <div id="screen-pitch" class="screen">
+        <div class="pitch-bg-lines"></div>
+        <div class="pitch-glow"></div>
+        <div class="top-accent-strip"></div>
+        
+        <div class="pitch-container">
+            
+            <div class="zone zone-a delay-0">
+                <div class="sector-badge"><span class="icon" id="p-sector-icon"></span><span class="text" id="p-sector-name"></span></div>
+                <div class="pitch-number" id="p-number"></div>
+                <div class="funding-stage" id="p-funding"></div>
+            </div>
+
+            <div class="zone zone-b delay-200">
+                <h1 class="startup-name" id="p-name"></h1>
+                <div class="category-tag" id="p-cat-year"></div>
+                <div class="underline"></div>
+            </div>
+
+            <div class="zone zone-c delay-600">
+                <div style="width: 100%;">
+                    <div class="ep-label">ELEVATOR PITCH</div>
+                    <div class="ep-content">
+                        <span class="quote-mark">"</span>
+                        <p class="pitch-text" id="p-pitch"></p>
+                        <button class="copy-btn" id="btn-copy">📋 COPY</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="zone zone-d delay-800">
+                <div class="metric-card m-delay-1">
+                    <div class="m-val val-gold" id="p-market"></div>
+                    <div class="m-label">MARKET SIZE</div>
+                </div>
+                <div class="metric-card m-delay-2">
+                    <div class="m-val val-white" id="p-users"></div>
+                    <div class="m-label">TARGET USER</div>
+                </div>
+                <div class="metric-card m-delay-3">
+                    <div class="m-val val-accent" id="p-revenue"></div>
+                    <div class="m-label">REVENUE MODEL</div>
+                </div>
+                <div class="metric-card m-delay-4">
+                    <div class="m-val val-white" id="p-breakeven"></div>
+                    <div class="m-label">BREAK-EVEN</div>
+                </div>
+            </div>
+
+            <div class="zone zone-e delay-1000">
+                <div class="col">
+                    <div class="col-label" style="color:#ff4444">THE PROBLEM</div>
+                    <p class="col-text" id="p-problem"></p>
+                </div>
+                <div class="col">
+                    <div class="col-label" style="color:var(--accent-color)">OUR SOLUTION</div>
+                    <p class="col-text" id="p-solution"></p>
+                </div>
+                <div class="col">
+                    <div class="col-label" style="color:var(--gold)">UNFAIR ADVANTAGE</div>
+                    <p class="col-text" id="p-edge"></p>
+                </div>
+            </div>
+
+            <div class="zone zone-f delay-1100">
+                <div class="d-header">
+                    <div class="d-label">DISRUPTION LEVEL</div>
+                    <div class="d-val" id="p-d-val"></div>
+                </div>
+                <div class="d-bar-bg">
+                    <div class="d-bar-fill" id="p-d-fill"></div>
+                </div>
+            </div>
+
+            <div class="zone zone-g delay-1200">
+                <div class="comp-label">COMPETING AGAINST</div>
+                <div class="comp-pills" id="p-comp-pills"></div>
+                <div class="comp-edge">YOUR EDGE OVER THEM: <span id="p-comp-edge"></span></div>
+            </div>
+
+            <div class="zone zone-h delay-1300">
+                <div class="stack-label">BUILT WITH:</div>
+                <div class="stack-pills" id="p-stack-pills"></div>
+            </div>
+
+            <div class="zone zone-i delay-1500">
+                <div class="separator"></div>
+                <div class="inv-section-label">🎭 SIMULATED INVESTOR REACTION</div>
+                <div class="inv-cards" id="p-inv-cards"></div>
+                <div class="verdict-container">
+                    <div class="verdict-badge" id="p-verdict"></div>
+                </div>
+            </div>
+
+            <div class="zone zone-j delay-1700">
+                <button class="action-btn btn-new" id="btn-new">🔄 NEW IDEA · SAME SECTOR</button>
+                <button class="action-btn btn-back" id="btn-back">← CHANGE SECTOR</button>
+                <button class="action-btn btn-share" id="btn-share">📤 SHARE THIS PITCH</button>
+            </div>
+
+        </div>
+    </div>
+
+    <button id="mute-btn">🔊</button>
+
+    <script>
+        // DATA
+        const DATA = {
+            sectors: [
+                { id: 'deep-tech', icon: '🏗️', name: 'DEEP TECH', color: '#00e5ff', rgb: '0, 229, 255' },
+                { id: 'agritech', icon: '🌾', name: 'AGRITECH', color: '#aaff00', rgb: '170, 255, 0' },
+                { id: 'mobility', icon: '🚗', name: 'MOBILITY', color: '#ff6d00', rgb: '255, 109, 0' },
+                { id: 'proptech', icon: '🏠', name: 'PROPTECH', color: '#00bfa5', rgb: '0, 191, 165' },
+                { id: 'fashiontech', icon: '👗', name: 'FASHIONTECH', color: '#ff4081', rgb: '255, 64, 129' },
+                { id: 'foodtech', icon: '🍔', name: 'FOODTECH', color: '#ffab00', rgb: '255, 171, 0' },
+                { id: 'cybersecurity', icon: '🔐', name: 'CYBERSECURITY', color: '#ff1744', rgb: '255, 23, 68' },
+                { id: 'biotech', icon: '🧬', name: 'BIOTECH', color: '#d500f9', rgb: '213, 0, 249' }
+            ],
+            startups: {
+                'deep-tech': [
+                    { name: "QuantumShield", pitch: "We make quantum-encrypted communication accessible to every business, not just governments — for $99 a month.", problem: "Enterprise data is vulnerable to quantum computing attacks arriving by 2027", solution: "Quantum key distribution as a cloud service with plug-and-play API", edge: "Patent-pending photon entanglement algorithm 40% cheaper than competitors", market: "$31B", users: "Enterprise CTOs", revenue: "SaaS $99-$999/mo", breakEven: "22 months", disruption: "EXTREME", competitors: ["IBM Quantum", "Google QAI", "IonQ"], competitorEdge: "10x cheaper, no quantum hardware needed on client side", stack: ["⚛️ Quantum SDK", "🔐 Python", "☁️ AWS", "⚡ WebSocket"], funding: "SEED STAGE", investors: [{name:"A. Sharma · Deep Tech VC", quote:"This is the most important security company of the decade.", stars:5}, {name:"R. Patel · Angel", quote:"Timing is perfect — quantum threat is real and close.", stars:5}, {name:"S. Kim · CTO Advisor", quote:"The API approach is genius. Enterprises will pay anything for this.", stars:4}], verdict: "UNICORN POTENTIAL 🦄" },
+                    { name: "NeuralFab", pitch: "AI designs custom microchips in 48 hours instead of 18 months — we're making chip design democratic.", problem: "Custom chip design costs $50M+ and takes 18 months, locking out 99% of innovators", solution: "Generative AI chip design platform with automated tape-out verification", edge: "Trained on 2M chip designs, 94% first-pass yield rate", market: "$58B", users: "Hardware Startups", revenue: "Per-design $10K-$500K", breakEven: "14 months", disruption: "EXTREME", competitors: ["Cadence", "Synopsys", "Ansys"], competitorEdge: "100x faster, 90% cheaper for small-batch designs", stack: ["🤖 PyTorch", "⚛️ VLSI Tools", "☁️ GCP", "🔧 CUDA"], funding: "SERIES A", investors: [{name:"M. Chen · Hardware VC", quote:"This unlocks a generation of hardware innovators.", stars:5}, {name:"J. Park · Chip Veteran", quote:"The yield rates are extraordinary for an AI system.", stars:4}, {name:"L. Singh · Tech Angel", quote:"Every fabless startup needs this immediately.", stars:5}], verdict: "UNICORN POTENTIAL 🦄" },
+                    { name: "AeroSense", pitch: "We put AI air quality sensors in every building HVAC system and prevent $2T in productivity loss from bad indoor air.", problem: "90% of time spent indoors yet indoor air quality is 5x more toxic than outdoors — unseen and unmeasured", solution: "Smart IoT sensor mesh + AI that predicts and prevents air quality drops before humans feel them", edge: "Proprietary VOC detection chip costs $4 to manufacture vs $200 competitors", market: "$12B", users: "Building Managers", revenue: "Hardware + SaaS $199/mo", breakEven: "16 months", disruption: "HIGH", competitors: ["Awair", "uHoo", "Foobot"], competitorEdge: "Predictive AI vs reactive monitoring, 50x cheaper sensor", stack: ["📡 IoT C++", "🤖 TensorFlow Lite", "📱 React Native", "☁️ Azure"], funding: "SEED STAGE", investors: [{name:"P. Gupta · Climate VC", quote:"This is a public health play disguised as a B2B SaaS.", stars:4}, {name:"T. Wong · IoT Expert", quote:"The sensor cost breakthrough changes everything.", stars:5}, {name:"N. Ali · Angel", quote:"Every post-COVID building manager wants this.", stars:4}], verdict: "FUNDABLE ✓" },
+                    { name: "MindMesh", pitch: "Non-invasive brain-computer interface for paralyzed patients that costs $500 instead of $50,000.", problem: "BCIs like Neuralink require surgery and cost $50K+ — 99% of patients who need them can't access them", solution: "EEG headband + AI signal processing that achieves 80% of invasive BCI accuracy at 1% of cost", edge: "Novel dry electrode design + proprietary signal denoising algorithm", market: "$6.1B", users: "Rehab Clinics", revenue: "Device $500 + $99/mo software", breakEven: "28 months", disruption: "EXTREME", competitors: ["Neuralink", "Synchron", "BrainGate"], competitorEdge: "Non-invasive, 100x cheaper, works today without surgery", stack: ["🧠 Signal Processing", "🤖 PyTorch", "📡 Bluetooth LE", "⚛️ React Native"], funding: "SEED STAGE", investors: [{name:"Dr. R. Mehta · MedTech VC", quote:"The accessibility angle is massive and underserved.", stars:5}, {name:"A. Ford · Deep Tech Fund", quote:"If accuracy claims hold, this is a category creator.", stars:4}, {name:"S. Iyer · Angel MD", quote:"Every neuro rehab center is my customer.", stars:4}], verdict: "UNICORN POTENTIAL 🦄" },
+                    { name: "GravityStore", pitch: "We harvest energy from footsteps in high-traffic areas — turning every mall and airport into a power plant.", problem: "4.4 billion square feet of commercial floor space wastes kinetic energy worth $18B annually", solution: "Piezoelectric floor tiles + smart grid integration that sells energy back to buildings", edge: "Tiles last 15 years, generate 35% more power than any competitor through novel crystal lattice", market: "$9.8B", users: "Commercial Real Estate", revenue: "Revenue share 30% of energy savings", breakEven: "20 months", disruption: "HIGH", competitors: ["Pavegen", "EnGoPlanet", "Facility Solutions"], competitorEdge: "3x energy density, 15yr lifespan vs 5yr competitors, no maintenance", stack: ["⚡ Embedded Systems", "📊 IoT Dashboard", "☁️ AWS IoT", "📱 React"], funding: "SERIES A", investors: [{name:"C. Nair · Energy VC", quote:"The revenue share model removes all customer risk.", stars:5}, {name:"B. Liu · Infrastructure Fund", quote:"Airports alone are a billion dollar TAM.", stars:4}, {name:"K. Das · Climate Angel", quote:"Finally a green energy solution that pays for itself.", stars:5}], verdict: "UNICORN POTENTIAL 🦄" }
+                ],
+                'agritech': [
+                    { name: "SoilMind", pitch: "We give every farmer a soil scientist in their pocket — AI soil analysis via phone camera in 30 seconds, no lab needed.", problem: "Soil testing costs $50-$200 and takes 2 weeks — 500M small farmers globally farm blind", solution: "Spectrometry via phone flash + AI diagnosis of 12 soil parameters with fertilizer recommendations", edge: "Dataset of 8M soil samples across 40 crop types, 91% lab-accuracy match", market: "$14B", users: "Small Farmers", revenue: "Freemium · $4/month premium", breakEven: "12 months", disruption: "HIGH", competitors: ["CropX", "Trace Genomics", "Farmers Edge"], competitorEdge: "Zero hardware cost, instant results, works offline", stack: ["📱 Flutter", "🤖 TensorFlow Lite", "🌐 FastAPI", "☁️ Firebase"], funding: "SEED STAGE", investors: [{name:"V. Reddy · Agri VC", quote:"500 million farmers is the largest underserved market on earth.", stars:5}, {name:"M. Joshi · Impact Fund", quote:"The offline-first approach is the right call for rural India.", stars:5}, {name:"T. Okafor · Angel", quote:"91% accuracy from a phone camera is genuinely shocking.", stars:4}], verdict: "UNICORN POTENTIAL 🦄" },
+                    { name: "DroneHerd", pitch: "Autonomous drone swarms that replace farm laborers for crop monitoring, spraying and harvesting — $8/acre vs $80/acre human labor.", problem: "Agricultural labor shortage costs farmers $35B annually — and it's getting worse every year", solution: "AI swarm of 10 mini-drones that coordinate autonomously for all field operations", edge: "Swarm coordination algorithm reduces drone count needed by 60% vs competitors", market: "$22B", users: "Large Farm Owners", revenue: "DaaS $8/acre/month", breakEven: "18 months", disruption: "EXTREME", competitors: ["DJI Agras", "Rantizo", "AgEagle"], competitorEdge: "Swarm intelligence, 10x cheaper per acre, works at night", stack: ["🚁 ROS2 Robotics", "🤖 Computer Vision", "☁️ AWS", "📡 Mesh Network"], funding: "SERIES A", investors: [{name:"R. Singh · AgVC", quote:"Labor arbitrage alone justifies a $500M valuation.", stars:5}, {name:"P. Kim · Robotics Fund", quote:"The swarm algorithm is genuinely novel IP.", stars:5}, {name:"A. Obi · Angel", quote:"Every large farm in the world needs this yesterday.", stars:4}], verdict: "UNICORN POTENTIAL 🦄" },
+                    { name: "FrostGuard", pitch: "AI predicts crop-killing frost 72 hours earlier than weather services — saving $40B in annual crop losses.", problem: "Late frost predictions cost global agriculture $40B annually in crop losses — current forecasts are too generic", solution: "Hyperlocal microclimate AI using cheap IoT sensor network + satellite data fusion", edge: "Field-level prediction vs county-level forecasts — 10x more accurate for individual farms", market: "$8.4B", users: "Fruit/Vegetable Farmers", revenue: "SaaS $29/month", breakEven: "14 months", disruption: "MEDIUM", competitors: ["DTN", "The Weather Company", "aWhere"], competitorEdge: "Hyperlocal 50m resolution vs 10km grid, crop-specific risk scoring", stack: ["📡 IoT Sensors", "🛰️ Satellite API", "🤖 LSTM Neural Net", "📱 React Native"], funding: "SEED STAGE", investors: [{name:"C. Patel · Climate Tech VC", quote:"Climate change makes this more valuable every year.", stars:4}, {name:"J. Williams · Angel", quote:"The sensor network creates a defensible data moat.", stars:4}, {name:"L. Sharma · Impact Fund", quote:"Preventing food waste is both profitable and ethical.", stars:5}], verdict: "FUNDABLE ✓" },
+                    { name: "HarvestIQ", pitch: "We predict exactly when each crop row will peak and auto-schedule harvest crews — eliminating $12B in over/under-ripe losses.", problem: "Farmers lose 30% of yield value harvesting at wrong time — intuition-based timing is wildly inaccurate", solution: "Computer vision drone scan + ripeness AI + automated labor scheduling platform", edge: "Trained on 50M crop images across 200 varieties with 96% ripeness prediction accuracy", market: "$17B", users: "Commercial Farm Managers", revenue: "SaaS + per-acre fee", breakEven: "16 months", disruption: "HIGH", competitors: ["Abundant Robotics", "ffRobotics", "Harvest CROO"], competitorEdge: "Prediction before harvest vs automation during — intervenes earlier in the value chain", stack: ["🚁 Drone SDK", "🤖 PyTorch Vision", "📊 React Dashboard", "☁️ GCP"], funding: "SEED STAGE", investors: [{name:"M. Nair · AgVC", quote:"30% yield loss recovered is worth tens of billions globally.", stars:5}, {name:"T. Chen · Food Fund", quote:"The scheduling integration is the killer feature.", stars:4}, {name:"B. Okafor · Angel", quote:"Every commercial farm I know has this exact problem.", stars:5}], verdict: "UNICORN POTENTIAL 🦄" },
+                    { name: "AquaFarm", pitch: "AI-managed vertical aquaponics in shipping containers — fresh fish and vegetables anywhere on earth, no farmland needed.", problem: "800M people lack access to fresh protein and vegetables — geography and climate are the barriers", solution: "Self-contained IoT aquaponics container with AI managing water chemistry, feeding and harvest", edge: "95% less water than traditional farming, zero pesticides, deployable anywhere in 48 hours", market: "$11B", users: "Urban Restaurants + Hotels", revenue: "Container lease $2K/mo + produce subscription", breakEven: "20 months", disruption: "HIGH", competitors: ["Freight Farms", "Plenty", "Bowery"], competitorEdge: "Aquaponics dual-output (fish + vegetables), fully autonomous AI management", stack: ["📡 IoT Sensors", "🤖 TensorFlow", "💧 Water Chemistry API", "📱 Flutter"], funding: "SEED STAGE", investors: [{name:"F. Hassan · Food VC", quote:"Restaurants will pay premium for zero-mile produce.", stars:4}, {name:"N. Patel · Impact Angel", quote:"This solves food security and climate simultaneously.", stars:5}, {name:"C. Torres · AgVC", quote:"Container model means infinite scalability without land.", stars:4}], verdict: "FUNDABLE ✓" }
+                ],
+                'mobility': [
+                    { name: "LastMile AI", pitch: "AI co-pilot for delivery drivers that cuts route time by 35% and eliminates 90% of failed deliveries — saving $28B industry-wide.", problem: "20% of deliveries fail on first attempt costing $17.78 per re-delivery — $28B wasted annually", solution: "Predictive delivery AI that knows recipient patterns and pre-negotiates optimal delivery windows", edge: "Learns individual recipient behavior from 3 deliveries — 94% first-attempt success rate", market: "$28B", users: "Logistics Companies", revenue: "SaaS per-driver $40/mo", breakEven: "11 months", disruption: "HIGH", competitors: ["Route4Me", "OptimoRoute", "Circuit"], competitorEdge: "Recipient prediction AI vs static route optimization", stack: ["🗺️ Google Maps API", "🤖 ML Prediction", "📱 React Native", "⚡ Node.js"], funding: "SEED STAGE", investors: [{name:"D. Kumar · Logistics VC", quote:"Every delivery company in the world has this problem today.", stars:5}, {name:"A. Lee · Operations Angel", quote:"The recipient learning angle is genuinely novel.", stars:4}, {name:"S. Mehta · SaaS Fund", quote:"$40/driver/month with 35% efficiency gain sells itself.", stars:5}], verdict: "UNICORN POTENTIAL 🦄" },
+                    { name: "EvSwap", pitch: "Swap your EV battery in 90 seconds instead of charging for 40 minutes — a global battery-as-a-service network.", problem: "EV charging takes 40 minutes minimum — range anxiety and charging wait times block mass EV adoption", solution: "Network of battery swap stations for standardized EV batteries — subscription model like a phone plan", edge: "Proprietary universal battery adapter works with 85% of existing EVs without modification", market: "$46B", users: "EV Owners + Fleet Operators", revenue: "Subscription $79/mo unlimited swaps", breakEven: "24 months", disruption: "EXTREME", competitors: ["NIO Power", "Ample", "Gogoro"], competitorEdge: "Universal adapter — works across brands, not locked to one manufacturer", stack: ["⚡ IoT Battery BMS", "📱 React Native", "🔗 Blockchain Auth", "☁️ AWS"], funding: "SERIES A", investors: [{name:"E. Park · EV VC", quote:"The universal adapter is a $10B idea by itself.", stars:5}, {name:"L. Gupta · Energy Fund", quote:"Subscription model creates incredible recurring revenue.", stars:5}, {name:"M. Johnson · Angel", quote:"This is what EV adoption has been waiting for.", stars:4}], verdict: "UNICORN POTENTIAL 🦄" },
+                    { name: "ParkMind", pitch: "AI predicts available parking spots before you leave home — ending the 17 minutes drivers waste hunting for parking daily.", problem: "Drivers spend average 17 min/day finding parking — $345B in fuel waste and lost productivity annually", solution: "City-wide sensor network + ML prediction of spot availability 30 minutes in advance", edge: "Prediction model not just real-time — tells you where to go before you arrive", market: "$7.4B", users: "Urban Commuters", revenue: "Freemium $5.99/mo", breakEven: "13 months", disruption: "MEDIUM", competitors: ["SpotHero", "ParkWhiz", "Parkopedia"], competitorEdge: "Predictive AI vs reactive availability — 30 min forecast horizon", stack: ["📡 IoT Sensors", "🗺️ Maps API", "🤖 LSTM AI", "📱 Flutter"], funding: "SEED STAGE", investors: [{name:"U. Nair · Urban Tech VC", quote:"Every car-owning city resident is a potential user.", stars:4}, {name:"R. Shah · Angel", quote:"Prediction over real-time is the right product insight.", stars:5}, {name:"T. Brown · SaaS Fund", quote:"Municipality data partnerships create massive moat.", stars:4}], verdict: "FUNDABLE ✓" },
+                    { name: "CarpoolDAO", pitch: "Decentralized corporate carpooling where employees earn crypto tokens for every shared ride — cutting commute costs 60%.", problem: "Corporate commuting costs employees $10K/year and pollutes — yet 76% of workers drive alone", solution: "Employer-funded token rewards for carpooling, tracked via GPS and smart contract", edge: "Employer subsidy model means zero cost to rider — companies save on parking infrastructure", market: "$19B", users: "Corporate HR Teams", revenue: "SaaS B2B $15/employee/mo", breakEven: "15 months", disruption: "HIGH", competitors: ["Scoop", "Commutifi", "RideAmigos"], competitorEdge: "Token incentives + employer-pays model removes all user friction", stack: ["🔗 Solidity", "📱 React Native", "🗺️ Maps API", "⚡ Node.js"], funding: "SEED STAGE", investors: [{name:"W. Chen · Web3 VC", quote:"The employer-pays angle is the distribution hack.", stars:4}, {name:"P. Torres · HR Tech Angel", quote:"Every Fortune 500 HR team needs this for ESG reporting.", stars:5}, {name:"A. Kim · Climate Fund", quote:"60% commute cost cut sells itself to any employee.", stars:4}], verdict: "FUNDABLE ✓" },
+                    { name: "AirTaxi OS", pitch: "The operating system for urban air mobility — flight planning, air traffic, and passenger booking in one platform for eVTOL operators.", problem: "200+ eVTOL companies are building aircraft but zero infrastructure exists to operate them safely in cities", solution: "Full-stack software OS for urban air taxi operators — like Amadeus for airlines but for flying cars", edge: "First-mover with 12 eVTOL manufacturers already in pilot agreements", market: "$1.5T", users: "eVTOL Operators", revenue: "Platform fee per-flight $8", breakEven: "30 months", disruption: "EXTREME", competitors: ["Skyports", "Altitude Angel", "AirMap"], competitorEdge: "End-to-end OS vs point solutions — operators need one platform", stack: ["✈️ FAA APIs", "🗺️ 3D Maps", "⚡ Real-time WebSocket", "☁️ AWS GovCloud"], funding: "SERIES A", investors: [{name:"H. Park · Air Mobility VC", quote:"Infrastructure always wins over hardware in new transport modes.", stars:5}, {name:"C. Obi · Deep Tech Fund", quote:"12 OEM agreements pre-revenue is extraordinary.", stars:5}, {name:"N. Brown · Angel", quote:"This is the Amadeus or Sabre of the air taxi era.", stars:5}], verdict: "UNICORN POTENTIAL 🦄" }
+                ],
+                'proptech': [
+                    { name: "RentSense", pitch: "AI predicts fair rent price for any apartment within 2% accuracy — ending rent price manipulation by landlords.", problem: "Renters overpay by average $320/month due to information asymmetry — landlords have all the data", solution: "AI rent valuation using 200+ signals: transit, crime, noise, school ratings, micro-demand", edge: "2% accuracy vs 12% for Zillow Zestimate — most accurate rental valuation model ever built", market: "$11B", users: "Urban Renters", revenue: "Freemium $9.99/mo", breakEven: "10 months", disruption: "HIGH", competitors: ["Zillow", "Rentometer", "RentRange"], competitorEdge: "Renter-side advocacy tool — incumbents are landlord-biased", stack: ["🤖 XGBoost ML", "📊 React", "🗺️ Maps API", "☁️ Firebase"], funding: "SEED STAGE", investors: [{name:"S. Kapoor · PropVC", quote:"Information asymmetry in renting is one of the biggest injustices in housing.", stars:5}, {name:"D. Nair · Consumer Angel", quote:"Every renter I know would pay $10/month for this.", stars:5}, {name:"F. Wong · SaaS Fund", quote:"The 2% accuracy stat will go viral.", stars:4}], verdict: "UNICORN POTENTIAL 🦄" },
+                    { name: "BuildBot", pitch: "AI project manager for construction sites that predicts delays 3 weeks ahead — saving builders $120B in overrun costs.", problem: "98% of large construction projects go over budget or schedule — $120B lost annually in the US alone", solution: "Computer vision site monitoring + AI schedule prediction with automated contractor alerts", edge: "Detects delay signals humans miss — weather + supply chain + labor pattern fusion", market: "$120B", users: "General Contractors", revenue: "SaaS $2K-$20K/project", breakEven: "17 months", disruption: "HIGH", competitors: ["Procore", "PlanGrid", "Autodesk Construction"], competitorEdge: "Predictive AI vs documentation tools — stops problems before they happen", stack: ["📹 Computer Vision", "🤖 TensorFlow", "📊 React Dashboard", "☁️ Azure"], funding: "SERIES A", investors: [{name:"R. Mehta · Construction VC", quote:"Every GC loses 20% margin to delays. This is a no-brainer.", stars:5}, {name:"T. Park · Enterprise Fund", quote:"The vision stack creates a data moat no one can replicate.", stars:4}, {name:"A. Obi · Angel", quote:"Procore is worth $10B and just manages documents. Imagine prediction.", stars:5}], verdict: "UNICORN POTENTIAL 🦄" },
+                    { name: "CoLiveMatch", pitch: "AI roommate matching based on personality, sleep schedule, cleanliness and lifestyle — 3x better retention than random matching.", problem: "65% of co-living conflicts come from roommate incompatibility — operators lose $4K per early move-out", solution: "Deep compatibility algorithm using psychometric + behavioral data for optimal co-living pairing", edge: "Proprietary 40-dimension compatibility model trained on 500K roommate outcome data points", market: "$6.3B", users: "Co-living Operators", revenue: "B2B SaaS $8/bed/month", breakEven: "9 months", disruption: "MEDIUM", competitors: ["Roomies", "SpareRoom", "Facebook Groups"], competitorEdge: "Operator-sold B2B vs consumer app — higher ACV, lower CAC", stack: ["🧠 Psychometric API", "🤖 Matching Algorithm", "📊 React", "☁️ Node.js"], funding: "SEED STAGE", investors: [{name:"M. Singh · PropVC", quote:"3x retention improvement translates directly to operator profits.", stars:4}, {name:"C. Chen · Angel", quote:"The B2B angle is smarter than every consumer roommate app.", stars:5}, {name:"N. Patel · Fund", quote:"Co-living is a $50B market and this is core infrastructure.", stars:4}], verdict: "FUNDABLE ✓" },
+                    { name: "SmartLease", pitch: "AI-powered lease negotiation assistant that has saved renters an average $4,200 per lease — your personal real estate lawyer for $29.", problem: "Renters sign unfair lease clauses worth $4-8K in unnecessary costs — they don't know what to fight", solution: "AI scans any lease PDF and flags unfair clauses, suggests counter-terms, and drafts negotiation emails", edge: "Trained on 2M leases across 50 US cities — knows what's normal vs exploitative in every market", market: "$4.8B", users: "Urban Renters 22-35", revenue: "Freemium $29 per lease full report", breakEven: "8 months", disruption: "MEDIUM", competitors: ["LawDepot", "Rocket Lawyer", "DoNotPay"], competitorEdge: "Lease-specific AI vs general legal tools — depth beats breadth", stack: ["📄 PDF Parser", "🤖 Claude API", "⚡ Next.js", "💳 Stripe"], funding: "SEED STAGE", investors: [{name:"K. Rao · LegalTech VC", quote:"$29 with $4,200 average savings is a 144x ROI for the user.", stars:5}, {name:"B. Lee · Consumer Angel", quote:"Every renter in America is a potential customer.", stars:5}, {name:"J. Torres · Fund", quote:"The Claude API integration gives instant unfair advantage.", stars:4}], verdict: "UNICORN POTENTIAL 🦄" },
+                    { name: "VacantEye", pitch: "AI identifies vacant and underutilized properties from satellite imagery and connects developers to hidden opportunities before they hit market.", problem: "$1.2T in developable vacant properties sits invisible to developers — discovered only by expensive ground surveys", solution: "Satellite + computer vision scan of entire cities updated monthly, with owner contact automation", edge: "Identifies vacancy signals humans miss — roof aging, vegetation overgrowth, utility usage patterns", market: "$16B", users: "Real Estate Developers", revenue: "Lead-gen $500/qualified lead", breakEven: "12 months", disruption: "HIGH", competitors: ["CoStar", "Reonomy", "CompStak"], competitorEdge: "Proactive discovery vs passive database search", stack: ["🛰️ Satellite API", "🤖 Computer Vision", "📊 React GIS", "☁️ AWS"], funding: "SEED STAGE", investors: [{name:"G. Mehta · Real Estate VC", quote:"Information edge in real estate is worth billions.", stars:5}, {name:"P. Nair · PropTech Angel", quote:"Satellite imagery at this resolution changes the game.", stars:4}, {name:"H. Kim · Data Fund", quote:"The lead-gen model is capital-light and infinitely scalable.", stars:5}], verdict: "UNICORN POTENTIAL 🦄" }
+                ],
+                'fashiontech': [
+                    { name: "WardrobeAI", pitch: "AI stylist that builds outfits from clothes you already own — users wear 40% more of their wardrobe and buy 30% less.", problem: "Average person wears only 20% of their wardrobe regularly — $500 in clothes sit unworn every year", solution: "Photo scan your wardrobe once, AI creates daily outfit recommendations based on weather, calendar and mood", edge: "Integrates with Google Calendar — knows your meetings and dresses you appropriately automatically", market: "$4.4B", users: "Professional Women 25-45", revenue: "Subscription $12.99/mo", breakEven: "11 months", disruption: "MEDIUM", competitors: ["Stylebook", "Cladwell", "Smart Closet"], competitorEdge: "Calendar integration + weather API — context-aware vs just aesthetic matching", stack: ["📱 React Native", "🤖 Vision API", "📅 Google Calendar API", "☁️ Firebase"], funding: "SEED STAGE", investors: [{name:"L. Park · Consumer VC", quote:"The sustainability angle gives this mainstream media appeal.", stars:4}, {name:"A. Singh · Angel", quote:"Calendar integration is a feature no competitor has.", stars:5}, {name:"M. Johnson · Fund", quote:"Women's fashion tech is criminally underfunded.", stars:4}], verdict: "FUNDABLE ✓" },
+                    { name: "SizeTrue", pitch: "AI body measurement from 2 phone photos eliminates sizing guesswork — cutting fashion returns from 40% to under 5%.", problem: "Fashion e-commerce returns cost brands $550B annually — 70% are size-related", solution: "3D body model from front + side phone photo, mapped to each brand's unique size chart", edge: "Works with existing clothes on — no special garment needed, 4mm accuracy", market: "$550B", users: "Fashion E-commerce Brands", revenue: "B2B API $0.15/measurement", breakEven: "13 months", disruption: "HIGH", competitors: ["True Fit", "Fit Analytics", "Sizebay"], competitorEdge: "No hardware needed, works instantly, 4mm accuracy beats all", stack: ["📱 ARKit/ARCore", "🤖 3D Pose Estimation", "⚡ FastAPI", "☁️ AWS"], funding: "SERIES A", investors: [{name:"E. Chen · Fashion VC", quote:"Solving returns is worth more than solving discovery.", stars:5}, {name:"R. Patel · Retail Angel", quote:"Every fashion brand loses 20% margin to returns.", stars:5}, {name:"T. Nguyen · API Fund", quote:"The per-measurement API model scales infinitely.", stars:4}], verdict: "UNICORN POTENTIAL 🦄" },
+                    { name: "ThriftGenius", pitch: "AI finds your exact style in secondhand markets across 200 platforms simultaneously — sustainable fashion at luxury quality.", problem: "Finding quality secondhand items matching your taste across fragmented platforms takes 6+ hours of searching", solution: "Style profile from Instagram/Pinterest + AI search across 200 secondhand platforms simultaneously", edge: "Visual similarity search + style DNA matching — finds items you'd love before you know you want them", market: "$218B", users: "Eco-conscious Shoppers 18-35", revenue: "Commission 8% per sale", breakEven: "10 months", disruption: "HIGH", competitors: ["ThredUp", "Depop", "Vestiaire"], competitorEdge: "Aggregator across all platforms vs single marketplace", stack: ["🤖 Visual Search AI", "🕸️ Web Scrapers", "📱 React Native", "☁️ Elasticsearch"], funding: "SEED STAGE", investors: [{name:"S. Williams · Circular Economy VC", quote:"$218B secondhand market is growing 3x faster than new fashion.", stars:5}, {name:"N. Kim · Consumer Angel", quote:"The aggregator model is what Kayak did for flights.", stars:5}, {name:"B. Okafor · Fund", quote:"Gen Z will pay for sustainability without a price premium.", stars:4}], verdict: "UNICORN POTENTIAL 🦄" },
+                    { name: "FabricTrace", pitch: "QR code on every garment reveals its complete supply chain in 10 seconds — brands pay $2/garment for consumer trust.", problem: "67% of Gen Z won't buy from brands they don't trust on sustainability — but verification is impossible today", solution: "Blockchain supply chain tracking from raw material to retail, surfaced via QR scan on clothing label", edge: "Partnerships with 340 textile mills — largest verified supply chain database in fashion", market: "$7.1B", users: "Fashion Brands", revenue: "B2B $2/garment traced", breakEven: "16 months", disruption: "HIGH", competitors: ["Sourcemap", "TextileGenesis", "Aware"], competitorEdge: "340 mill partnerships creates impossible-to-replicate data network", stack: ["🔗 Hyperledger", "📱 QR Scanner App", "⚡ Node.js", "☁️ Azure"], funding: "SERIES A", investors: [{name:"C. Mehta · ESG Fund", quote:"EU mandatory supply chain disclosure law makes this inevitable.", stars:5}, {name:"A. Park · Fashion Angel", quote:"The mill network is the real asset — took years to build.", stars:5}, {name:"F. Torres · Impact VC", quote:"Regulatory tailwind plus consumer demand is unstoppable.", stars:4}], verdict: "UNICORN POTENTIAL 🦄" },
+                    { name: "RentTheRamp", pitch: "Designer outfit rental subscription for everyday occasions — not just galas — $89/month to always look like a million dollars.", problem: "Occasion dressing for work events, dates, and dinners costs $300-$800 per outfit worn once", solution: "Subscription rental of designer everyday wear — receive 3 outfits, wear, return, repeat", edge: "Focus on everyday professional + social occasions vs competitor focus on galas only", market: "$2.6B", users: "Professional Women 28-42", revenue: "Subscription $89/mo", breakEven: "19 months", disruption: "MEDIUM", competitors: ["Rent the Runway", "Nuuly", "Le Tote"], competitorEdge: "Everyday occasion focus opens 10x larger market than formal-only", stack: ["📱 React Native", "🔄 Inventory Management", "💳 Stripe", "☁️ Shopify"], funding: "SEED STAGE", investors: [{name:"D. Singh · Fashion VC", quote:"Everyday positioning is smarter than Rent the Runway's gala focus.", stars:4}, {name:"M. Lee · Consumer Angel", quote:"$89/month for designer is a no-brainer for career women.", stars:4}, {name:"N. Brown · Retail Fund", quote:"The unit economics work beautifully with 15 wears per garment.", stars:5}], verdict: "FUNDABLE ✓" }
+                ],
+                'foodtech': [
+                    { name: "GhostMenu", pitch: "AI creates a new virtual restaurant brand from any existing kitchen in 48 hours — turning idle kitchen capacity into $8K/month extra revenue.", problem: "Restaurant kitchens sit at 40% capacity during off-peak hours — $68B in idle kitchen assets globally", solution: "AI designs a delivery-optimized menu brand, handles marketing and orders — restaurant just cooks", edge: "Full-stack brand creation in 48 hours — competitors take 6 weeks and $10K upfront", market: "$68B", users: "Restaurant Owners", revenue: "Revenue share 15% of virtual brand sales", breakEven: "8 months", disruption: "HIGH", competitors: ["Kitchen United", "Reef", "CloudKitchens"], competitorEdge: "Software-only, zero infrastructure cost — pure SaaS on top of existing kitchens", stack: ["🤖 Menu AI", "📱 Delivery APIs", "⚡ Node.js", "☁️ Firebase"], funding: "SEED STAGE", investors: [{name:"P. Kim · FoodVC", quote:"The 48-hour brand creation is a category-defining claim.", stars:5}, {name:"L. Nair · Restaurant Angel", quote:"Every restaurant I know wants this yesterday.", stars:5}, {name:"T. Singh · Revenue Share Fund", quote:"15% on incremental revenue with zero risk to operator.", stars:5}], verdict: "UNICORN POTENTIAL 🦄" },
+                    { name: "NutriSnap", pitch: "Photograph any meal anywhere and get instant accurate nutrition data — replacing calorie counting apps that require manual entry.", problem: "87% of people who start calorie tracking quit within 2 weeks — manual entry is too tedious", solution: "AI food recognition from photo with portion estimation and macro breakdown in 3 seconds", edge: "96.4% accuracy on 8,000 food items including regional Indian and Asian dishes competitors miss", market: "$6.8B", users: "Health-conscious Adults", revenue: "Freemium $7.99/mo", breakEven: "10 months", disruption: "MEDIUM", competitors: ["MyFitnessPal", "Lose It", "Cronometer"], competitorEdge: "Zero manual entry — photo-first vs search-first, 10x less friction", stack: ["🤖 Food Vision AI", "📱 React Native", "🌐 Nutrition API", "☁️ Firebase"], funding: "SEED STAGE", investors: [{name:"H. Patel · Health VC", quote:"Reducing friction from 30 entries to 1 photo is the whole game.", stars:5}, {name:"J. Wu · Consumer Angel", quote:"The regional food dataset is the moat — impossible to replicate fast.", stars:4}, {name:"S. Torres · App Fund", quote:"MyFitnessPal has 200M users — even 1% switching is massive.", stars:4}], verdict: "FUNDABLE ✓" },
+                    { name: "BrewMind", pitch: "AI craft beer recipe generator that predicts taste ratings before brewing — saving microbreweries $120K per failed batch.", problem: "40% of new craft beer recipes fail market testing — each bad batch costs $80-$120K and 3 months", solution: "AI trained on 500K beer recipes + 2M consumer taste reviews predicts rating before single barrel brewed", edge: "Predicts IBU perception vs actual — accounts for individual palate variation across demographics", market: "$3.4B", users: "Craft Breweries", revenue: "SaaS $499/mo", breakEven: "11 months", disruption: "MEDIUM", competitors: ["BreweryDB", "Ekos", "OrchestratedBEER"], competitorEdge: "Taste prediction AI vs inventory management — attacks a higher-value problem", stack: ["🤖 Taste ML Model", "📊 React Dashboard", "🌐 Beer Flavor API", "☁️ AWS"], funding: "SEED STAGE", investors: [{name:"B. McGrath · Beverage VC", quote:"$120K per failed batch makes $499/mo the easiest ROI ever.", stars:5}, {name:"C. Park · FoodTech Angel", quote:"The palate variation modeling is genuinely novel science.", stars:4}, {name:"A. Mehta · CPG Fund", quote:"Scales to wine, spirits, kombucha — massive adjacencies.", stars:4}], verdict: "FUNDABLE ✓" },
+                    { name: "MealBond", pitch: "Corporate meal benefit platform that lets employees order from any restaurant — not just DoorDash — saving companies 35% vs competitors.", problem: "Corporate meal programs lock employees into 2-3 delivery platforms — 60% of preferred restaurants excluded", solution: "Universal meal benefit card accepted at any restaurant globally, with AI receipt parsing", edge: "Any restaurant, any city, any country — vs locked platform ecosystems of Grubhub/DoorDash", market: "$22B", users: "HR Managers", revenue: "2.5% transaction fee", breakEven: "14 months", disruption: "HIGH", competitors: ["Grubhub Corporate", "Sharebite", "Cater2me"], competitorEdge: "Universal acceptance — no restaurant integration needed, any card terminal works", stack: ["💳 Stripe Issuing", "🤖 OCR Receipt AI", "📊 React Dashboard", "☁️ Node.js"], funding: "SERIES A", investors: [{name:"V. Singh · HR Tech VC", quote:"The universal card approach removes all onboarding friction.", stars:5}, {name:"T. Kim · FinTech Angel", quote:"2.5% on $22B market is a $550M revenue opportunity.", stars:5}, {name:"M. Obi · Enterprise Fund", quote:"HR teams hate being locked in — this is the freedom play.", stars:4}], verdict: "UNICORN POTENTIAL 🦄" },
+                    { name: "SpiceRoute AI", pitch: "AI personal chef that learns your flavor DNA from 5 meals and generates infinite personalized recipes you'll actually love.", problem: "Recipe apps show 10M recipes but can't predict which 10 you'll actually enjoy cooking and eating", solution: "Flavor profile built from taste ratings of 5 meals → AI generates infinite personalized recipes", edge: "Flavor DNA model accounts for texture, spice tolerance, cooking skill level and time constraints", market: "$5.2B", users: "Home Cooks 28-50", revenue: "Subscription $9.99/mo", breakEven: "9 months", disruption: "MEDIUM", competitors: ["Yummly", "Whisk", "Paprika"], competitorEdge: "Generative personalization vs curated library — infinite content at zero marginal cost", stack: ["🤖 Claude API", "📱 React Native", "🌐 Spoonacular API", "☁️ Firebase"], funding: "SEED STAGE", investors: [{name:"N. Sharma · Consumer VC", quote:"Infinite personalized content is the Netflix model applied to food.", stars:4}, {name:"R. Park · Angel", quote:"The 5-meal onboarding is genius — low friction, high signal.", stars:5}, {name:"K. Torres · App Fund", quote:"Claude API gives them a personalization engine no recipe startup has.", stars:4}], verdict: "FUNDABLE ✓" }
+                ],
+                'cybersecurity': [
+                    { name: "PhishHound", pitch: "AI email security that detects zero-day phishing attacks in 0.3 seconds — 99.7% catch rate vs 76% industry average.", problem: "Phishing costs businesses $17.4B annually — current filters miss 24% of attacks using novel techniques", solution: "Behavioral AI that analyzes 600+ email signals beyond links and keywords — catches never-seen attacks", edge: "Learns from every new attack globally in real-time — gets smarter with every phish caught anywhere", market: "$17.4B", users: "IT Security Teams", revenue: "SaaS $8/mailbox/mo", breakEven: "13 months", disruption: "HIGH", competitors: ["Proofpoint", "Mimecast", "Abnormal Security"], competitorEdge: "Behavioral AI vs signature matching — catches zero-days competitors miss by definition", stack: ["🤖 NLP + Behavioral AI", "📧 Email API", "⚡ Real-time Processing", "☁️ AWS"], funding: "SERIES A", investors: [{name:"C. Park · CyberVC", quote:"99.7% vs 76% is a stat that sells itself in any boardroom.", stars:5}, {name:"B. Singh · Security Angel", quote:"The collective learning network is a genuine moat.", stars:5}, {name:"T. Lee · Enterprise Fund", quote:"Every CIO has had a phishing incident — this is mandatory spending.", stars:4}], verdict: "UNICORN POTENTIAL 🦄" },
+                    { name: "AccessAI", pitch: "AI that detects insider threats 3 weeks before they act — analyzing behavioral patterns, not just access logs.", problem: "Insider threats cause 34% of data breaches — traditional tools only detect after damage is done", solution: "Behavioral biometric AI continuously monitors 200+ signals per employee to flag risk before action", edge: "Detects intent signals — unusual working hours, printer usage, email sentiment — not just access", market: "$8.9B", users: "Fortune 500 CISOs", revenue: "Enterprise SaaS $50K-$500K/yr", breakEven: "20 months", disruption: "EXTREME", competitors: ["Varonis", "Securonix", "Exabeam"], competitorEdge: "Predictive intent AI vs reactive anomaly detection", stack: ["🤖 Behavioral ML", "📊 SIEM Integration", "⚡ Real-time Streaming", "☁️ Azure"], funding: "SERIES A", investors: [{name:"K. Mehta · Enterprise Security VC", quote:"Detecting before action vs after is a paradigm shift worth billions.", stars:5}, {name:"J. Park · CISO Angel", quote:"Every CISO I know is desperate for this capability.", stars:5}, {name:"L. Chen · Deep Tech Fund", quote:"The behavioral biometric dataset will become the most valuable in security.", stars:4}], verdict: "UNICORN POTENTIAL 🦄" },
+                    { name: "PatchBot", pitch: "AI that automatically writes and deploys security patches for known vulnerabilities — cutting patch time from 60 days to 4 hours.", problem: "Average company takes 60 days to patch known vulnerabilities — 80% of breaches exploit known unpatched flaws", solution: "AI reads CVE database, writes patch code, tests in sandbox, deploys to production automatically", edge: "Supports 40 programming languages and 200 frameworks — broadest coverage in market", market: "$12B", users: "DevSecOps Teams", revenue: "SaaS per-repo $299/mo", breakEven: "15 months", disruption: "HIGH", competitors: ["Snyk", "Veracode", "Checkmarx"], competitorEdge: "Auto-remediation vs detection-only — eliminates human bottleneck entirely", stack: ["🤖 Code Generation AI", "🔐 CVE Database", "🧪 Sandbox Testing", "☁️ GitHub API"], funding: "SEED STAGE", investors: [{name:"R. Torres · DevSecOps VC", quote:"60 days to 4 hours is a 360x improvement — unassailable marketing.", stars:5}, {name:"A. Kim · Security Angel", quote:"Snyk is worth $8B doing detection. Remediation is the next layer.", stars:5}, {name:"N. Patel · Dev Fund", quote:"Every engineering team with compliance requirements needs this.", stars:4}], verdict: "UNICORN POTENTIAL 🦄" },
+                    { name: "DarkEye", pitch: "Continuous dark web monitoring that alerts businesses the moment their data appears for sale — 72 hours before breach news breaks.", problem: "Companies learn about data breaches from news or customers — average 197 days to detect internally", solution: "AI crawls 50K dark web forums and marketplaces continuously, matching against client data fingerprints", edge: "72-hour average early warning vs 197-day industry average detection time", market: "$5.6B", users: "SMB Security Teams", revenue: "SaaS $199-$999/mo", breakEven: "11 months", disruption: "MEDIUM", competitors: ["SpyCloud", "Digital Shadows", "Recorded Future"], competitorEdge: "SMB pricing vs enterprise-only competitors — 100x larger addressable market", stack: ["🕸️ Dark Web Crawlers", "🤖 NLP Matching", "⚡ Alert System", "☁️ AWS"], funding: "SEED STAGE", investors: [{name:"F. Obi · CyberVC", quote:"SMB pricing unlocks a market enterprise tools ignore completely.", stars:4}, {name:"S. Brown · Angel", quote:"72-hour warning is the difference between managing a breach and being destroyed by one.", stars:5}, {name:"T. Nair · Security Fund", quote:"The crawler infrastructure creates a data moat no VC-funded startup can replicate fast.", stars:4}], verdict: "FUNDABLE ✓" },
+                    { name: "ZeroTrustGPT", pitch: "AI security policy generator that turns your compliance requirements into working zero-trust rules in plain English — no security engineer needed.", problem: "Zero-trust implementation costs $2M+ and takes 2 years — 95% of SMBs can't afford it and remain vulnerable", solution: "Plain-English policy description → AI generates, tests and deploys complete zero-trust network rules", edge: "Works with existing infrastructure — no rip-and-replace, AI adapts to your stack", market: "$38B", users: "IT Managers", revenue: "SaaS $1,499/mo", breakEven: "17 months", disruption: "EXTREME", competitors: ["Zscaler", "Palo Alto", "Cloudflare Zero Trust"], competitorEdge: "AI-generated vs manual configuration — democratizes enterprise security for SMBs", stack: ["🤖 GPT-4 Policy AI", "🔐 Network APIs", "📊 React Dashboard", "☁️ Multi-cloud"], funding: "SERIES A", investors: [{name:"E. Singh · CyberVC", quote:"Democratizing zero-trust is a $100B opportunity hiding in plain sight.", stars:5}, {name:"M. Park · Enterprise Angel", quote:"Plain English security policy is what every non-technical CEO needs.", stars:5}, {name:"C. Liu · Infrastructure Fund", quote:"Zscaler at $20B shows the ceiling. This reaches 100x the customers.", stars:4}], verdict: "UNICORN POTENTIAL 🦄" }
+                ],
+                'biotech': [
+                    { name: "ProteinForge", pitch: "AI designs novel proteins for drug discovery in 6 hours instead of 6 years — making pharma R&D 100x faster and 95% cheaper.", problem: "Drug discovery takes 12 years and $2.6B per drug — protein design is the slowest bottleneck", solution: "Generative AI protein design platform that creates and validates novel therapeutic proteins computationally", edge: "Built on AlphaFold3 + proprietary wet-lab validation loop — AI learns from every experiment", market: "$52B", users: "Pharma R&D Teams", revenue: "Platform license $500K/yr + royalties", breakEven: "36 months", disruption: "EXTREME", competitors: ["Recursion Pharma", "Insilico Medicine", "AbSci"], competitorEdge: "Closed-loop wet-lab validation creates self-improving AI no pure-software competitor has", stack: ["🧬 AlphaFold3 API", "🤖 PyTorch", "🔬 Lab Automation API", "☁️ AWS HPC"], funding: "SERIES A", investors: [{name:"Dr. A. Patel · BioVC", quote:"The wet-lab loop is the moat. Pure computational approaches always fail without it.", stars:5}, {name:"R. Chen · Deep Science Fund", quote:"If the 6-hour claim holds, this is a Nobel Prize-level platform.", stars:5}, {name:"N. Kim · Pharma Angel", quote:"Every Big Pharma R&D chief is my customer. CAC is zero.", stars:4}], verdict: "UNICORN POTENTIAL 🦄" },
+                    { name: "GenomeGuard", pitch: "Preventive genetic screening for 500 conditions for $49 — making precision medicine accessible to the next billion people.", problem: "Genetic screening costs $500-$5000 and is ordered reactively after symptoms — prevention is impossible at scale", solution: "$49 whole-genome screening + AI risk scoring for 500 conditions with actionable prevention plans", edge: "40x cheaper than competitors through novel sequencing compression algorithm reducing lab costs 90%", market: "$22B", users: "Health-conscious Adults 30-55", revenue: "One-time $49 + $9.99/mo monitoring", breakEven: "16 months", disruption: "EXTREME", competitors: ["23andMe", "Color Health", "Invitae"], competitorEdge: "$49 vs $500+ and whole genome vs SNP chip — more data, 10x cheaper", stack: ["🧬 Sequencing API", "🤖 Risk ML Model", "📱 React Native", "🔐 HIPAA Compliant Cloud"], funding: "SERIES A", investors: [{name:"M. Singh · HealthVC", quote:"23andMe proved demand at $99. $49 whole genome at this scale is category-ending.", stars:5}, {name:"T. Park · Genomics Angel", quote:"The compression algorithm is the real IP here.", stars:5}, {name:"F. Nair · Impact Fund", quote:"Making precision medicine democratic is worth any valuation.", stars:4}], verdict: "UNICORN POTENTIAL 🦄" },
+                    { name: "MicroBiome Rx", pitch: "Personalized probiotic formulations based on your gut microbiome analysis — shipped monthly and adjusted as your gut evolves.", problem: "$50B probiotic market sells one-size-fits-all supplements with 40% efficacy — your gut is unique", solution: "At-home gut test → AI analyzes 10,000 bacterial strains → personalized formulation manufactured and shipped", edge: "Monthly reformulation based on results — living product that adapts vs static supplements", market: "$50B", users: "Health-focused Adults 28-55", revenue: "Subscription $89/mo", breakEven: "18 months", disruption: "HIGH", competitors: ["Viome", "Sun Genomics", "Ombre"], competitorEdge: "Monthly adaptive reformulation — personalization improves over time vs one-time test", stack: ["🧬 16S Sequencing", "🤖 Microbiome AI", "🏭 Formulation API", "📱 React Native"], funding: "SEED STAGE", investors: [{name:"C. Torres · BioVC", quote:"The adaptive monthly model creates incredible retention and LTV.", stars:4}, {name:"L. Mehta · Consumer Health Angel", quote:"Gut health is the hottest category in wellness for a decade.", stars:4}, {name:"B. Park · Subscription Fund", quote:"$89/mo with 70% gross margins and subscription model is exceptional.", stars:5}], verdict: "FUNDABLE ✓" },
+                    { name: "CellSentry", pitch: "Liquid biopsy cancer detection from a $99 blood test — catching cancer 5 years earlier than traditional screening.", problem: "Most cancers are detected at Stage 3-4 when survival rates drop below 30% — early detection saves 9 of 10 lives", solution: "AI-analyzed circulating tumor DNA in blood detects 18 cancer types at Stage 1 for $99", edge: "Proprietary ctDNA fragmentation pattern analysis — 94% sensitivity at Stage 1 vs 12% industry average", market: "$88B", users: "Primary Care Physicians", revenue: "B2B per-test $99 kit", breakEven: "28 months", disruption: "EXTREME", competitors: ["Grail (Galleri)", "Foundation Medicine", "Guardant Health"], competitorEdge: "$99 vs $949 for Galleri — making annual cancer screening economically viable for everyone", stack: ["🧬 NGS Sequencing", "🤖 Deep Learning", "🔬 Lab LIMS", "🔐 HIPAA Cloud"], funding: "SERIES A", investors: [{name:"Dr. N. Patel · HealthVC", quote:"Galleri at $949 proved the concept. $99 changes who uses it from millions to billions.", stars:5}, {name:"A. Singh · Biotech Fund", quote:"94% Stage 1 sensitivity is a revolutionary number if it replicates.", stars:5}, {name:"M. Kim · Impact Angel", quote:"This is the most important health startup I've seen in 10 years.", stars:5}], verdict: "UNICORN POTENTIAL 🦄" },
+                    { name: "AgingClock", pitch: "AI biological age test from a saliva sample — tells your true cellular age and gives a personalized plan to reverse it.", problem: "Chronological age is useless for health — two 45-year-olds can have biological ages of 35 and 65, treated identically", solution: "Epigenetic methylation analysis → biological age score → AI-personalized longevity protocol", edge: "Most accurate biological age clock — validated against 12 existing epigenetic clocks, outperforms all", market: "$44B", users: "Health-optimized Adults 35-65", revenue: "Test $149 + $19.99/mo coaching", breakEven: "14 months", disruption: "HIGH", competitors: ["TruDiagnostic", "Elysium Health", "InsideTracker"], competitorEdge: "Reversal protocol + tracking vs one-time score — turns test into ongoing relationship", stack: ["🧬 Methylation Arrays", "🤖 Epigenetic AI", "📱 React Native", "☁️ Secure Health Cloud"], funding: "SEED STAGE", investors: [{name:"E. Park · Longevity VC", quote:"The $200B longevity market is just beginning and this is the right entry point.", stars:5}, {name:"T. Nair · Biotech Angel", quote:"Reversing aging is the most fundable narrative in all of biotech right now.", stars:4}, {name:"S. Chen · Consumer Health Fund", quote:"The subscription coaching layer turns a commodity test into a platform.", stars:5}], verdict: "UNICORN POTENTIAL 🦄" }
+                ]
+            }
+        };
+
+        let currentSector = null;
+        let currentStartup = null;
+        let isMuted = false;
+
+        // AUDIO
+        let audioCtx;
+        let masterGain;
+        let convolver;
+        let ambientOscillators = [];
+        let ambientGainNodes = [];
+
+        function initAudio() {
+            if (audioCtx) return;
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            audioCtx = new AudioContext();
+            masterGain = audioCtx.createGain();
+            masterGain.connect(audioCtx.destination);
+            masterGain.gain.value = isMuted ? 0 : 1.0;
+
+            convolver = audioCtx.createConvolver();
+            const rate = audioCtx.sampleRate;
+            const length = rate * 2.0;
+            const impulse = audioCtx.createBuffer(2, length, rate);
+            const left = impulse.getChannelData(0);
+            const right = impulse.getChannelData(1);
+            for (let i = 0; i < length; i++) {
+                const decay = Math.exp(-i / (rate * 0.5));
+                left[i] = (Math.random() * 2 - 1) * decay;
+                right[i] = (Math.random() * 2 - 1) * decay;
+            }
+            convolver.buffer = impulse;
+            convolver.connect(masterGain);
+
+            startAmbient();
+        }
+
+        function startAmbient() {
+            const bassOsc = audioCtx.createOscillator();
+            bassOsc.frequency.value = 55;
+            const bassGain = audioCtx.createGain();
+            bassGain.gain.value = 0.06;
+            bassOsc.connect(bassGain);
+            bassGain.connect(convolver);
+            bassOsc.start();
+            ambientOscillators.push(bassOsc);
+            
+            const pad1 = audioCtx.createOscillator();
+            pad1.frequency.value = 110 + (Math.random()*4 - 2);
+            const pad1Gain = audioCtx.createGain();
+            pad1Gain.gain.value = 0.03;
+            pad1.connect(pad1Gain);
+            pad1Gain.connect(convolver);
+            pad1.start();
+            ambientOscillators.push(pad1);
+            
+            const pad2 = audioCtx.createOscillator();
+            pad2.frequency.value = 165 + (Math.random()*4 - 2);
+            const pad2Gain = audioCtx.createGain();
+            pad2Gain.gain.value = 0.03;
+            pad2.connect(pad2Gain);
+            pad2Gain.connect(convolver);
+            pad2.start();
+            ambientOscillators.push(pad2);
+
+            const shimmerOsc = audioCtx.createOscillator();
+            shimmerOsc.type = 'triangle';
+            shimmerOsc.frequency.value = 1760;
+            const shimmerGain = audioCtx.createGain();
+            shimmerGain.gain.value = 0;
+            const lfo = audioCtx.createOscillator();
+            lfo.frequency.value = 0.15;
+            const lfoGain = audioCtx.createGain();
+            lfoGain.gain.value = 0.01;
+            lfo.connect(lfoGain);
+            lfoGain.connect(shimmerGain.gain);
+            lfo.start();
+            shimmerOsc.connect(shimmerGain);
+            shimmerGain.connect(convolver);
+            shimmerOsc.start();
+            ambientOscillators.push(shimmerOsc, lfo);
+        }
+
+        function playHover() {
+            if(!audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            osc.frequency.value = 600;
+            const gain = audioCtx.createGain();
+            gain.gain.setValueAtTime(0, audioCtx.currentTime);
+            gain.gain.linearRampToValueAtTime(0.05, audioCtx.currentTime + 0.01);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.04);
+            osc.connect(gain);
+            gain.connect(masterGain);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.05);
+        }
+
+        function playSweep() {
+            if(!audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(100, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(2000, audioCtx.currentTime + 2.5);
+            const gain = audioCtx.createGain();
+            gain.gain.setValueAtTime(0, audioCtx.currentTime);
+            gain.gain.linearRampToValueAtTime(0.05, audioCtx.currentTime + 0.5);
+            gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 2.5);
+            osc.connect(gain);
+            gain.connect(masterGain);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 2.5);
+        }
+
+        function playFanfare() {
+            if(!audioCtx) return;
+            const freqs = [523, 659, 784];
+            freqs.forEach((f, i) => {
+                const osc = audioCtx.createOscillator();
+                osc.frequency.value = f;
+                const gain = audioCtx.createGain();
+                gain.gain.setValueAtTime(0, audioCtx.currentTime + i*0.1);
+                gain.gain.linearRampToValueAtTime(0.05, audioCtx.currentTime + i*0.1 + 0.05);
+                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + i*0.1 + 0.5);
+                osc.connect(gain);
+                gain.connect(masterGain);
+                osc.start(audioCtx.currentTime + i*0.1);
+                osc.stop(audioCtx.currentTime + i*0.1 + 0.6);
+            });
+        }
+
+        function playTick() {
+            if(!audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            osc.frequency.value = 1000;
+            const gain = audioCtx.createGain();
+            gain.gain.setValueAtTime(0, audioCtx.currentTime);
+            gain.gain.linearRampToValueAtTime(0.05, audioCtx.currentTime + 0.005);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.03);
+            osc.connect(gain);
+            gain.connect(masterGain);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.04);
+        }
+
+        document.body.addEventListener('click', () => {
+            if(!audioCtx) initAudio();
+        }, { once: true });
+
+        document.getElementById('mute-btn').addEventListener('click', (e) => {
+            isMuted = !isMuted;
+            e.currentTarget.innerText = isMuted ? '🔇' : '🔊';
+            if(masterGain) {
+                masterGain.gain.setValueAtTime(isMuted ? 0 : 1.0, audioCtx.currentTime);
+            }
+        });
+
+        // INIT BOARDROOM
+        function initBoardroom() {
+            // Particles
+            const pContainer = document.getElementById('particles');
+            for(let i=0; i<20; i++) {
+                const p = document.createElement('div');
+                p.className = 'particle';
+                p.style.left = Math.random() * 100 + '%';
+                p.style.animationDuration = (10 + Math.random() * 20) + 's';
+                p.style.animationDelay = (Math.random() * 20) + 's';
+                pContainer.appendChild(p);
+            }
+
+            // Cards
+            const grid = document.getElementById('sector-grid');
+            DATA.sectors.forEach(s => {
+                const card = document.createElement('div');
+                card.className = 'sector-card';
+                card.style.setProperty('--card-color', s.color);
+                card.style.setProperty('--accent-rgb', s.rgb);
+                
+                const startupsCount = DATA.startups[s.id].length;
+                card.innerHTML = `
+                    <div>
+                        <div class="sector-icon">${s.icon}</div>
+                        <div class="sector-name">${s.name}</div>
+                    </div>
+                    <div class="sector-tag">${startupsCount} startups inside</div>
+                `;
+                
+                card.addEventListener('mouseenter', playHover);
+                card.addEventListener('click', () => startGeneration(s));
+                
+                grid.appendChild(card);
+            });
+
+            // Typewriter headline
+            setTimeout(() => {
+                const hl = document.getElementById('br-headline');
+                typeWriter(hl, "What problem does the world need solved?", 50);
+            }, 500);
+            
+            document.getElementById('btn-random').addEventListener('click', () => {
+                playTick();
+                const randomSector = DATA.sectors[Math.floor(Math.random() * DATA.sectors.length)];
+                startGeneration(randomSector);
+            });
+        }
+
+        async function typeWriter(element, text, speed = 30) {
+            element.innerHTML = '';
+            let cursor = document.createElement('span');
+            cursor.className = 'cursor';
+            cursor.textContent = '|';
+            element.appendChild(cursor);
+            for(let i=0; i<text.length; i++) {
+                let charNode = document.createTextNode(text[i]);
+                element.insertBefore(charNode, cursor);
+                await new Promise(r => setTimeout(r, speed));
+            }
+        }
+
+        // TRANSITION
+        async function startGeneration(sector) {
+            if(!audioCtx) initAudio();
+            currentSector = sector;
+            
+            const startups = DATA.startups[sector.id];
+            currentStartup = startups[Math.floor(Math.random() * startups.length)];
+            
+            // Set global accent
+            document.documentElement.style.setProperty('--accent-color', sector.color);
+            document.documentElement.style.setProperty('--accent-rgb', sector.rgb);
+
+            // Fade boardroom
+            document.getElementById('screen-boardroom').classList.remove('active');
+            
+            setTimeout(() => {
+                document.getElementById('screen-transition').classList.add('active');
+                playSweep();
+                runTransitionSequence();
+            }, 300);
+        }
+
+        async function runTransitionSequence() {
+            const t1 = document.getElementById('tt-1');
+            const t2 = document.getElementById('tt-2');
+            const t3 = document.getElementById('tt-3');
+            
+            typeWriter(t1, "Assembling your pitch deck...", 30);
+            t1.classList.add('show');
+            await new Promise(r => setTimeout(r, 800));
+            t1.classList.remove('show');
+            
+            typeWriter(t2, "Calculating market size...", 30);
+            t2.classList.add('show');
+            await new Promise(r => setTimeout(r, 800));
+            t2.classList.remove('show');
+            
+            typeWriter(t3, "Finding your edge...", 30);
+            t3.classList.add('show');
+            await new Promise(r => setTimeout(r, 800));
+            t3.classList.remove('show');
+
+            // SLAM into pitch
+            document.getElementById('screen-transition').classList.remove('active');
+            renderPitchScreen();
+            document.getElementById('screen-pitch').classList.add('active');
+            playFanfare();
+        }
+
+        // PITCH DECK
+        function renderPitchScreen() {
+            // Remove animate classes to reset
+            document.querySelectorAll('.zone, .metric-card').forEach(z => z.classList.remove('animate'));
+            
+            const s = currentStartup;
+            
+            // Zone A
+            document.getElementById('p-sector-icon').innerText = currentSector.icon;
+            document.getElementById('p-sector-name').innerText = currentSector.name;
+            document.getElementById('p-number').innerText = `PITCH #${Math.floor(Math.random()*899 + 100)}`;
+            document.getElementById('p-funding').innerText = s.funding;
+            
+            // Zone B
+            document.getElementById('p-name').innerText = ""; // for typewriter
+            document.getElementById('p-cat-year').innerText = `${currentSector.name} · ${new Date().getFullYear()}`;
+            
+            // Zone C
+            document.getElementById('p-pitch').innerText = s.pitch;
+            
+            // Zone D
+            document.getElementById('p-market').innerText = s.market;
+            document.getElementById('p-users').innerText = s.users;
+            document.getElementById('p-revenue').innerText = s.revenue;
+            document.getElementById('p-breakeven').innerText = s.breakEven;
+            
+            // Zone E
+            document.getElementById('p-problem').innerText = s.problem;
+            document.getElementById('p-solution').innerText = s.solution;
+            document.getElementById('p-edge').innerText = s.edge;
+            
+            // Zone F
+            document.getElementById('p-d-val').innerText = s.disruption;
+            let dWidth = '50%';
+            let dColor = 'orange';
+            if(s.disruption === 'LOW') { dWidth = '30%'; dColor = '#4caf50'; }
+            if(s.disruption === 'MEDIUM') { dWidth = '60%'; dColor = '#ff9800'; }
+            if(s.disruption === 'HIGH') { dWidth = '85%'; dColor = '#ff1744'; }
+            if(s.disruption === 'EXTREME') { dWidth = '100%'; dColor = '#ff1744'; }
+            const dFill = document.getElementById('p-d-fill');
+            dFill.style.width = '0%';
+            dFill.style.backgroundColor = dColor;
+            
+            // Zone G
+            document.getElementById('p-comp-pills').innerHTML = s.competitors.map(c => `<span class="comp-pill"><span class="comp-dot"></span>${c}</span>`).join('');
+            document.getElementById('p-comp-edge').innerText = s.competitorEdge;
+            
+            // Zone H
+            document.getElementById('p-stack-pills').innerHTML = s.stack.map(st => `<span class="stack-pill">${st}</span>`).join('');
+            
+            // Zone I
+            document.getElementById('p-inv-cards').innerHTML = s.investors.map(inv => {
+                const starsHtml = '★'.repeat(inv.stars) + '☆'.repeat(5-inv.stars);
+                const initials = inv.name.split(' ').map(n=>n[0]).slice(0,2).join('');
+                return `
+                <div class="inv-card">
+                    <div class="inv-header">
+                        <div class="inv-avatar">${initials}</div>
+                        <div class="inv-name">${inv.name}</div>
+                    </div>
+                    <div class="inv-quote">"${inv.quote}"</div>
+                    <div class="inv-stars">${starsHtml}</div>
+                </div>
+                `;
+            }).join('');
+            document.getElementById('p-verdict').innerText = s.verdict;
+
+            // Trigger Animations
+            setTimeout(() => {
+                document.querySelectorAll('.zone, .metric-card').forEach(z => {
+                    void z.offsetWidth;
+                    z.classList.add('animate');
+                });
+                
+                // Typing name
+                setTimeout(() => {
+                    typeWriter(document.getElementById('p-name'), s.name, 40);
+                }, 200);
+                
+                // Disruption bar
+                setTimeout(() => {
+                    dFill.style.width = dWidth;
+                }, 1200);
+
+            }, 50);
+        }
+
+        // Actions
+        document.getElementById('btn-copy').addEventListener('click', (e) => {
+            playTick();
+            navigator.clipboard.writeText(currentStartup.pitch);
+            e.target.innerHTML = '✅ COPIED!';
+            setTimeout(() => { e.target.innerHTML = '📋 COPY'; }, 2000);
+        });
+
+        document.getElementById('btn-new').addEventListener('click', () => {
+            playTick();
+            startGeneration(currentSector);
+            window.scrollTo(0,0);
+        });
+
+        document.getElementById('btn-back').addEventListener('click', () => {
+            playTick();
+            document.getElementById('screen-pitch').classList.remove('active');
+            document.getElementById('screen-boardroom').classList.add('active');
+            window.scrollTo(0,0);
+        });
+
+        document.getElementById('btn-share').addEventListener('click', (e) => {
+            playTick();
+            const text = `Check out this startup idea from Idea Forge:\n\n${currentStartup.name} - ${currentStartup.pitch}\n\nMarket: ${currentStartup.market}\nVerdict: ${currentStartup.verdict}`;
+            navigator.clipboard.writeText(text);
+            e.target.innerHTML = '✅ COPIED TO CLIPBOARD';
+            setTimeout(() => { e.target.innerHTML = '📤 SHARE THIS PITCH'; }, 2000);
+        });
+
+        // Initialize
+        window.addEventListener('DOMContentLoaded', initBoardroom);
+
+    </script>
+</body>
+</html>
