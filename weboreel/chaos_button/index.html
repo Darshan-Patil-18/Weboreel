@@ -1,0 +1,1447 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Chaos Button</title>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;700&family=Fredoka+One&family=Space+Mono&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #ffffff;
+            --btn-color: #7bc67e;
+            --btn-shadow: rgba(0, 0, 0, 0.1);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            font-family: 'DM Sans', sans-serif;
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            transition: background-color 0.1s;
+        }
+
+        /* Mute Button */
+        #mute-btn {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            font-size: 24px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            z-index: 1000;
+            opacity: 0.5;
+            transition: opacity 0.2s;
+        }
+        #mute-btn:hover { opacity: 1; }
+
+        /* Counter UI */
+        #counter-container {
+            position: fixed;
+            top: 40px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            z-index: 100;
+            transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        #chaos-level {
+            font-weight: 700;
+            font-size: 1rem;
+            color: #888;
+            letter-spacing: 2px;
+            margin-bottom: 8px;
+        }
+
+        #progress-bar-bg {
+            width: 200px;
+            height: 6px;
+            background: #eee;
+            border-radius: 3px;
+            overflow: hidden;
+            margin-bottom: 8px;
+        }
+
+        #progress-bar {
+            height: 100%;
+            width: 0%;
+            background: #7bc67e;
+            transition: width 0.3s ease, background-color 0.3s ease;
+        }
+
+        #streak-label {
+            font-size: 0.9rem;
+            color: #555;
+        }
+
+        /* Main Button */
+        #main-btn {
+            width: clamp(180px, 35vw, 280px);
+            height: clamp(180px, 35vw, 280px);
+            border-radius: 50%;
+            background-color: var(--btn-color);
+            border: none;
+            cursor: pointer;
+            box-shadow: 0 10px 30px var(--btn-shadow);
+            color: white;
+            font-family: 'Fredoka One', cursive;
+            font-size: clamp(1.8rem, 4vw, 2.8rem);
+            line-height: 1.2;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            position: absolute; /* Allow movement */
+            z-index: 50;
+            transition: transform 0.1s, background-color 0.3s, opacity 0.3s, clip-path 0.3s;
+            transform-origin: center;
+            animation: gentlePulse 2s infinite alternate ease-in-out;
+        }
+
+        #main-btn:disabled {
+            cursor: not-allowed;
+        }
+
+        @keyframes gentlePulse {
+            0% { transform: scale(1); box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
+            100% { transform: scale(1.04); box-shadow: 0 15px 40px rgba(0,0,0,0.15); }
+        }
+
+        @keyframes nervousWobble {
+            0% { transform: scale(1.04) rotate(0deg); }
+            25% { transform: scale(1.04) rotate(-3deg); }
+            50% { transform: scale(1.04) rotate(3deg); }
+            75% { transform: scale(1.04) rotate(-3deg); }
+            100% { transform: scale(1.04) rotate(0deg); }
+        }
+
+        #main-btn:not(:disabled):hover {
+            animation: nervousWobble 0.3s infinite;
+        }
+
+        /* Helper Classes */
+        .hidden { display: none !important; }
+        
+        /* Event 1: Confetti */
+        .particle {
+            position: absolute;
+            pointer-events: none;
+            z-index: 90;
+        }
+
+        /* Event 3: Rogue Cursor */
+        #rogue-cursor {
+            position: absolute;
+            font-size: 40px;
+            pointer-events: none;
+            z-index: 1000;
+        }
+        
+        /* Event 4: Emoji Rain */
+        .falling-emoji {
+            position: absolute;
+            pointer-events: none;
+            z-index: 80;
+        }
+
+        /* Event 5: Screen Melt */
+        .melt-strip {
+            position: absolute;
+            height: 10vh;
+            width: 100vw;
+            opacity: 0.3;
+            z-index: 99;
+            pointer-events: none;
+        }
+
+        /* Event 6 & 13: Clone Attack */
+        .btn-clone {
+            border-radius: 50%;
+            color: white;
+            font-family: 'Fredoka One', cursive;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: absolute;
+            pointer-events: none;
+            z-index: 40;
+            text-align: center;
+            line-height: 1;
+        }
+
+        /* Event 7: Google Eyes */
+        .google-eye {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            background: white;
+            border-radius: 50%;
+            border: 1px solid #ccc;
+            position: relative;
+            margin: 0 2px;
+            vertical-align: middle;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .google-eye::after {
+            content: '';
+            position: absolute;
+            width: 6px;
+            height: 6px;
+            background: black;
+            border-radius: 50%;
+            top: 5px;
+            left: 5px;
+            transition: transform 0.05s;
+        }
+
+        /* Event 10: Matrix Mode */
+        #matrix-canvas {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            z-index: 10;
+            pointer-events: none;
+        }
+
+        /* Event 14: Loading Forever */
+        #fake-loading {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100vw; height: 100vh;
+            background: rgba(255,255,255,0.9);
+            z-index: 900;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        #fake-loading-bar-bg { width: 60%; height: 20px; border: 2px solid #333; border-radius: 10px; overflow: hidden; margin-top: 20px; }
+        #fake-loading-bar { width: 0%; height: 100%; background: #333; transition: width 0.1s; }
+        
+        /* Event 16: Earthquake */
+        @keyframes earthquake {
+            0% { transform: translate(15px, 10px) rotate(1deg); }
+            10% { transform: translate(-15px, -10px) rotate(-1deg); }
+            20% { transform: translate(-15px, 10px) rotate(1deg); }
+            30% { transform: translate(15px, -10px) rotate(-1deg); }
+            40% { transform: translate(10px, -15px) rotate(1deg); }
+            50% { transform: translate(-10px, 15px) rotate(-1deg); }
+            60% { transform: translate(-15px, 10px) rotate(1deg); }
+            70% { transform: translate(15px, 15px) rotate(-1deg); }
+            80% { transform: translate(-10px, -10px) rotate(1deg); }
+            90% { transform: translate(10px, 15px) rotate(-1deg); }
+            100% { transform: translate(0, 0) rotate(0deg); }
+        }
+
+        /* Event 17: Spotlight */
+        #spotlight-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100vw; height: 100vh;
+            background: radial-gradient(circle 150px at 50vw 50vh, transparent 0%, rgba(0,0,0,0.92) 100%);
+            z-index: 900;
+            pointer-events: none;
+        }
+        #spotlight-text {
+            position: fixed; top: 20%; left: 50%; transform: translateX(-50%);
+            color: white; font-size: 2rem; z-index: 901; font-weight: bold; pointer-events: none;
+        }
+
+        /* Event 18: Nyan Cat */
+        @keyframes scrollRainbow {
+            from { background-position: 0 0; }
+            to { background-position: -100vw 0; }
+        }
+        .nyan-bg {
+            background: linear-gradient(to bottom, #ff0000 16.6%, #ff9900 16.6%, #ff9900 33.3%, #ffff00 33.3%, #ffff00 50%, #33cc33 50%, #33cc33 66.6%, #0099ff 66.6%, #0099ff 83.3%, #6633ff 83.3%);
+            background-size: 100vw 100vh;
+            animation: scrollRainbow 0.5s linear infinite;
+        }
+        #nyan-cat {
+            position: absolute;
+            font-size: 80px;
+            z-index: 100;
+            transition: left 4s linear;
+            pointer-events: none;
+        }
+
+        /* Event 20: Rick Roll */
+        #rick-roll-text {
+            position: absolute;
+            bottom: -100%;
+            left: 5%;
+            width: 90%;
+            color: white;
+            font-family: 'Space Mono', monospace;
+            font-size: 14px;
+            text-align: center;
+            z-index: 5;
+            transition: transform 5s linear;
+        }
+
+        /* Finale */
+        #finale-overlay {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: black; z-index: 2000;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            color: white; font-family: 'Space Mono', monospace;
+            padding: 20px; text-align: center;
+        }
+        
+    </style>
+</head>
+<body>
+
+    <button id="mute-btn">🔊</button>
+
+    <div id="counter-container">
+        <div id="chaos-level">CHAOS LEVEL: 0 / 20</div>
+        <div id="progress-bar-bg"><div id="progress-bar"></div></div>
+        <div id="streak-label">Everything is fine 😊</div>
+    </div>
+
+    <button id="main-btn">
+        <span>DO NOT</span>
+        <span>PRESS</span>
+    </button>
+
+    <script>
+        // --- Core Application State ---
+        const UI = {
+            btn: document.getElementById('main-btn'),
+            btnLines: document.querySelectorAll('#main-btn span'),
+            counterContainer: document.getElementById('counter-container'),
+            chaosLevel: document.getElementById('chaos-level'),
+            progressBar: document.getElementById('progress-bar'),
+            streakLabel: document.getElementById('streak-label'),
+            muteBtn: document.getElementById('mute-btn'),
+            body: document.body
+        };
+
+        let chaosCount = 0;
+        const MAX_CHAOS = 20;
+        let isMuted = false;
+        let isEventActive = false;
+        let eventQueue = [];
+        let mouseX = window.innerWidth / 2;
+        let mouseY = window.innerHeight / 2;
+
+        document.addEventListener('mousemove', e => {
+            mouseX = e.clientX;
+            mouseY = e.clientY;
+        });
+        document.addEventListener('touchmove', e => {
+            if(e.touches.length > 0) {
+                mouseX = e.touches[0].clientX;
+                mouseY = e.touches[0].clientY;
+            }
+        });
+
+        // --- Colors for Progress ---
+        const PROGRESS_COLORS = [
+            '#7bc67e', '#8ccb70', '#a0cf61', '#b7d152', '#d0cf44',
+            '#eaca38', '#fec32e', '#ffb228', '#ff9f23', '#ff8b20',
+            '#ff761f', '#ff6020', '#ff4822', '#f93026', '#ef172c',
+            '#e10032', '#d00037', '#bb003b', '#a4003e', '#8b003f', '#720040'
+        ];
+
+        // --- Web Audio API Singleton ---
+        class AudioSys {
+            constructor() {
+                this.ctx = null;
+                this.masterGain = null;
+                this.ambientOsc = null;
+                this.unlocked = false;
+            }
+
+            init() {
+                if (this.unlocked) return;
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                this.ctx = new AudioContext();
+                this.masterGain = this.ctx.createGain();
+                this.masterGain.gain.value = isMuted ? 0 : 0.5;
+                this.masterGain.connect(this.ctx.destination);
+                
+                // Unlock
+                const osc = this.ctx.createOscillator();
+                osc.connect(this.masterGain);
+                osc.start(0); osc.stop(0.001);
+                this.unlocked = true;
+
+                // Ambient hum
+                this.ambientOsc = this.ctx.createOscillator();
+                this.ambientOsc.type = 'sine';
+                this.ambientOsc.frequency.value = 220;
+                const ambientGain = this.ctx.createGain();
+                ambientGain.gain.value = 0.02;
+                this.ambientOsc.connect(ambientGain);
+                ambientGain.connect(this.masterGain);
+                this.ambientOsc.start();
+            }
+
+            setMute(mute) {
+                if(!this.unlocked) return;
+                this.masterGain.gain.linearRampToValueAtTime(mute ? 0 : 0.5, this.ctx.currentTime + 0.1);
+            }
+
+            playTone(freq, type, duration, vol=1, slideFreq=null) {
+                if(!this.unlocked || isMuted) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = type;
+                osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+                if(slideFreq) {
+                    osc.frequency.exponentialRampToValueAtTime(slideFreq, this.ctx.currentTime + duration);
+                }
+                
+                gain.gain.setValueAtTime(vol, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + duration);
+                
+                osc.connect(gain);
+                gain.connect(this.masterGain);
+                osc.start();
+                osc.stop(this.ctx.currentTime + duration);
+            }
+
+            playNoise(duration, vol=1) {
+                if(!this.unlocked || isMuted) return;
+                const bufferSize = this.ctx.sampleRate * duration;
+                const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+                const data = buffer.getChannelData(0);
+                for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+                
+                const noise = this.ctx.createBufferSource();
+                noise.buffer = buffer;
+                
+                // lowpass filter
+                const filter = this.ctx.createBiquadFilter();
+                filter.type = 'lowpass';
+                filter.frequency.value = 1000;
+
+                const gain = this.ctx.createGain();
+                gain.gain.setValueAtTime(vol, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + duration);
+                
+                noise.connect(filter);
+                filter.connect(gain);
+                gain.connect(this.masterGain);
+                noise.start();
+            }
+
+            playRickRoll() {
+                if(!this.unlocked || isMuted) return;
+                const notes = [392, 440, 494, 523, 494, 440, 392];
+                let time = this.ctx.currentTime;
+                notes.forEach((freq, i) => {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'square';
+                    osc.frequency.value = freq;
+                    gain.gain.setValueAtTime(0.2, time);
+                    gain.gain.exponentialRampToValueAtTime(0.01, time + 0.3);
+                    osc.connect(gain);
+                    gain.connect(this.masterGain);
+                    osc.start(time);
+                    osc.stop(time + 0.3);
+                    time += 0.35;
+                });
+            }
+
+            playFanfare() {
+                if(!this.unlocked || isMuted) return;
+                const root = 440;
+                [1, 1.25, 1.5, 2].forEach(mult => {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(root * mult, this.ctx.currentTime);
+                    gain.gain.setValueAtTime(0, this.ctx.currentTime);
+                    gain.gain.linearRampToValueAtTime(0.3, this.ctx.currentTime + 1);
+                    gain.gain.linearRampToValueAtTime(0, this.ctx.currentTime + 5);
+                    osc.connect(gain);
+                    gain.connect(this.masterGain);
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + 5);
+                });
+            }
+        }
+        const audio = new AudioSys();
+
+        // --- Event Utilities ---
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+        }
+
+        const wait = ms => new Promise(res => setTimeout(res, ms));
+
+        function cleanupEvent(elements, intervals, timeouts, resetBodyStyles=true) {
+            elements.forEach(e => e && e.remove());
+            intervals.forEach(clearInterval);
+            timeouts.forEach(clearTimeout);
+            if(resetBodyStyles) {
+                UI.body.style = '';
+                UI.btn.style = '';
+                // Restore classes if needed
+            }
+        }
+
+        // --- The 20 Chaos Events ---
+        const Events = [
+            // 1. Confetti Nuke
+            async function eventConfettiNuke() {
+                audio.playTone(800, 'square', 1.5, 0.5, 1200);
+                audio.playNoise(0.5, 0.8);
+                const particles = [];
+                const rect = UI.btn.getBoundingClientRect();
+                const cx = rect.left + rect.width/2;
+                const cy = rect.top + rect.height/2;
+                const isMobile = window.innerWidth < 600;
+                const count = isMobile ? 50 : 150;
+
+                for(let i=0; i<count; i++) {
+                    const p = document.createElement('div');
+                    p.className = 'particle';
+                    p.style.width = Math.random() * 15 + 5 + 'px';
+                    p.style.height = p.style.width;
+                    p.style.backgroundColor = `hsl(${Math.random()*360}, 100%, 50%)`;
+                    p.style.left = cx + 'px';
+                    p.style.top = cy + 'px';
+                    UI.body.appendChild(p);
+                    particles.push(p);
+
+                    const angle = Math.random() * Math.PI * 2;
+                    const dist = Math.random() * 400 + 100;
+                    const tx = Math.cos(angle) * dist;
+                    const ty = Math.sin(angle) * dist;
+                    const rot = Math.random() * 720 - 360;
+
+                    p.animate([
+                        { transform: `translate(-50%, -50%) rotate(0deg)`, opacity: 1 },
+                        { transform: `translate(calc(-50% + ${tx}px), calc(-50% + ${ty}px)) rotate(${rot}deg)`, opacity: 0 }
+                    ], { duration: 1500, easing: 'cubic-bezier(0.25, 1, 0.5, 1)' });
+                }
+                await wait(1500);
+                cleanupEvent(particles, [], []);
+            },
+
+            // 2. Screen Flip
+            async function eventScreenFlip() {
+                audio.playTone(400, 'sine', 1, 0.8, 200);
+                UI.body.style.transition = 'transform 0.5s ease-in-out';
+                UI.body.style.transform = 'rotate(180deg)';
+                const origLabel = UI.streakLabel.innerText;
+                UI.streakLabel.innerText = "GRAVITY IS A SOCIAL CONSTRUCT";
+                
+                await wait(3000);
+                audio.playTone(200, 'sine', 1, 0.8, 400);
+                UI.body.style.transform = 'rotate(0deg)';
+                UI.streakLabel.innerText = origLabel;
+                await wait(500);
+                cleanupEvent([], [], []);
+            },
+
+            // 3. Cursor Gone Rogue
+            async function eventCursorGoneRogue() {
+                UI.body.style.cursor = 'none';
+                UI.btn.style.cursor = 'none';
+                const fake = document.createElement('div');
+                fake.id = 'rogue-cursor';
+                fake.innerText = '🖱️';
+                UI.body.appendChild(fake);
+
+                const origLabel = UI.streakLabel.innerText;
+                UI.streakLabel.innerText = "GET BACK HERE";
+                
+                audio.playTone(800, 'sawtooth', 5, 0.1, 1000);
+
+                let fx = window.innerWidth/2;
+                let fy = window.innerHeight/2;
+
+                const moveHandler = (e) => {
+                    let mx = e.clientX || (e.touches ? e.touches[0].clientX : window.innerWidth/2);
+                    let my = e.clientY || (e.touches ? e.touches[0].clientY : window.innerHeight/2);
+                    // Run opposite
+                    let dx = fx - mx;
+                    let dy = fy - my;
+                    fx += dx * 0.1;
+                    fy += dy * 0.1;
+                    // boundary
+                    if(fx < 0) fx = window.innerWidth;
+                    if(fx > window.innerWidth) fx = 0;
+                    if(fy < 0) fy = window.innerHeight;
+                    if(fy > window.innerHeight) fy = 0;
+                    
+                    fake.style.left = fx + 'px';
+                    fake.style.top = fy + 'px';
+                };
+                document.addEventListener('mousemove', moveHandler);
+                document.addEventListener('touchmove', moveHandler);
+
+                await wait(5000);
+                document.removeEventListener('mousemove', moveHandler);
+                document.removeEventListener('touchmove', moveHandler);
+                UI.streakLabel.innerText = origLabel;
+                cleanupEvent([fake], [], []);
+            },
+
+            // 4. Emoji Rain
+            async function eventEmojiRain() {
+                const emojis = ['🐸','🌮','🎺','🦆','🍕','🎲','🔥','💀','🌵','🎪'];
+                const els = [];
+                const isMobile = window.innerWidth < 600;
+                const count = isMobile ? 40 : 80;
+
+                for(let i=0; i<count; i++) {
+                    setTimeout(() => {
+                        audio.playTone(400 + Math.random()*800, 'sine', 0.1, 0.2);
+                        const el = document.createElement('div');
+                        el.className = 'falling-emoji';
+                        el.innerText = emojis[Math.floor(Math.random()*emojis.length)];
+                        el.style.left = Math.random() * 95 + 'vw';
+                        el.style.top = '-50px';
+                        el.style.fontSize = Math.random() * 2 + 1 + 'rem';
+                        UI.body.appendChild(el);
+                        els.push(el);
+
+                        const duration = Math.random()*3000 + 2000;
+                        el.animate([
+                            { transform: `translateY(0) rotate(0deg)` },
+                            { transform: `translateY(${window.innerHeight + 100}px) rotate(${Math.random()*360}deg)` }
+                        ], { duration, easing: 'ease-in', fill: 'forwards' });
+                    }, Math.random() * 1000);
+                }
+                await wait(4500);
+                cleanupEvent(els, [], []);
+            },
+
+            // 5. Screen Melt
+            async function eventScreenMelt() {
+                audio.playTone(80, 'sawtooth', 3, 0.8, 30);
+                UI.body.style.transition = 'filter 1s, background-color 0.1s';
+                UI.body.style.filter = 'blur(8px) brightness(2)';
+                
+                const strips = [];
+                const ints = setInterval(() => {
+                    const strip = document.createElement('div');
+                    strip.className = 'melt-strip';
+                    strip.style.backgroundColor = `hsl(${Math.random()*360}, 100%, 50%)`;
+                    strip.style.top = Math.random() * 90 + 'vh';
+                    UI.body.appendChild(strip);
+                    strips.push(strip);
+                    strip.animate([
+                        { transform: 'translateX(-100%)' },
+                        { transform: 'translateX(100%)' }
+                    ], { duration: 1000 + Math.random()*1000, fill: 'forwards' });
+                }, 100);
+
+                await wait(1500);
+                UI.body.style.filter = 'blur(0px) brightness(1)';
+                await wait(1500);
+                cleanupEvent(strips, [ints], []);
+            },
+
+            // 6. Button Clone Attack
+            async function eventButtonCloneAttack() {
+                const clones = [];
+                const isMobile = window.innerWidth < 600;
+                const count = isMobile ? 8 : 15;
+                const rect = UI.btn.getBoundingClientRect();
+                const targetX = rect.left + rect.width/2;
+                const targetY = rect.top + rect.height/2;
+
+                for(let i=0; i<count; i++) {
+                    const clone = document.createElement('div');
+                    clone.className = 'btn-clone';
+                    const size = Math.random()*100 + 50;
+                    clone.style.width = size + 'px';
+                    clone.style.height = size + 'px';
+                    clone.style.fontSize = size/5 + 'px';
+                    clone.style.backgroundColor = `hsl(${Math.random()*360}, 60%, 70%)`;
+                    clone.innerText = "NOPE";
+                    
+                    const angle = Math.random() * Math.PI * 2;
+                    const dist = Math.max(window.innerWidth, window.innerHeight);
+                    clone.style.left = targetX + Math.cos(angle)*dist - size/2 + 'px';
+                    clone.style.top = targetY + Math.sin(angle)*dist - size/2 + 'px';
+                    
+                    UI.body.appendChild(clone);
+                    clones.push(clone);
+
+                    audio.playTone(800 + i*50, 'triangle', 0.1, 0.1);
+
+                    clone.animate([
+                        { transform: 'translate(0,0)' },
+                        { transform: `translate(${targetX - (targetX + Math.cos(angle)*dist)}px, ${targetY - (targetY + Math.sin(angle)*dist)}px)` }
+                    ], { duration: 3000, easing: 'ease-in', fill: 'forwards' });
+                }
+
+                await wait(2900);
+                UI.body.style.backgroundColor = '#ff0000';
+                audio.playNoise(0.5, 1);
+                audio.playTone(100, 'square', 0.5, 1, 50);
+                await wait(100);
+                UI.body.style.backgroundColor = 'var(--bg-color)';
+                cleanupEvent(clones, [], []);
+            },
+
+            // 7. Google Eyes
+            async function eventGoogleEyes() {
+                audio.playTone(150, 'sine', 5, 0.5, 160);
+                const origLabel = UI.streakLabel.innerText;
+                UI.streakLabel.innerText = "THEY'RE WATCHING";
+
+                const texts = [UI.chaosLevel, UI.streakLabel, ...UI.btnLines];
+                const eyes = [];
+                texts.forEach(el => {
+                    const wrap = document.createElement('span');
+                    const e1 = document.createElement('div'); e1.className = 'google-eye';
+                    const e2 = document.createElement('div'); e2.className = 'google-eye';
+                    eyes.push(e1, e2);
+                    el.appendChild(e1);
+                    el.appendChild(e2);
+                });
+
+                const moveHandler = (e) => {
+                    let mx = e.clientX || (e.touches ? e.touches[0].clientX : window.innerWidth/2);
+                    let my = e.clientY || (e.touches ? e.touches[0].clientY : window.innerHeight/2);
+                    eyes.forEach(eye => {
+                        const rect = eye.getBoundingClientRect();
+                        const ex = rect.left + rect.width/2;
+                        const ey = rect.top + rect.height/2;
+                        const angle = Math.atan2(my - ey, mx - ex);
+                        const dist = Math.min(3, Math.hypot(mx - ex, my - ey) / 10);
+                        eye.style.setProperty('--tx', `${Math.cos(angle)*dist}px`);
+                        eye.style.setProperty('--ty', `${Math.sin(angle)*dist}px`);
+                        // Update pseudo element via internal stylesheet injected or direct manipulation
+                        // easier to just manipulate a child element, let's redefine google-eye structure slightly
+                        // Actually since it's pseudo, we can use CSS vars
+                        eye.style.transform = `translate(var(--tx, 0), var(--ty, 0))`;
+                    });
+                };
+                document.addEventListener('mousemove', moveHandler);
+                document.addEventListener('touchmove', moveHandler);
+
+                await wait(5000);
+                document.removeEventListener('mousemove', moveHandler);
+                document.removeEventListener('touchmove', moveHandler);
+                UI.streakLabel.innerText = origLabel;
+                cleanupEvent(eyes, [], []);
+            },
+
+            // 8. Font Chaos
+            async function eventFontChaos() {
+                const fonts = ['serif', 'monospace', 'fantasy', 'cursive', 'system-ui', 'Arial', 'Comic Sans MS', 'Impact'];
+                const texts = [UI.chaosLevel, UI.streakLabel, UI.btn];
+                const originalFonts = texts.map(el => el.style.fontFamily);
+                const originalSizes = texts.map(el => el.style.fontSize);
+
+                const int = setInterval(() => {
+                    audio.playNoise(0.05, 0.5);
+                    texts.forEach(el => {
+                        el.style.fontFamily = fonts[Math.floor(Math.random()*fonts.length)];
+                        el.style.fontSize = `calc(100% * ${0.7 + Math.random()*0.6})`;
+                    });
+                }, 500);
+
+                await wait(4000);
+                clearInterval(int);
+                texts.forEach((el, i) => {
+                    el.style.fontFamily = originalFonts[i];
+                    el.style.fontSize = originalSizes[i];
+                });
+            },
+
+            // 9. Gravity Balls
+            async function eventGravityBalls() {
+                const balls = [];
+                const isMobile = window.innerWidth < 600;
+                const count = isMobile ? 12 : 20;
+
+                for(let i=0; i<count; i++) {
+                    const b = document.createElement('div');
+                    const size = Math.random()*40 + 20;
+                    b.style.position = 'absolute';
+                    b.style.width = size + 'px';
+                    b.style.height = size + 'px';
+                    b.style.borderRadius = '50%';
+                    b.style.backgroundColor = `hsl(${Math.random()*360}, 80%, 60%)`;
+                    b.style.left = Math.random() * (window.innerWidth - size) + 'px';
+                    b.style.top = -size - Math.random()*200 + 'px';
+                    b.style.zIndex = '90';
+                    b.style.pointerEvents = 'none';
+                    UI.body.appendChild(b);
+
+                    balls.push({
+                        el: b, x: parseFloat(b.style.left), y: parseFloat(b.style.top),
+                        vx: (Math.random()-0.5)*10, vy: 0, size, color: b.style.backgroundColor
+                    });
+                }
+
+                let active = true;
+                const loop = () => {
+                    if(!active) return;
+                    let bounced = false;
+                    balls.forEach(b => {
+                        b.vy += 0.5; // gravity
+                        b.x += b.vx;
+                        b.y += b.vy;
+
+                        // Floor collision
+                        if(b.y + b.size > window.innerHeight) {
+                            b.y = window.innerHeight - b.size;
+                            b.vy *= -0.7; // elasticity
+                            if(Math.abs(b.vy) > 2) bounced = true;
+                        }
+                        // Wall collision
+                        if(b.x < 0) { b.x = 0; b.vx *= -0.8; }
+                        if(b.x + b.size > window.innerWidth) { b.x = window.innerWidth - b.size; b.vx *= -0.8; }
+
+                        b.el.style.transform = `translate(${b.x}px, ${b.y}px)`;
+                    });
+
+                    if(bounced) {
+                        audio.playTone(200 + Math.random()*400, 'sine', 0.1, 0.3);
+                    }
+                    requestAnimationFrame(loop);
+                };
+                requestAnimationFrame(loop);
+
+                await wait(5000);
+                active = false;
+                cleanupEvent(balls.map(b=>b.el), [], []);
+            },
+
+            // 10. Matrix Mode
+            async function eventMatrixMode() {
+                audio.playTone(100, 'sawtooth', 4, 0.4);
+                UI.body.style.backgroundColor = '#000';
+                UI.btn.style.backgroundColor = '#0f0';
+                UI.btn.style.color = '#000';
+                UI.btnLines.forEach(l => l.style.fontFamily = "'Space Mono', monospace");
+
+                const canvas = document.createElement('canvas');
+                canvas.id = 'matrix-canvas';
+                canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight;
+                UI.body.appendChild(canvas);
+                const ctx = canvas.getContext('2d');
+
+                const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$%^&*'.split('');
+                const fontSize = 16;
+                const columns = canvas.width / fontSize;
+                const drops = Array(Math.floor(columns)).fill(1);
+
+                const draw = () => {
+                    ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    ctx.fillStyle = '#0F0';
+                    ctx.font = fontSize + 'px monospace';
+                    for(let i = 0; i < drops.length; i++) {
+                        const text = chars[Math.floor(Math.random() * chars.length)];
+                        ctx.fillText(text, i * fontSize, drops[i] * fontSize);
+                        if(drops[i] * fontSize > canvas.height && Math.random() > 0.975) drops[i] = 0;
+                        drops[i]++;
+                    }
+                };
+
+                const int = setInterval(draw, 33);
+                await wait(4000);
+                clearInterval(int);
+                cleanupEvent([canvas], [], [], false);
+                UI.body.style.backgroundColor = 'var(--bg-color)';
+                UI.btn.style.backgroundColor = 'var(--btn-color)';
+                UI.btn.style.color = 'white';
+                UI.btnLines.forEach(l => l.style.fontFamily = "'Fredoka One', cursive");
+            },
+
+            // 11. Size Attack
+            async function eventSizeAttack() {
+                const origLines = Array.from(UI.btnLines).map(l => l.innerText);
+                
+                audio.playTone(100, 'sine', 2.5, 0.8, 500);
+                UI.btn.style.transition = 'transform 2s ease-in, font-size 2s';
+                UI.btn.style.transform = 'scale(5)';
+                UI.btnLines[0].innerText = "I AM";
+                UI.btnLines[1].innerText = "INEVITABLE";
+                
+                await wait(2000);
+                audio.playTone(800, 'square', 0.5, 0.5, 2000);
+                UI.btn.style.transition = 'transform 0.5s ease-out';
+                UI.btn.style.transform = 'scale(0.1)';
+                UI.btnLines[0].innerText = "never";
+                UI.btnLines[1].innerText = "mind";
+                
+                await wait(500);
+                UI.btn.style.transition = 'transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+                UI.btn.style.transform = 'scale(1)';
+                UI.btnLines[0].innerText = origLines[0];
+                UI.btnLines[1].innerText = origLines[1];
+                await wait(300);
+                UI.btn.style.transition = ''; // Reset
+            },
+
+            // 12. Color Seizure
+            async function eventColorSeizure() {
+                const origLabel = UI.streakLabel.innerText;
+                UI.streakLabel.innerText = "⚠️ PHOTOSENSITIVE WARNING — jk";
+                
+                let count = 0;
+                const int = setInterval(() => {
+                    const h = Math.random() * 360;
+                    UI.body.style.backgroundColor = `hsl(${h}, 100%, 50%)`;
+                    UI.btn.style.backgroundColor = `hsl(${(h+180)%360}, 100%, 50%)`;
+                    audio.playTone(400 + Math.random()*600, 'square', 0.05, 0.2);
+                    count++;
+                }, 100);
+
+                await wait(3000);
+                clearInterval(int);
+                UI.streakLabel.innerText = origLabel;
+                UI.body.style.backgroundColor = 'var(--bg-color)';
+                UI.btn.style.backgroundColor = 'var(--btn-color)';
+            },
+
+            // 13. Clone Wars
+            async function eventCloneWars() {
+                const origLabel = UI.streakLabel.innerText;
+                UI.streakLabel.innerText = "YOU ARE THE CHAOS";
+                const clones = [];
+
+                let lastTime = 0;
+                const moveHandler = (e) => {
+                    const now = Date.now();
+                    if(now - lastTime < 50) return; // throttle
+                    lastTime = now;
+
+                    let mx = e.clientX || (e.touches ? e.touches[0].clientX : window.innerWidth/2);
+                    let my = e.clientY || (e.touches ? e.touches[0].clientY : window.innerHeight/2);
+
+                    const clone = document.createElement('div');
+                    clone.className = 'btn-clone';
+                    clone.style.width = '40px';
+                    clone.style.height = '40px';
+                    clone.style.fontSize = '10px';
+                    clone.style.backgroundColor = 'var(--btn-color)';
+                    clone.innerText = "PRESS";
+                    clone.style.left = mx - 20 + 'px';
+                    clone.style.top = my - 20 + 'px';
+                    UI.body.appendChild(clone);
+                    clones.push(clone);
+
+                    audio.playTone(600, 'sine', 0.1, 0.05);
+
+                    clone.animate([
+                        { transform: 'scale(1)', opacity: 0.8 },
+                        { transform: 'scale(0.5)', opacity: 0 }
+                    ], { duration: 1000, fill: 'forwards' }).onfinish = () => clone.remove();
+                };
+
+                document.addEventListener('mousemove', moveHandler);
+                document.addEventListener('touchmove', moveHandler);
+
+                await wait(5000);
+                document.removeEventListener('mousemove', moveHandler);
+                document.removeEventListener('touchmove', moveHandler);
+                UI.streakLabel.innerText = origLabel;
+            },
+
+            // 14. Loading Forever
+            async function eventLoadingForever() {
+                audio.playTone(300, 'square', 2, 0.4, 600); // rising tone
+                const overlay = document.createElement('div');
+                overlay.id = 'fake-loading';
+                
+                const text = document.createElement('h2');
+                text.style.fontFamily = "'DM Sans', sans-serif";
+                text.innerText = "Almost there...";
+                
+                const bg = document.createElement('div');
+                bg.id = 'fake-loading-bar-bg';
+                const bar = document.createElement('div');
+                bar.id = 'fake-loading-bar';
+                bg.appendChild(bar);
+                
+                overlay.appendChild(text);
+                overlay.appendChild(bg);
+                UI.body.appendChild(overlay);
+
+                // Quick fill
+                setTimeout(() => bar.style.width = '99%', 100);
+                
+                await wait(1500); text.innerText = "Just a sec...";
+                await wait(1500); text.innerText = "Loading your patience...";
+                await wait(1000); text.innerText = "Lol nope";
+                audio.playTone(100, 'sawtooth', 0.5, 0.8); // error
+                
+                await wait(500);
+                overlay.style.backgroundColor = 'black';
+                overlay.style.color = 'red';
+                text.style.fontFamily = "'Space Mono', monospace";
+                text.innerText = "ERROR: patience.exe not found";
+                bg.style.display = 'none';
+
+                await wait(1500);
+                cleanupEvent([overlay], [], []);
+            },
+
+            // 15. Hall of Mirrors
+            async function eventHallOfMirrors() {
+                audio.playTone(400, 'sine', 3, 0.5);
+                const isMobile = window.innerWidth < 600;
+                const grid = isMobile ? 2 : 3;
+                const clones = [];
+                const origLines = Array.from(UI.btnLines).map(l => l.innerText);
+
+                UI.btnLines[0].innerText = "WHICH ONE";
+                UI.btnLines[1].innerText = "IS REAL";
+
+                for(let r=0; r<grid; r++) {
+                    for(let c=0; c<grid; c++) {
+                        if(r === Math.floor(grid/2) && c === Math.floor(grid/2)) continue; // skip real center
+                        
+                        const clone = document.createElement('button');
+                        clone.className = UI.btn.className;
+                        clone.style.cssText = window.getComputedStyle(UI.btn).cssText;
+                        clone.style.position = 'absolute';
+                        clone.innerHTML = `<span>WHICH ONE</span><span>IS REAL</span>`;
+                        clone.style.animation = 'gentlePulse 2s infinite alternate ease-in-out';
+                        clone.style.pointerEvents = 'none'; // so user doesn't actually click them
+                        
+                        // calc offset
+                        const ox = (c - Math.floor(grid/2)) * (window.innerWidth / grid);
+                        const oy = (r - Math.floor(grid/2)) * (window.innerHeight / grid);
+                        
+                        // initial scale 0
+                        clone.style.transform = `translate(${ox}px, ${oy}px) scale(0)`;
+                        clone.style.transition = 'transform 0.5s';
+                        
+                        UI.body.appendChild(clone);
+                        clones.push({el: clone, ox, oy});
+                        
+                        // pop in
+                        setTimeout(() => clone.style.transform = `translate(${ox}px, ${oy}px) scale(1)`, 50);
+                    }
+                }
+
+                await wait(3000);
+                
+                // Explode out
+                audio.playNoise(0.5, 1);
+                clones.forEach(c => {
+                    c.el.style.transition = 'transform 0.5s ease-in, opacity 0.5s';
+                    c.el.style.transform = `translate(${c.ox * 3}px, ${c.oy * 3}px) scale(2)`;
+                    c.el.style.opacity = '0';
+                });
+
+                UI.btnLines[0].innerText = origLines[0];
+                UI.btnLines[1].innerText = origLines[1];
+
+                await wait(500);
+                cleanupEvent(clones.map(c=>c.el), [], []);
+            },
+
+            // 16. Screen Shake Earthquake
+            async function eventScreenShakeEarthquake() {
+                audio.playNoise(3, 1);
+                const origLabel = UI.streakLabel.innerText;
+                UI.streakLabel.innerText = "RICHTER SCALE: 9.0";
+                
+                UI.body.style.animation = 'earthquake 0.2s infinite';
+                
+                const emojis = ['📺','🖼️','🪴','📚','🐈'];
+                const els = [];
+                for(let i=0; i<5; i++) {
+                    setTimeout(() => {
+                        const el = document.createElement('div');
+                        el.style.position = 'absolute';
+                        el.innerText = emojis[i];
+                        el.style.fontSize = '3rem';
+                        el.style.left = Math.random() * 80 + 10 + 'vw';
+                        el.style.top = '-50px';
+                        el.style.zIndex = '100';
+                        UI.body.appendChild(el);
+                        els.push(el);
+
+                        el.animate([
+                            { transform: `translateY(0) rotate(${Math.random()*90}deg)` },
+                            { transform: `translateY(${window.innerHeight + 100}px) rotate(${Math.random()*360}deg)` }
+                        ], { duration: 1500, easing: 'ease-in', fill: 'forwards' });
+                    }, Math.random() * 2000);
+                }
+
+                await wait(3000);
+                UI.body.style.animation = '';
+                UI.streakLabel.innerText = origLabel;
+                await wait(1000); // let things finish falling
+                cleanupEvent(els, [], []);
+            },
+
+            // 17. Spotlight Mode
+            async function eventSpotlightMode() {
+                audio.playTone(150, 'square', 8, 0.2); // tension
+                const overlay = document.createElement('div');
+                overlay.id = 'spotlight-overlay';
+                
+                const text = document.createElement('div');
+                text.id = 'spotlight-text';
+                text.innerText = "FIND THE BUTTON";
+                
+                UI.body.appendChild(overlay);
+                UI.body.appendChild(text);
+
+                // Move button randomly
+                const maxW = window.innerWidth - UI.btn.offsetWidth;
+                const maxH = window.innerHeight - UI.btn.offsetHeight;
+                const rx = Math.random() * maxW - maxW/2;
+                const ry = Math.random() * maxH - maxH/2;
+                UI.btn.style.transform = `translate(${rx}px, ${ry}px)`;
+
+                const moveHandler = (e) => {
+                    let mx = e.clientX || (e.touches ? e.touches[0].clientX : window.innerWidth/2);
+                    let my = e.clientY || (e.touches ? e.touches[0].clientY : window.innerHeight/2);
+                    overlay.style.background = `radial-gradient(circle 150px at ${mx}px ${my}px, transparent 0%, rgba(0,0,0,0.95) 100%)`;
+                };
+                document.addEventListener('mousemove', moveHandler);
+                document.addEventListener('touchmove', moveHandler);
+
+                // Wait up to 8s or until click
+                // We handle click logic internally by temporarily overriding the global click logic?
+                // Actually, since event queue blocks, user CANNOT click the button normally during this.
+                // We must temporarily re-enable the button but intercept it.
+                UI.btn.disabled = false;
+                
+                let found = false;
+                const clickHandler = () => { found = true; };
+                UI.btn.addEventListener('click', clickHandler);
+
+                for(let i=0; i<80; i++) {
+                    if(found) break;
+                    await wait(100);
+                }
+
+                UI.btn.removeEventListener('click', clickHandler);
+                UI.btn.disabled = true; // disable again until cleanup
+                document.removeEventListener('mousemove', moveHandler);
+                document.removeEventListener('touchmove', moveHandler);
+
+                if(found) {
+                    audio.playTone(600, 'sine', 0.5, 0.5, 1200);
+                    text.innerText = "FOUND IT!";
+                    await wait(1000);
+                } else {
+                    audio.playTone(100, 'sawtooth', 0.5, 0.8);
+                }
+
+                UI.btn.style.transform = 'translate(0,0)'; // Reset position
+                cleanupEvent([overlay, text], [], []);
+            },
+
+            // 18. Nyan Cat Tribute
+            async function eventNyanCatTribute() {
+                audio.playTone(600, 'square', 0.2, 0.2, 800);
+                setTimeout(()=>audio.playTone(800, 'square', 0.2, 0.2, 1000), 200);
+                setTimeout(()=>audio.playTone(1000, 'square', 0.2, 0.2, 1200), 400);
+
+                const origLabel = UI.streakLabel.innerText;
+                UI.streakLabel.innerText = "🌈 NYA NYA NYA NYA";
+                UI.body.classList.add('nyan-bg');
+
+                const cat = document.createElement('div');
+                cat.id = 'nyan-cat';
+                cat.innerText = "🐈";
+                cat.style.top = Math.random() * 60 + 20 + 'vh';
+                cat.style.left = '-100px';
+                UI.body.appendChild(cat);
+
+                await wait(50);
+                cat.style.left = '100vw';
+
+                await wait(4000);
+                UI.body.classList.remove('nyan-bg');
+                UI.streakLabel.innerText = origLabel;
+                cleanupEvent([cat], [], []);
+            },
+
+            // 19. Button Refuses
+            async function eventButtonRefuses() {
+                const origLabel = UI.streakLabel.innerText;
+                UI.streakLabel.innerText = "YOU'LL NEVER CATCH ME";
+                const origLines = Array.from(UI.btnLines).map(l => l.innerText);
+                
+                UI.btn.disabled = false; // Need to be hoverable
+
+                let dodges = 0;
+                const dodgeHandler = (e) => {
+                    if(dodges >= 10) return;
+                    e.preventDefault();
+                    e.stopPropagation();
+                    dodges++;
+                    audio.playTone(200 + Math.random()*200, 'square', 0.1, 0.4, 600);
+                    
+                    const maxW = window.innerWidth/2 - UI.btn.offsetWidth;
+                    const maxH = window.innerHeight/2 - UI.btn.offsetHeight;
+                    const rx = (Math.random() > 0.5 ? 1 : -1) * (Math.random() * maxW + 50);
+                    const ry = (Math.random() > 0.5 ? 1 : -1) * (Math.random() * maxH + 50);
+                    
+                    UI.btn.style.transform = `translate(${rx}px, ${ry}px)`;
+                };
+
+                UI.btn.addEventListener('mouseover', dodgeHandler);
+                UI.btn.addEventListener('touchstart', dodgeHandler);
+
+                await wait(6000);
+                UI.btn.removeEventListener('mouseover', dodgeHandler);
+                UI.btn.removeEventListener('touchstart', dodgeHandler);
+                UI.btn.disabled = true; // disable normal clicks again
+
+                UI.btn.style.transform = 'translate(0,0)';
+                UI.btnLines[0].innerText = "Fine.";
+                UI.btnLines[1].innerText = "😤";
+                
+                await wait(1500);
+                UI.btnLines[0].innerText = origLines[0];
+                UI.btnLines[1].innerText = origLines[1];
+                UI.streakLabel.innerText = origLabel;
+            },
+
+            // 20. Rick Roll Text
+            async function eventRickRollText() {
+                audio.playRickRoll();
+                UI.body.style.transition = 'background-color 0.5s';
+                UI.body.style.backgroundColor = '#cc0000';
+                
+                const origLines = Array.from(UI.btnLines).map(l => l.innerText);
+                UI.btnLines[0].innerText = "GOT";
+                UI.btnLines[1].innerText = "YOU";
+
+                const lyrics = `We're no strangers to love<br>
+                You know the rules and so do I<br>
+                A full commitment's what I'm thinking of<br>
+                You wouldn't get this from any other guy<br>
+                I just wanna tell you how I'm feeling<br>
+                Gotta make you understand<br><br>
+                Never gonna give you up<br>
+                Never gonna let you down<br>
+                Never gonna run around and desert you<br>
+                Never gonna make you cry<br>
+                Never gonna say goodbye<br>
+                Never gonna tell a lie and hurt you`;
+
+                const textDiv = document.createElement('div');
+                textDiv.id = 'rick-roll-text';
+                textDiv.innerHTML = lyrics;
+                UI.body.appendChild(textDiv);
+
+                await wait(50);
+                textDiv.style.transform = `translateY(-${window.innerHeight * 1.5}px)`;
+
+                await wait(5000);
+                cleanupEvent([textDiv], [], []);
+                UI.body.style.backgroundColor = 'var(--bg-color)';
+                UI.btnLines[0].innerText = origLines[0];
+                UI.btnLines[1].innerText = origLines[1];
+            }
+        ];
+
+        // --- Grand Finale ---
+        async function triggerGrandFinale() {
+            audio.playFanfare();
+            const overlay = document.createElement('div');
+            overlay.id = 'finale-overlay';
+            UI.body.appendChild(overlay);
+
+            const lines = [
+                "You clicked a button 20 times.",
+                "On the internet.",
+                "For fun.",
+                "We are not so different, you and I."
+            ];
+
+            const textEl = document.createElement('div');
+            textEl.style.fontSize = clampStr(16, 24);
+            overlay.appendChild(textEl);
+
+            for(let line of lines) {
+                textEl.innerHTML += '<br><br>';
+                for(let char of line) {
+                    textEl.innerHTML += char;
+                    audio.playTone(800 + Math.random()*200, 'square', 0.05, 0.1);
+                    await wait(50);
+                }
+                await wait(1000);
+            }
+
+            // Explosion
+            audio.playNoise(2, 1);
+            const particles = [];
+            for(let i=0; i<200; i++) {
+                const p = document.createElement('div');
+                p.className = 'particle';
+                p.style.width = Math.random() * 10 + 5 + 'px';
+                p.style.height = p.style.width;
+                p.style.backgroundColor = `hsl(${Math.random()*360}, 100%, 50%)`;
+                p.style.left = '50vw';
+                p.style.top = '50vh';
+                overlay.appendChild(p);
+                particles.push(p);
+
+                const angle = Math.random() * Math.PI * 2;
+                const dist = Math.random() * (window.innerWidth/1.5);
+                const tx = Math.cos(angle) * dist;
+                const ty = Math.sin(angle) * dist;
+
+                p.animate([
+                    { transform: `translate(-50%, -50%) rotate(0deg)`, opacity: 1 },
+                    { transform: `translate(calc(-50% + ${tx}px), calc(-50% + ${ty}px)) rotate(720deg)`, opacity: 0 }
+                ], { duration: 2000, easing: 'cubic-bezier(0.25, 1, 0.5, 1)', fill: 'forwards' });
+            }
+
+            await wait(2000);
+            
+            // Ascended state
+            overlay.style.backgroundColor = 'transparent';
+            overlay.style.pointerEvents = 'none';
+            textEl.innerHTML = '';
+            
+            UI.btn.style.backgroundColor = '#ffd700'; // Gold
+            UI.btn.style.color = '#000';
+            UI.btnLines[0].innerText = "ASCENDED";
+            UI.btnLines[1].innerText = "👑";
+
+            chaosCount = 0;
+            updateCounterUI();
+            shuffleArray(eventQueue);
+
+            await wait(2000);
+            cleanupEvent([overlay], [], []);
+            
+            // Allow replay but keep gold mostly? Or reset? Spec says "can play again".
+            // Let's fully reset text on next click.
+            UI.btn.style.backgroundColor = 'var(--btn-color)';
+            UI.btn.style.color = '#fff';
+            UI.btnLines[0].innerText = "AGAIN?";
+            UI.btnLines[1].innerText = "CLICK";
+        }
+
+        // --- Helper ---
+        function clampStr(min, max) {
+            return `clamp(${min}px, 4vw, ${max}px)`;
+        }
+
+        // --- Logic Initialization ---
+        function initEvents() {
+            eventQueue = [...Events];
+            shuffleArray(eventQueue);
+        }
+
+        function updateCounterUI() {
+            UI.chaosLevel.innerText = `CHAOS LEVEL: ${chaosCount} / ${MAX_CHAOS}`;
+            const pct = (chaosCount / MAX_CHAOS) * 100;
+            UI.progressBar.style.width = pct + '%';
+            UI.progressBar.style.backgroundColor = PROGRESS_COLORS[chaosCount] || PROGRESS_COLORS[PROGRESS_COLORS.length-1];
+            
+            // Pop counter container
+            UI.counterContainer.style.transform = 'scale(1.3)';
+            setTimeout(() => UI.counterContainer.style.transform = 'scale(1)', 200);
+
+            if(chaosCount === 0) UI.streakLabel.innerText = "Everything is fine 😊";
+            else if(chaosCount === 3) UI.streakLabel.innerText = "Hmm. Okay. 🤔";
+            else if(chaosCount === 6) UI.streakLabel.innerText = "Why are you like this 😅";
+            else if(chaosCount === 10) UI.streakLabel.innerText = "Please. I'm begging you. 😭";
+            else if(chaosCount === 15) UI.streakLabel.innerText = "You've broken something inside me 💀";
+            else if(chaosCount === 19) UI.streakLabel.innerText = "This is the last one. I mean it. 🔥";
+        }
+
+        function updateButtonState() {
+            if (chaosCount === 1) {
+                UI.btnLines[0].innerText = "AGAIN?";
+                UI.btnLines[1].innerText = "";
+            } else if (chaosCount === 10) {
+                UI.btn.style.backgroundColor = '#ff4822';
+                UI.btnLines[0].innerText = "STOP";
+                UI.btnLines[1].innerText = "";
+            } else if (chaosCount === 15) {
+                // Crack visually using clip-path
+                UI.btn.style.clipPath = "polygon(0% 0%, 45% 0%, 50% 20%, 55% 0%, 100% 0%, 100% 45%, 80% 50%, 100% 55%, 100% 100%, 55% 100%, 50% 80%, 45% 100%, 0% 100%, 0% 55%, 20% 50%, 0% 45%)";
+            } else if (chaosCount === 19) {
+                UI.btn.style.opacity = '0.3';
+                UI.btn.style.animation = 'nervousWobble 0.1s infinite';
+            }
+        }
+
+        // --- Main Click Handler ---
+        UI.btn.addEventListener('click', async () => {
+            if (isEventActive) return;
+            
+            audio.init(); // ensure unlocked
+
+            chaosCount++;
+            isEventActive = true;
+            UI.btn.disabled = true;
+
+            updateCounterUI();
+            updateButtonState();
+
+            // Run next event or finale
+            if (chaosCount > MAX_CHAOS) {
+                await triggerGrandFinale();
+            } else {
+                const nextEvent = eventQueue[chaosCount - 1];
+                if(nextEvent) {
+                    try {
+                        await nextEvent();
+                    } catch (e) {
+                        console.error("Event error", e);
+                    }
+                }
+            }
+
+            // Restore if not maxed
+            UI.btn.disabled = false;
+            isEventActive = false;
+        });
+
+        // Hover effect text override for the first phase
+        UI.btn.addEventListener('mouseenter', () => {
+            if(chaosCount === 0 && !isEventActive) {
+                UI.btnLines[0].innerText = "Seriously...";
+                UI.btnLines[1].innerText = "";
+            }
+        });
+        UI.btn.addEventListener('mouseleave', () => {
+            if(chaosCount === 0 && !isEventActive) {
+                UI.btnLines[0].innerText = "DO NOT";
+                UI.btnLines[1].innerText = "PRESS";
+            }
+        });
+
+        // Mute Toggle
+        UI.muteBtn.addEventListener('click', () => {
+            isMuted = !isMuted;
+            UI.muteBtn.innerText = isMuted ? '🔇' : '🔊';
+            audio.setMute(isMuted);
+        });
+
+        // Init
+        initEvents();
+
+    </script>
+</body>
+</html>
