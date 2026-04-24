@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>THROUGH THE VOID</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Cormorant+Garamond:ital,wght@0,300;0,600;1,300&family=Space+Mono&display=swap');
+    * { margin:0; padding:0; box-sizing:border-box; }
+    html { overflow:hidden; }
+    body { background:#000; color:#fff; overflow:hidden; height:100vh; width:100vw; }
+
+    #webgl-canvas {
+      position:fixed; top:0; left:0;
+      width:100vw; height:100vh; z-index:0;
+      filter:brightness(1.2) contrast(1.3) saturate(1.5);
+    }
+    #vignette {
+      position:fixed; top:0; left:0; width:100vw; height:100vh;
+      background:radial-gradient(ellipse, transparent 35%, rgba(0,0,0,0.95) 100%);
+      pointer-events:none; z-index:5;
+    }
+    #progress-container { position:fixed; top:0; left:0; width:100%; height:3px; z-index:20; background:rgba(255,255,255,0.05); pointer-events:none; }
+    #progress-bar { height:100%; width:0%; background:linear-gradient(90deg,#ff00cc,#00ccff,#ffaa00); box-shadow:0 0 10px rgba(255,0,204,0.8); transition:width 0.05s linear; }
+    #scroll-hint { position:fixed; bottom:40px; left:50%; transform:translateX(-50%); font-family:'Space Mono',monospace; font-size:12px; color:rgba(255,255,255,0.5); z-index:20; letter-spacing:0.2em; animation:pulse 2s infinite ease-in-out; pointer-events:none; }
+    @keyframes pulse { 0%,100%{opacity:0.2} 50%{opacity:1} }
+    #mute-btn { position:fixed; top:20px; right:20px; z-index:25; background:rgba(0,0,0,0.6); border:1px solid rgba(255,255,255,0.3); color:white; padding:8px 16px; cursor:pointer; font-family:'Space Mono',monospace; font-size:11px; letter-spacing:0.1em; border-radius:4px; }
+    .message { position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); text-align:center; z-index:10; opacity:0; transition:opacity 1s ease; pointer-events:none; width:90vw; }
+    .message h1 { margin:0; font-size:clamp(3rem,9vw,7rem); font-weight:700; font-family:'Playfair Display',serif; text-shadow:0 0 40px rgba(255,215,0,0.6),0 0 80px rgba(255,100,200,0.3); line-height:1.1; text-transform:uppercase; letter-spacing:0.05em; }
+    .message p { margin:15px 0 0; font-size:clamp(0.8rem,1.5vw,1.1rem); font-family:'Space Mono',monospace; color:rgba(255,255,255,0.5); letter-spacing:0.3em; text-transform:uppercase; }
+    #depth-indicator { position:fixed; bottom:80px; left:50%; transform:translateX(-50%); font-family:'Space Mono',monospace; font-size:10px; color:rgba(255,255,255,0.2); letter-spacing:0.15em; z-index:20; pointer-events:none; }
+
+    /* ── FLASH ── */
+    #flash-overlay { position:fixed; top:0; left:0; width:100vw; height:100vh; background:white; z-index:30; opacity:0; pointer-events:none; transition:opacity 0.6s ease; }
+
+    /* ══════════════════════════════════════════
+       FINAL SCREEN — WEIRD & DARK LUXURY
+    ══════════════════════════════════════════ */
+    #final-screen {
+      position:fixed; top:0; left:0; width:100vw; height:100vh;
+      z-index:31; opacity:0; pointer-events:none;
+      transition:opacity 2s ease;
+      background:#050505;
+      display:flex; flex-direction:column;
+      align-items:center; justify-content:center;
+      overflow:hidden;
+    }
+
+    /* Grain texture overlay */
+    #final-screen::before {
+      content:''; position:absolute; top:0; left:0; width:100%; height:100%;
+      background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+      opacity:0.4; pointer-events:none; z-index:0;
+    }
+
+    /* Slow rotating gold halo behind everything */
+    #halo {
+      position:absolute;
+      width:600px; height:600px;
+      border-radius:50%;
+      border:1px solid rgba(212,175,55,0.08);
+      box-shadow:0 0 120px 60px rgba(212,175,55,0.04), inset 0 0 120px 60px rgba(212,175,55,0.03);
+      animation:haloSpin 20s linear infinite;
+      z-index:1;
+    }
+    #halo::after {
+      content:''; position:absolute; top:50%; left:50%;
+      transform:translate(-50%,-50%);
+      width:400px; height:400px;
+      border-radius:50%;
+      border:1px solid rgba(212,175,55,0.05);
+      animation:haloSpin 12s linear infinite reverse;
+    }
+    @keyframes haloSpin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+
+    /* Central eye / mirror object */
+    #mirror {
+      position:relative; z-index:2;
+      width:180px; height:180px;
+      border-radius:50%;
+      background:radial-gradient(circle at 38% 35%, #1a1a1a 0%, #000 60%, #0a0008 100%);
+      border:1px solid rgba(212,175,55,0.3);
+      box-shadow:0 0 60px 10px rgba(212,175,55,0.07), 0 0 0 30px rgba(212,175,55,0.02), inset 0 0 40px rgba(0,0,0,0.9);
+      display:flex; align-items:center; justify-content:center;
+      animation:mirrorBreath 6s ease-in-out infinite;
+      cursor:pointer;
+      transition:box-shadow 0.4s;
+      margin-bottom:48px;
+    }
+    #mirror:hover {
+      box-shadow:0 0 100px 30px rgba(212,175,55,0.18), 0 0 0 30px rgba(212,175,55,0.04), inset 0 0 40px rgba(0,0,0,0.9);
+    }
+    @keyframes mirrorBreath {
+      0%,100%{ transform:scale(1);   box-shadow:0 0 60px 10px rgba(212,175,55,0.07),inset 0 0 40px rgba(0,0,0,0.9); }
+      50%    { transform:scale(1.04);box-shadow:0 0 90px 20px rgba(212,175,55,0.14),inset 0 0 40px rgba(0,0,0,0.9); }
+    }
+    #mirror canvas { border-radius:50%; width:100%; height:100%; }
+
+    /* Text block */
+    #final-content { position:relative; z-index:2; text-align:center; padding:0 2rem; }
+
+    #final-eyebrow {
+      font-family:'Space Mono',monospace;
+      font-size:clamp(0.55rem,1vw,0.75rem);
+      letter-spacing:0.4em;
+      color:rgba(212,175,55,0.5);
+      text-transform:uppercase;
+      margin-bottom:16px;
+    }
+
+    #final-title {
+      font-family:'Cormorant Garamond',serif;
+      font-size:clamp(2.8rem,7vw,6rem);
+      font-weight:300;
+      font-style:italic;
+      color:#fff;
+      letter-spacing:0.02em;
+      line-height:1.05;
+      margin-bottom:8px;
+      opacity:0;
+      transform:translateY(20px);
+      transition:opacity 1.2s ease 0.6s, transform 1.2s ease 0.6s;
+    }
+    #final-title.visible { opacity:1; transform:translateY(0); }
+
+    #final-rule {
+      width:60px; height:1px;
+      background:linear-gradient(90deg, transparent, rgba(212,175,55,0.6), transparent);
+      margin:24px auto;
+      opacity:0; transition:opacity 1.2s ease 1s;
+    }
+    #final-rule.visible { opacity:1; }
+
+    #final-body {
+      font-family:'Cormorant Garamond',serif;
+      font-size:clamp(1rem,2vw,1.3rem);
+      font-weight:300;
+      color:rgba(255,255,255,0.45);
+      letter-spacing:0.04em;
+      line-height:1.8;
+      max-width:520px;
+      margin:0 auto 36px;
+      opacity:0; transform:translateY(16px);
+      transition:opacity 1.2s ease 1.3s, transform 1.2s ease 1.3s;
+    }
+    #final-body.visible { opacity:1; transform:translateY(0); }
+
+    /* Stat pills */
+    #stat-row {
+      display:flex; gap:20px; justify-content:center; flex-wrap:wrap;
+      margin-bottom:40px;
+      opacity:0; transition:opacity 1.2s ease 1.7s;
+    }
+    #stat-row.visible { opacity:1; }
+    .stat-pill {
+      border:1px solid rgba(212,175,55,0.2);
+      padding:10px 22px;
+      font-family:'Space Mono',monospace;
+      font-size:clamp(0.6rem,1vw,0.75rem);
+      color:rgba(212,175,55,0.7);
+      letter-spacing:0.2em;
+      text-transform:uppercase;
+      background:rgba(212,175,55,0.03);
+      cursor:default;
+      transition:all 0.3s;
+    }
+    .stat-pill:hover { background:rgba(212,175,55,0.08); border-color:rgba(212,175,55,0.5); color:rgba(212,175,55,1); }
+
+    /* Glitch text effect on mirror click */
+    .glitch-flash {
+      position:fixed; top:50%; left:50%; transform:translate(-50%,-50%);
+      font-family:'Cormorant Garamond',serif; font-style:italic;
+      font-size:clamp(4rem,12vw,10rem); font-weight:300;
+      color:rgba(212,175,55,0.9);
+      pointer-events:none; z-index:50;
+      opacity:0; animation:glitchFlash 1.4s forwards;
+      white-space:nowrap;
+    }
+    @keyframes glitchFlash {
+      0%  { opacity:0; transform:translate(-50%,-50%) scale(0.7); filter:blur(20px); }
+      15% { opacity:1; transform:translate(-50%,-50%) scale(1.05); filter:blur(0px); }
+      80% { opacity:0.8; transform:translate(-50%,-50%) scale(1); }
+      100%{ opacity:0; transform:translate(-50%,-50%) scale(1.1); filter:blur(8px); }
+    }
+
+    /* Whisper messages that drift across */
+    .whisper {
+      position:fixed; font-family:'Cormorant Garamond',serif; font-style:italic;
+      font-size:clamp(0.8rem,1.5vw,1.1rem); color:rgba(255,255,255,0.12);
+      pointer-events:none; z-index:32; white-space:nowrap;
+      animation:whisperDrift 8s ease-in-out forwards;
+    }
+    @keyframes whisperDrift {
+      0%  { opacity:0; transform:translateX(0); }
+      20% { opacity:1; }
+      80% { opacity:0.6; }
+      100%{ opacity:0; transform:translateX(60px); }
+    }
+
+    #restart-btn {
+      font-family:'Space Mono',monospace; font-size:11px;
+      letter-spacing:0.25em; text-transform:uppercase;
+      background:transparent; border:1px solid rgba(255,255,255,0.12);
+      color:rgba(255,255,255,0.3); padding:12px 28px; cursor:pointer;
+      transition:all 0.4s; position:relative; z-index:2;
+      opacity:0; transition:opacity 1.2s ease 2.2s, color 0.3s, border-color 0.3s;
+    }
+    #restart-btn.visible { opacity:1; }
+    #restart-btn:hover { color:rgba(212,175,55,0.8); border-color:rgba(212,175,55,0.4); }
+
+    .confetti { position:fixed; width:8px; height:8px; pointer-events:none; z-index:15; border-radius:2px; }
+  </style>
+</head>
+<body>
+
+<canvas id="webgl-canvas"></canvas>
+<div id="vignette"></div>
+<div id="progress-container"><div id="progress-bar"></div></div>
+<div id="scroll-hint">↓ SCROLL or DRAG to Enter ↓</div>
+<div id="depth-indicator">DEPTH: 0%</div>
+<button id="mute-btn">♪ SOUND: OFF</button>
+
+<div class="message" id="msg-1"><h1>ENTER</h1><p>the journey begins</p></div>
+<div class="message" id="msg-2"><h1>LET GO</h1><p>of everything you know</p></div>
+<div class="message" id="msg-3"><h1>DEEPER</h1><p>there is no turning back</p></div>
+<div class="message" id="msg-4"><h1>YOU ARE</h1><p>the universe experiencing itself</p></div>
+<div class="message" id="msg-5"><h1>ALMOST</h1><p>just a little further</p></div>
+<div class="message" id="msg-6"><h1>YOU MADE IT</h1><p>welcome to the other side</p></div>
+
+<div id="flash-overlay"></div>
+
+<!-- ══ FINAL SCREEN ══ -->
+<div id="final-screen">
+  <div id="halo"></div>
+
+  <!-- Living mirror with particle canvas inside -->
+  <div id="mirror" onclick="mirrorClick()" title="Touch the mirror">
+    <canvas id="mirror-canvas" width="180" height="180"></canvas>
+  </div>
+
+  <div id="final-content">
+    <div id="final-eyebrow">You have arrived &nbsp;·&nbsp; 2026</div>
+    <h1 id="final-title">The Other<br>Side of You</h1>
+    <div id="final-rule"></div>
+    <p id="final-body">
+      You did not find a destination.<br>
+      You found the version of yourself<br>
+      that was brave enough to keep scrolling.
+    </p>
+    <div id="stat-row">
+      <div class="stat-pill">∞ &nbsp; Possibilities</div>
+      <div class="stat-pill">01 &nbsp; You</div>
+      <div class="stat-pill">0 &nbsp; Limits</div>
+    </div>
+    <button id="restart-btn" onclick="resetJourney()">↑ Fall back in</button>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+// ── SCROLL CONTROL ──────────────────────────────────────────────────────────
+let scrollProgress = 0, targetProgress = 0;
+window.addEventListener('wheel', e => {
+  e.preventDefault();
+  targetProgress = Math.max(0, Math.min(1, targetProgress + e.deltaY * 0.0003));
+}, { passive:false });
+let touchStartY = 0;
+window.addEventListener('touchstart', e => { touchStartY = e.touches[0].clientY; }, { passive:true });
+window.addEventListener('touchmove', e => {
+  e.preventDefault();
+  const dy = touchStartY - e.touches[0].clientY;
+  touchStartY = e.touches[0].clientY;
+  targetProgress = Math.max(0, Math.min(1, targetProgress + dy * 0.001));
+}, { passive:false });
+window.addEventListener('keydown', e => {
+  if (e.key==='ArrowDown'||e.key==='PageDown') targetProgress = Math.min(1, targetProgress+0.05);
+  if (e.key==='ArrowUp'  ||e.key==='PageUp'  ) targetProgress = Math.max(0, targetProgress-0.05);
+});
+function resetJourney() {
+  targetProgress = 0; scrollProgress = 0;
+  hideFinal();
+}
+
+// ── THREE.JS ────────────────────────────────────────────────────────────────
+const isMobile = window.innerWidth < 768;
+const canvas   = document.getElementById('webgl-canvas');
+const scene    = new THREE.Scene();
+scene.fog      = new THREE.FogExp2(0x000000, 0.005);
+const camera   = new THREE.PerspectiveCamera(80, innerWidth/innerHeight, 0.1, 500);
+const renderer = new THREE.WebGLRenderer({ canvas, antialias:!isMobile });
+renderer.setSize(innerWidth, innerHeight);
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+
+const curve = new THREE.CatmullRomCurve3([
+  new THREE.Vector3( 0,  0,   0),
+  new THREE.Vector3( 3, -2,  50),
+  new THREE.Vector3(-4,  2, 100),
+  new THREE.Vector3( 2,  3, 160),
+  new THREE.Vector3(-2, -2, 210),
+  new THREE.Vector3( 0,  0, 260)
+]);
+
+const tubeGeo = new THREE.TubeGeometry(curve, isMobile?120:250, 6, 20, false);
+scene.add(new THREE.Mesh(tubeGeo, new THREE.MeshStandardMaterial({
+  color:0x110022, emissive:0x440066, emissiveIntensity:0.8,
+  side:THREE.BackSide, roughness:0.5, metalness:0.5
+})));
+const wireMesh = new THREE.Mesh(tubeGeo, new THREE.MeshBasicMaterial({
+  color:0xaa00ff, opacity:0.12, transparent:true, wireframe:true, side:THREE.BackSide
+}));
+wireMesh.scale.setScalar(1.005);
+scene.add(wireMesh);
+
+const pCount = isMobile?300:700, pPos = new Float32Array(pCount*3);
+for (let i=0;i<pCount;i++) {
+  const pt=curve.getPointAt(Math.random()), a=Math.random()*Math.PI*2, r=Math.random()*5.5;
+  pPos[i*3]=pt.x+Math.cos(a)*r; pPos[i*3+1]=pt.y+Math.sin(a)*r; pPos[i*3+2]=pt.z+(Math.random()-.5)*10;
+}
+const pGeo = new THREE.BufferGeometry();
+pGeo.setAttribute('position',new THREE.BufferAttribute(pPos,3));
+scene.add(new THREE.Points(pGeo, new THREE.PointsMaterial({
+  color:0xffffff,size:0.06,transparent:true,opacity:0.9,
+  blending:THREE.AdditiveBlending,depthWrite:false
+})));
+
+[0.25,0.5,0.75].forEach((t,i)=>{
+  const pt=curve.getPointAt(t), tang=curve.getTangentAt(t);
+  const ring=new THREE.Mesh(
+    new THREE.TorusGeometry(5.8,.08,16,60),
+    new THREE.MeshStandardMaterial({ color:[0xff00cc,0x00ccff,0xffaa00][i], emissive:[0xff00cc,0x00ccff,0xffaa00][i], emissiveIntensity:3, side:THREE.DoubleSide })
+  );
+  ring.position.copy(pt);
+  ring.quaternion.setFromUnitVectors(new THREE.Vector3(0,0,1),tang);
+  scene.add(ring);
+});
+
+scene.add(new THREE.AmbientLight(0x6600cc,2));
+const cl1=new THREE.PointLight(0xff00cc,10,60), cl2=new THREE.PointLight(0x00ccff,10,60), cl3=new THREE.PointLight(0xffaa00,8,60);
+cl1.position.set(0,0,5); cl2.position.set(0,0,5); cl3.position.set(0,0,5);
+camera.add(cl1,cl2,cl3); scene.add(camera);
+
+window.addEventListener('resize',()=>{
+  renderer.setSize(innerWidth,innerHeight);
+  camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix();
+});
+
+// ── MIRROR CANVAS (living particle orb) ─────────────────────────────────────
+const mc = document.getElementById('mirror-canvas');
+const mctx = mc.getContext('2d');
+const mParticles = [];
+for (let i=0;i<60;i++) {
+  mParticles.push({
+    x:90+Math.cos(Math.random()*Math.PI*2)*Math.random()*70,
+    y:90+Math.sin(Math.random()*Math.PI*2)*Math.random()*70,
+    vx:(Math.random()-.5)*0.4, vy:(Math.random()-.5)*0.4,
+    r:Math.random()*1.5+0.3,
+    hue:30+Math.random()*30, life:Math.random()*Math.PI*2
+  });
+}
+function drawMirror(t) {
+  mctx.clearRect(0,0,180,180);
+  // dark bg
+  const bg = mctx.createRadialGradient(72,68,0,90,90,90);
+  bg.addColorStop(0,'#1a1008'); bg.addColorStop(1,'#000');
+  mctx.fillStyle=bg; mctx.beginPath(); mctx.arc(90,90,90,0,Math.PI*2); mctx.fill();
+  // ripple rings
+  for (let r=20;r<90;r+=18) {
+    mctx.beginPath(); mctx.arc(90,90,r+Math.sin(t*0.5+r)*2,0,Math.PI*2);
+    mctx.strokeStyle=`rgba(212,175,55,${0.04+0.02*Math.sin(t+r)})`; mctx.lineWidth=0.5; mctx.stroke();
+  }
+  // particles
+  mParticles.forEach(p => {
+    p.life += 0.02; p.x+=p.vx; p.y+=p.vy;
+    const dx=p.x-90, dy=p.y-90, dist=Math.sqrt(dx*dx+dy*dy);
+    if (dist>78) { p.vx*=-1; p.vy*=-1; }
+    const alpha=0.4+0.3*Math.sin(p.life);
+    mctx.beginPath(); mctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+    mctx.fillStyle=`hsla(${p.hue},80%,70%,${alpha})`; mctx.fill();
+  });
+  // eye slit
+  mctx.save(); mctx.translate(90,90);
+  const eyeOpen = 6+Math.sin(t*0.3)*2;
+  mctx.beginPath(); mctx.ellipse(0,0,28,eyeOpen,0,0,Math.PI*2);
+  mctx.fillStyle=`rgba(212,175,55,0.7)`; mctx.fill();
+  mctx.beginPath(); mctx.ellipse(0,0,10,eyeOpen*0.6,0,0,Math.PI*2);
+  mctx.fillStyle='rgba(0,0,0,0.95)'; mctx.fill();
+  // pupil glow
+  const pg=mctx.createRadialGradient(0,0,0,0,0,8);
+  pg.addColorStop(0,'rgba(212,175,55,0.6)'); pg.addColorStop(1,'transparent');
+  mctx.fillStyle=pg; mctx.beginPath(); mctx.arc(0,0,8,0,Math.PI*2); mctx.fill();
+  mctx.restore();
+  // clip to circle
+  mctx.globalCompositeOperation='destination-in';
+  mctx.beginPath(); mctx.arc(90,90,89,0,Math.PI*2); mctx.fill();
+  mctx.globalCompositeOperation='source-over';
+}
+
+// Mirror click — glitch word
+const mirrorWords = ['AWAKE','YOU SAW','REAL','ECHO','∞','NOW','LOOK'];
+let mwIdx = 0;
+function mirrorClick() {
+  const el = document.createElement('div');
+  el.className='glitch-flash';
+  el.textContent = mirrorWords[mwIdx++ % mirrorWords.length];
+  document.body.appendChild(el);
+  setTimeout(()=>el.remove(), 1500);
+}
+
+// Whisper messages
+const whispers = ['you were always here','the tunnel was you','there is no exit','keep falling','blink once'];
+let lastWhisper=0;
+function spawnWhisper(t) {
+  if (t - lastWhisper < 4) return;
+  lastWhisper = t;
+  const el = document.createElement('div');
+  el.className='whisper';
+  el.textContent = whispers[Math.floor(Math.random()*whispers.length)];
+  el.style.top  = (20+Math.random()*60)+'%';
+  el.style.left = (5+Math.random()*30)+'%';
+  document.getElementById('final-screen').appendChild(el);
+  setTimeout(()=>el.remove(), 8500);
+}
+
+// Show/hide final
+let finalVisible = false;
+function showFinal() {
+  if (finalVisible) return; finalVisible=true;
+  document.getElementById('final-screen').style.opacity='1';
+  document.getElementById('final-screen').style.pointerEvents='auto';
+  setTimeout(()=>{
+    document.getElementById('final-title').classList.add('visible');
+    document.getElementById('final-rule').classList.add('visible');
+    document.getElementById('final-body').classList.add('visible');
+    document.getElementById('stat-row').classList.add('visible');
+    document.getElementById('restart-btn').classList.add('visible');
+  }, 300);
+}
+function hideFinal() {
+  finalVisible=false;
+  document.getElementById('final-screen').style.opacity='0';
+  document.getElementById('final-screen').style.pointerEvents='none';
+  document.getElementById('flash-overlay').style.opacity='0';
+  ['final-title','final-rule','final-body','stat-row','restart-btn'].forEach(id=>{
+    document.getElementById(id).classList.remove('visible');
+  });
+}
+
+// ── AUDIO ────────────────────────────────────────────────────────────────────
+let audioCtx,masterGain,melodyGain,droneL,droneM,droneH;
+let audioOn=false,audioStarted=false;
+document.getElementById('mute-btn').addEventListener('click',()=>{
+  if (!audioStarted){startAudio();return;}
+  audioOn=!audioOn;
+  masterGain.gain.setTargetAtTime(audioOn?0.5:0,audioCtx.currentTime,0.2);
+  document.getElementById('mute-btn').textContent=audioOn?'♪ SOUND: ON':'♪ SOUND: OFF';
+});
+function startAudio(){
+  if(audioStarted)return; audioStarted=true; audioOn=true;
+  document.getElementById('mute-btn').textContent='♪ SOUND: ON';
+  audioCtx=new(window.AudioContext||window.webkitAudioContext)();
+  masterGain=audioCtx.createGain(); masterGain.gain.value=0.5; masterGain.connect(audioCtx.destination);
+  function osc(freq,type,gain){
+    const o=audioCtx.createOscillator(),g=audioCtx.createGain();
+    o.type=type;o.frequency.value=freq;g.gain.value=gain;
+    o.connect(g);g.connect(masterGain);o.start();return{osc:o,gain:g};
+  }
+  droneL=osc(55,'sine',0.07); droneM=osc(82,'sine',0.06); droneH=osc(110,'sine',0.05);
+  melodyGain=audioCtx.createGain(); melodyGain.gain.value=0.05; melodyGain.connect(masterGain);
+  const notes=[196,220,246,261,220,196,175,196]; let ni=0;
+  setInterval(()=>{
+    if(!audioOn)return;
+    const o=audioCtx.createOscillator(),g=audioCtx.createGain();
+    o.type='triangle'; o.frequency.value=notes[ni];
+    g.gain.setValueAtTime(0,audioCtx.currentTime);
+    g.gain.linearRampToValueAtTime(1,audioCtx.currentTime+0.08);
+    g.gain.linearRampToValueAtTime(0,audioCtx.currentTime+0.55);
+    o.connect(g);g.connect(melodyGain);o.start();o.stop(audioCtx.currentTime+0.6);
+    ni=(ni+1)%notes.length;
+  },600);
+  const sF=[1046,1174,1318];
+  setInterval(()=>{
+    if(!audioOn)return;
+    const o=audioCtx.createOscillator(),g=audioCtx.createGain();
+    o.type='sine';o.frequency.value=sF[Math.floor(Math.random()*3)];
+    g.gain.setValueAtTime(0,audioCtx.currentTime);
+    g.gain.linearRampToValueAtTime(0.025,audioCtx.currentTime+0.4);
+    g.gain.linearRampToValueAtTime(0,audioCtx.currentTime+1.2);
+    o.connect(g);g.connect(masterGain);o.start();o.stop(audioCtx.currentTime+1.2);
+  },1400);
+}
+
+// ── MESSAGES ─────────────────────────────────────────────────────────────────
+const messages=[
+  {id:'msg-1',start:0.00,end:0.15},{id:'msg-2',start:0.15,end:0.30},
+  {id:'msg-3',start:0.30,end:0.50},{id:'msg-4',start:0.50,end:0.70},
+  {id:'msg-5',start:0.70,end:0.88},{id:'msg-6',start:0.88,end:1.00}
+];
+let confettiFired=false;
+function fireConfetti(){
+  const colors=['#d4af37','#fff','#c0a96e','#f0e68c','#fffacd'];
+  for(let i=0;i<60;i++){
+    const el=document.createElement('div'); el.className='confetti';
+    el.style.cssText=`background:${colors[i%colors.length]};left:50%;top:50%;`;
+    document.body.appendChild(el);
+    const a=Math.random()*Math.PI*2,v=15+Math.random()*25;
+    el.animate([
+      {transform:'translate(-50%,-50%) scale(1) rotate(0deg)',opacity:1},
+      {transform:`translate(calc(-50% + ${Math.cos(a)*v*22}px),calc(-50% + ${Math.sin(a)*v*22}px)) scale(0) rotate(${Math.random()*1080}deg)`,opacity:0}
+    ],{duration:1800+Math.random()*2000,easing:'cubic-bezier(0.25,1,0.5,1)',fill:'forwards'});
+    setTimeout(()=>el.remove(),4500);
+  }
+}
+
+// ── MAIN LOOP ─────────────────────────────────────────────────────────────────
+const clock=new THREE.Clock();
+let whisperTimer=0;
+
+function animate(){
+  requestAnimationFrame(animate);
+  const t=clock.getElapsedTime();
+  scrollProgress+=(targetProgress-scrollProgress)*0.06;
+
+  // Camera
+  const sp=Math.max(0.001,Math.min(0.999,scrollProgress));
+  const camT=sp*0.96, lookT=Math.min(camT+0.04,1.0);
+  const camPos=curve.getPointAt(camT), lookPos=curve.getPointAt(lookT);
+  camera.position.copy(camPos);
+  camera.position.x+=Math.sin(t*0.9)*0.06;
+  camera.position.y+=Math.cos(t*0.7)*0.06;
+  camera.lookAt(lookPos);
+
+  // Rings
+  scene.children.forEach(obj=>{
+    if(obj.geometry&&obj.geometry.type==='TorusGeometry'){obj.rotateZ(0.005);obj.rotateX(0.002);}
+  });
+
+  // Mirror
+  drawMirror(t);
+
+  // Whispers on final screen
+  if(finalVisible){ whisperTimer+=0.016; spawnWhisper(whisperTimer); }
+
+  // Audio
+  if(audioStarted&&audioOn&&audioCtx){
+    const ratio=1+scrollProgress*0.6;
+    droneL.osc.frequency.setTargetAtTime(55*ratio,audioCtx.currentTime,0.2);
+    droneM.osc.frequency.setTargetAtTime(82*ratio,audioCtx.currentTime,0.2);
+    droneH.osc.frequency.setTargetAtTime(110*ratio,audioCtx.currentTime,0.2);
+    melodyGain.gain.setTargetAtTime(0.05+scrollProgress*0.08,audioCtx.currentTime,0.2);
+  }
+
+  // UI
+  document.getElementById('progress-bar').style.width=(scrollProgress*100)+'%';
+  document.getElementById('scroll-hint').style.opacity=scrollProgress>0.03?'0':'1';
+  document.getElementById('depth-indicator').textContent=`DEPTH: ${Math.round(scrollProgress*100)}%`;
+
+  messages.forEach(m=>{
+    const el=document.getElementById(m.id);
+    const show=scrollProgress>=m.start&&scrollProgress<=m.end;
+    el.style.opacity=show?'1':'0';
+    if(show&&m.id==='msg-6'&&!confettiFired){fireConfetti();confettiFired=true;}
+  });
+  if(scrollProgress<0.85) confettiFired=false;
+
+  // Final screen trigger
+  if(scrollProgress>=0.995){
+    document.getElementById('flash-overlay').style.opacity='1';
+    showFinal();
+  } else {
+    document.getElementById('flash-overlay').style.opacity='0';
+    if(finalVisible&&scrollProgress<0.99) hideFinal();
+  }
+
+  renderer.render(scene,camera);
+}
+animate();
+</script>
+</body>
+</html>
