@@ -1,0 +1,752 @@
+
+// State
+let scrollY = 0;
+let targetScrollY = 0;
+let scrollProgress = 0;
+let width, height;
+
+// Audio State
+let audioCtx;
+let masterGain;
+let bassOsc, bassLFO, bassGain;
+let drone1, drone2, droneGain1, droneGain2;
+let shimmerOsc, shimmerLFO, shimmerGain;
+let nextClickTime = 0;
+let nextSwellTime = 0;
+let clickVol = 0.03;
+let clickOffset = false;
+let isMuted = false;
+let audioInitialized = false;
+
+function initAudio() {
+    if(audioInitialized) return;
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    masterGain = audioCtx.createGain();
+    masterGain.gain.value = 0.7;
+    masterGain.connect(audioCtx.destination);
+
+    // Bass Pulse
+    bassOsc = audioCtx.createOscillator();
+    bassOsc.type = 'sine';
+    bassOsc.frequency.value = 55;
+    
+    bassGain = audioCtx.createGain();
+    bassGain.gain.value = 0.08;
+    
+    let tremoloGain = audioCtx.createGain();
+    tremoloGain.gain.value = 0.6;
+    
+    bassLFO = audioCtx.createOscillator();
+    bassLFO.frequency.value = 0.8;
+    let lfoAmp = audioCtx.createGain();
+    lfoAmp.gain.value = 0.4;
+    
+    bassLFO.connect(lfoAmp);
+    lfoAmp.connect(tremoloGain.gain);
+    
+    bassOsc.connect(bassGain);
+    bassGain.connect(tremoloGain);
+    tremoloGain.connect(masterGain);
+    
+    bassOsc.start();
+    bassLFO.start();
+
+    // Drone
+    drone1 = audioCtx.createOscillator();
+    drone1.type = 'triangle';
+    drone1.frequency.value = 220;
+    droneGain1 = audioCtx.createGain();
+    droneGain1.gain.value = 0.04;
+    drone1.connect(droneGain1);
+    droneGain1.connect(masterGain);
+    drone1.start();
+
+    drone2 = audioCtx.createOscillator();
+    drone2.type = 'triangle';
+    drone2.frequency.value = 223;
+    droneGain2 = audioCtx.createGain();
+    droneGain2.gain.value = 0.04;
+    drone2.connect(droneGain2);
+    droneGain2.connect(masterGain);
+    drone2.start();
+
+    // Shimmer
+    shimmerOsc = audioCtx.createOscillator();
+    shimmerOsc.type = 'sine';
+    shimmerOsc.frequency.value = 880;
+    
+    shimmerGain = audioCtx.createGain();
+    shimmerGain.gain.value = 0.015;
+    
+    let shimmerTremolo = audioCtx.createGain();
+    shimmerTremolo.gain.value = 0;
+    
+    shimmerLFO = audioCtx.createOscillator();
+    shimmerLFO.frequency.value = 0.15;
+    let sLfoAmp = audioCtx.createGain();
+    sLfoAmp.gain.value = 1;
+    
+    shimmerLFO.connect(sLfoAmp);
+    sLfoAmp.connect(shimmerTremolo.gain);
+    
+    shimmerOsc.connect(shimmerGain);
+    shimmerGain.connect(shimmerTremolo);
+    shimmerTremolo.connect(masterGain);
+    
+    shimmerOsc.start();
+    shimmerLFO.start();
+
+    nextClickTime = audioCtx.currentTime + 0.1;
+    nextSwellTime = audioCtx.currentTime + 16.0;
+    
+    audioInitialized = true;
+    document.getElementById('mute-btn').innerText = '♪ ON';
+}
+
+function scheduleAudio() {
+    if(!audioCtx) return;
+    let now = audioCtx.currentTime;
+    
+    while (nextClickTime < now + 0.2) {
+        playClick(nextClickTime);
+        nextClickTime += 0.6;
+    }
+    
+    while (nextSwellTime < now + 0.2) {
+        playSwell(nextSwellTime);
+        nextSwellTime += 16.0;
+    }
+    
+    if(scrollProgress < 0.25) {
+        bassGain.gain.setTargetAtTime(0.08, now, 0.1);
+        clickVol = 0.03;
+        clickOffset = false;
+    } else if (scrollProgress < 0.50) {
+        bassGain.gain.setTargetAtTime(0.12, now, 0.1);
+        clickVol = 0.06;
+        clickOffset = false;
+    } else if (scrollProgress < 0.75) {
+        bassGain.gain.setTargetAtTime(0.12, now, 0.1);
+        clickVol = 0.06;
+        clickOffset = true;
+    } else {
+        bassGain.gain.setTargetAtTime(0, now, 2);
+        shimmerGain.gain.setTargetAtTime(0, now, 2);
+        clickVol = 0;
+    }
+
+    if(scrollProgress > 0.95) {
+        droneGain1.gain.setTargetAtTime(0, now, 2);
+        droneGain2.gain.setTargetAtTime(0, now, 2);
+    } else {
+        droneGain1.gain.setTargetAtTime(0.04, now, 0.1);
+        droneGain2.gain.setTargetAtTime(0.04, now, 0.1);
+    }
+}
+
+function playClick(time) {
+    if(clickVol <= 0) return;
+    
+    let bufferSize = audioCtx.sampleRate * 0.015;
+    let buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+    let data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+        data[i] = Math.random() * 2 - 1;
+    }
+    
+    let noise = audioCtx.createBufferSource();
+    noise.buffer = buffer;
+    
+    let filter = audioCtx.createBiquadFilter();
+    filter.type = 'highpass';
+    filter.frequency.value = 6000;
+    
+    let gain = audioCtx.createGain();
+    gain.gain.setValueAtTime(clickVol, time);
+    gain.gain.exponentialRampToValueAtTime(0.001, time + 0.015);
+    
+    noise.connect(filter);
+    filter.connect(gain);
+    gain.connect(masterGain);
+    
+    noise.start(time);
+    
+    if(clickOffset) {
+        let noise2 = audioCtx.createBufferSource();
+        noise2.buffer = buffer;
+        let gain2 = audioCtx.createGain();
+        gain2.gain.setValueAtTime(clickVol * 0.7, time + 0.3);
+        gain2.gain.exponentialRampToValueAtTime(0.001, time + 0.315);
+        noise2.connect(filter);
+        filter.connect(gain2);
+        gain2.connect(masterGain);
+        noise2.start(time + 0.3);
+    }
+}
+
+function playSwell(time) {
+    let freqs = [174, 220, 261];
+    freqs.forEach(f => {
+        let osc = audioCtx.createOscillator();
+        osc.type = 'sine';
+        osc.frequency.value = f;
+        let gain = audioCtx.createGain();
+        gain.gain.setValueAtTime(0, time);
+        gain.gain.linearRampToValueAtTime(0.035, time + 4);
+        gain.gain.setValueAtTime(0.035, time + 8);
+        gain.gain.linearRampToValueAtTime(0, time + 12);
+        
+        osc.connect(gain);
+        gain.connect(masterGain);
+        osc.start(time);
+        osc.stop(time + 12);
+    });
+}
+
+// Text Data
+const textData = [
+    { start: 0.02, end: 0.11, content: '<div id="s1-title"><div class="headline">SKIN DEEP</div><div class="caption">what the fashion industry<br>never wanted you to know</div></div>' },
+    { start: 0.13, end: 0.175, content: '<div class="headline">Black became fashion in 1926</div><div class="body-text">Before Coco Chanel&apos;s little black dress,<br>black clothing was exclusively for mourning.<br>She took the color of grief<br>and made it the color of power.<br>One dress rewired Western culture.</div>' },
+    { start: 0.18, end: 0.23, content: '<div class="headline">Black makes you look 8 pounds lighter</div><div class="body-text">This is not opinion — it is optics.<br>Dark colors absorb light rather than<br>reflecting it outward, reducing the<br>perception of volume. Fashion weaponized<br>physics against body image.</div>' },
+    { start: 0.25, end: 0.295, content: '<div class="headline">Women spend $300,000 on beauty<br>in a lifetime</div><div class="body-text">The average American woman spends<br>$3,756 per year on beauty products.<br>Over 80 years — that is the price<br>of a house. Sold back to her<br>as self-improvement.</div>' },
+    { start: 0.30, end: 0.35, content: '<div class="headline">The beauty industry is worth<br>$600 billion</div><div class="body-text">More than the GDP of most countries.<br>Built almost entirely on one concept —<br>that you are not enough<br>in your natural state.<br>The most profitable insecurity ever manufactured.</div><div id="s3-counter">$0</div>' },
+    { start: 0.37, end: 0.415, content: '<div class="headline">The average model weighs<br>23% less than the average woman</div><div class="body-text">In the 1960s, models weighed<br>8% less than average.<br>The gap has tripled in 60 years.<br>The ideal body moves further away<br>faster than any woman can follow.</div>' },
+    { start: 0.42, end: 0.47, content: '<div class="headline">Every magazine cover image<br>is edited an average of 107 times</div><div class="body-text">Skin smoothed. Eyes enlarged.<br>Waist narrowed. Legs lengthened.<br>The person on the cover<br>does not exist. Has never existed.<br>You are comparing yourself<br>to a fiction.</div>' },
+    { start: 0.49, end: 0.535, content: '<div class="headline">Smell is the only sense<br>wired directly to memory</div><div class="body-text">Every other sense is processed<br>through the thalamus first.<br>Smell goes directly to the amygdala —<br>the brain&apos;s emotional center.<br>A perfume does not remind you of a person.<br>It IS that person, neurologically.</div>' },
+    { start: 0.54, end: 0.59, content: '<div class="headline">The human nose can detect<br>one trillion different scents</div><div class="body-text">For decades science said 10,000.<br>A 2014 study proved one trillion.<br>We have no language for most of them.<br>The richest sensory world we possess<br>and we only named<br>a handful of its colors.</div>' },
+    { start: 0.61, end: 0.655, content: '<div class="headline">Fast fashion produces<br>92 million tons of waste yearly</div><div class="body-text">The fashion industry is the<br>second largest polluter on Earth.<br>A garment worn fewer than 5 times<br>and kept for 35 days<br>has a carbon footprint<br>400% larger than one used longer.<br>Every trend costs the planet.</div>' },
+    { start: 0.66, end: 0.71, content: '<div class="headline">A single pair of jeans<br>uses 1,800 gallons of water</div><div class="body-text">From cotton field to your wardrobe.<br>1,800 gallons — enough to sustain<br>one person for 2.5 years of drinking.<br>The price tag never showed you this number.<br>It was always the most expensive part.</div>' },
+    { start: 0.73, end: 0.78, content: '<div class="headline">You cannot see your own face</div><div class="body-text">Every mirror reverses you.<br>Every photo flattens you.<br>Every other human on Earth<br>has seen your face more accurately<br>than you ever will.<br>The face you know is a reflection —<br>and reflections are always backwards.</div>' },
+    { start: 0.79, end: 0.85, content: '<div class="headline">Body dysmorphia affects<br>1 in 50 people</div><div class="body-text">They see a distorted version<br>of themselves — spending 3-8 hours<br>daily consumed by perceived flaws<br>that others cannot see.<br>The beauty industry profits from this.<br>It was never designed to fix it.</div>' },
+    { start: 0.87, end: 0.895, content: '<div class="headline">Beauty is not the problem</div>' },
+    { start: 0.90, end: 0.925, content: '<div class="headline">The problem is who profits<br>from your doubt</div>' },
+    { start: 0.93, end: 0.955, content: '<div class="headline">The industry spends $14 billion<br>annually on advertising</div><div class="body-text">not to show you beauty —<br>but to show you what you lack</div>' },
+    { start: 0.96, end: 0.985, content: '<div class="headline">You were beautiful<br>before they told you otherwise</div>' },
+    { start: 0.985, end: 1.0, permanent: true, content: '<div id="s8-final">skin deep is deep enough</div><div id="s8-final-sub">a new beauty standard is invented<br>every 3 years</div>' }
+];
+
+let uiElements = [];
+function initUI() {
+    const container = document.getElementById('ui-layer');
+    textData.forEach((td, idx) => {
+        let div = document.createElement('div');
+        div.className = 'text-block';
+        div.innerHTML = td.content;
+        div.id = `text-block-${idx}`;
+        container.appendChild(div);
+        uiElements.push({ el: div, start: td.start, end: td.end, permanent: td.permanent || false });
+    });
+}
+
+function updateUI(progress, currentScene) {
+    uiElements.forEach(item => {
+        if(progress >= item.start && (progress <= item.end || item.permanent)) {
+            let pIn = (progress - item.start) / 0.02;
+            let pOut = item.permanent ? 1 : (item.end - progress) / 0.02;
+            let opacity = Math.min(1, Math.max(0, pIn));
+            if(!item.permanent) opacity = Math.min(opacity, Math.max(0, pOut));
+            
+            let transformY = 15 * (1 - Math.min(1, Math.max(0, pIn)));
+            item.el.style.opacity = opacity;
+            item.el.style.transform = `translateY(${transformY}px)`;
+        } else {
+            item.el.style.opacity = 0;
+            item.el.style.transform = `translateY(15px)`;
+        }
+    });
+
+    let dots = document.querySelectorAll('.dot');
+    dots.forEach((dot, idx) => {
+        if(idx + 1 < currentScene) dot.className = 'dot past';
+        else if(idx + 1 === currentScene) dot.className = 'dot active';
+        else dot.className = 'dot';
+    });
+
+    document.getElementById('progress-bar').style.width = `${progress * 100}%`;
+}
+
+// Canvas & Drawing
+const canvas = document.getElementById('glcanvas');
+const ctx = canvas.getContext('2d', { alpha: false });
+
+let fabricParticles = [];
+for(let i=0; i<30; i++) {
+    fabricParticles.push({
+        x: Math.random(), y: Math.random(), h: 20 + Math.random() * 40,
+        speed: 0.02 + Math.random() * 0.03, drift: (Math.random() - 0.5) * 0.01, driftSpeed: 0.5 + Math.random()
+    });
+}
+let coins = [];
+for(let i=0; i<50; i++) coins.push({ x: Math.random(), y: -0.1 - Math.random() * 0.5, speed: 0, bounces: 0 });
+
+let scentParticles = [];
+for(let i=0; i<50; i++) {
+    scentParticles.push({ x: (Math.random() - 0.5) * 20, y: Math.random(), speed: 0.1 + Math.random() * 0.2, wobble: Math.random() * Math.PI * 2, wobbleSpeed: 1 + Math.random() * 2 });
+}
+let pollution = [];
+for(let i=0; i<2000; i++) pollution.push({ x: Math.random(), y: Math.random(), isDark: i < 1800 });
+
+let mirrorParticles = [];
+for(let i=0; i<100; i++) {
+    mirrorParticles.push({ baseX: 0.5 + (Math.random() - 0.5) * 0.15, baseY: 0.5 + (Math.random() - 0.5) * 0.3, randX: Math.random() - 0.5, randY: Math.random() - 0.5 });
+}
+
+function resize() {
+    width = window.innerWidth;
+    height = window.innerHeight;
+    canvas.width = width;
+    canvas.height = height;
+}
+window.addEventListener('resize', resize);
+resize();
+
+function renderScene(drawFn, localProgress, time, extra) {
+    if(localProgress > -0.1 && localProgress < 1.1) {
+        ctx.save();
+        let alpha = 1;
+        if(localProgress < 0) alpha = 1 + localProgress * 10;
+        if(localProgress > 1) alpha = 1 - (localProgress - 1) * 10;
+        ctx.globalAlpha *= Math.max(0, Math.min(1, alpha));
+        drawFn(Math.max(0, Math.min(1, localProgress)), time, extra);
+        ctx.restore();
+    }
+}
+
+function drawScene1(t, time, beatVal) {
+    ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(width*0.2, height);
+    ctx.lineTo(width/2, height*0.4);
+    ctx.lineTo(width*0.8, height);
+    ctx.stroke();
+
+    let lightOpacity = 0.1 + beatVal * 0.3;
+    ctx.fillStyle = `rgba(255,255,255,${lightOpacity})`;
+    for(let i=0; i<10; i++) {
+        let f = i / 9;
+        let lx = width/2 - (width*0.3 * f);
+        let rx = width/2 + (width*0.3 * f);
+        let ly = height*0.4 + (height*0.6 * f);
+        let radius = 1 + f * 4;
+        ctx.beginPath(); ctx.arc(lx, ly, radius, 0, Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.arc(rx, ly, radius, 0, Math.PI*2); ctx.fill();
+    }
+
+    let scale = 0.2 + t * 0.8;
+    let yPos = height*0.4 + t * height*0.4;
+    
+    ctx.save();
+    ctx.translate(width/2, yPos);
+    ctx.scale(scale, scale);
+    ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.ellipse(0, -100, 15, 20, 0, 0, Math.PI*2);
+    ctx.moveTo(-25, -70); ctx.quadraticCurveTo(0, -80, 25, -70); ctx.lineTo(15, 20); ctx.lineTo(-15, 20); ctx.closePath();
+    ctx.moveTo(-10, 20); ctx.lineTo(-15, 120);
+    ctx.moveTo(10, 20); ctx.lineTo(15, 120);
+    ctx.moveTo(-25, -70); ctx.lineTo(-30, 0);
+    ctx.moveTo(25, -70); ctx.lineTo(30, 0);
+    ctx.stroke();
+    ctx.restore();
+}
+
+function drawScene2(t, time) {
+    let r = Math.floor(5 + Math.sin(time * 0.5)*5);
+    let g = Math.floor(2 + Math.sin(time * 0.6)*2);
+    let b = Math.floor(4 + Math.sin(time * 0.7)*4);
+    
+    let rectW = Math.min(600, width * 0.8);
+    let rectH = height * 0.6;
+    let rx = width/2 - rectW/2;
+    let ry = height*0.2;
+
+    ctx.fillStyle = `rgb(${r},${g},${b})`;
+    ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+    ctx.lineWidth = 1;
+    ctx.fillRect(rx, ry, rectW, rectH);
+    ctx.strokeRect(rx, ry, rectW, rectH);
+
+    ctx.save();
+    ctx.beginPath(); ctx.rect(rx, ry, rectW, rectH); ctx.clip();
+    ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+    ctx.beginPath();
+    for(let i=-50; i<=100; i++) {
+        let xOff = (i/50)*rectW;
+        ctx.moveTo(rx + xOff, ry); ctx.lineTo(rx + xOff - rectH, ry + rectH);
+        ctx.moveTo(rx + xOff, ry); ctx.lineTo(rx + xOff + rectH, ry + rectH);
+    }
+    ctx.stroke();
+    ctx.restore();
+
+    ctx.strokeStyle = 'rgba(212,175,55,0.4)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(rx, ry + rectH*0.2);
+    let endX = rx + rectW * Math.min(1, t*1.5);
+    let endY = ry + rectH*0.8 * Math.min(1, t*1.5);
+    ctx.lineTo(endX, endY);
+    ctx.stroke();
+
+    let barMaxH = height * 0.2;
+    let barBaseY = height * 0.9;
+    let vals = [0.2, 0.5, 0.9];
+    let labels = ["1900", "1950", "2024"];
+    ctx.font = "12px 'Space Mono'";
+    ctx.textAlign = "center";
+    for(let i=0; i<3; i++) {
+        let bx = width/2 - 100 + i*100;
+        let currH = barMaxH * vals[i] * Math.min(1, t * 2);
+        ctx.fillStyle = 'white';
+        ctx.fillRect(bx - 1, barBaseY - currH, 2, currH);
+        ctx.fillStyle = 'rgba(255,255,255,0.5)';
+        ctx.fillText(labels[i], bx, barBaseY + 20);
+    }
+}
+
+function drawScene3(t, time) {
+    let cols = 4, rows = 6;
+    let sqSize = Math.min(60, width*0.12);
+    let startX = width/2 - (cols*sqSize)/2;
+    let startY = height*0.3;
+    
+    ctx.font = "10px 'Space Mono'";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+
+    for(let r=0; r<rows; r++) {
+        for(let c=0; c<cols; c++) {
+            let idx = r*cols + c;
+            ctx.fillStyle = (c+r)%2 === 0 ? '#0a0a0a' : '#111111';
+            ctx.fillRect(startX + c*sqSize, startY + r*sqSize, sqSize, sqSize);
+            
+            if(t > idx / 30) {
+                ctx.fillStyle = 'rgba(255,255,255,0.3)';
+                ctx.fillText(`$${(idx*1400 + 300)}`, startX + c*sqSize + sqSize/2, startY + r*sqSize + sqSize/2);
+            }
+        }
+    }
+
+    ctx.fillStyle = '#d4af37';
+    let pCount = width < 768 ? 20 : 50;
+    for(let i=0; i<pCount; i++) {
+        let c = coins[i];
+        if(t > i/100) {
+            c.speed += 0.001; 
+            c.y += c.speed;
+            if(c.y > 0.95) { c.y = 0.95; c.speed *= -0.5; }
+        } else {
+            c.y = -0.1; c.speed = 0;
+        }
+        ctx.beginPath(); ctx.arc(c.x * width, c.y * height, 4, 0, Math.PI*2); ctx.fill();
+    }
+    
+    let counterObj = document.getElementById('s3-counter');
+    if(counterObj) {
+        if(t > 0.5 && t < 1) {
+            let val = Math.floor((t - 0.5)*2 * 600) * 1000000000;
+            counterObj.innerText = "$" + val.toLocaleString();
+        } else if (t >= 1) {
+            counterObj.innerText = "$600,000,000,000";
+        } else {
+            counterObj.innerText = "$0";
+        }
+    }
+}
+
+function drawScene4(t, time) {
+    let distort = Math.max(0, t - 0.5) * 2; 
+    
+    if(distort > 0) {
+        ctx.strokeStyle = `rgba(255,255,255,${0.04 * distort})`;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        for(let x=0; x<width; x+=20) { ctx.moveTo(x,0); ctx.lineTo(x,height); }
+        for(let y=0; y<height; y+=20) { ctx.moveTo(0,y); ctx.lineTo(width,y); }
+        ctx.stroke();
+    }
+
+    let cx = width/2, cy = height/2;
+    ctx.save();
+    ctx.translate(cx, cy);
+    
+    let scaleY = 1 + distort * 0.15; 
+    let scaleX = 1 - distort * 0.15; 
+    
+    ctx.scale(scaleX, scaleY);
+    ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.ellipse(0, -150, 20, 25, 0, 0, Math.PI*2);
+    ctx.moveTo(-30, -110); ctx.quadraticCurveTo(0, -120, 30, -110);
+    ctx.quadraticCurveTo(20, -50, 15, 0); ctx.quadraticCurveTo(0, 10, -15, 0); ctx.quadraticCurveTo(-20, -50, -30, -110);
+    ctx.moveTo(-10, 0); ctx.lineTo(-15, 180);
+    ctx.moveTo(10, 0); ctx.lineTo(15, 180);
+    ctx.moveTo(-30, -110); ctx.lineTo(-40, -10);
+    ctx.moveTo(30, -110); ctx.lineTo(40, -10);
+    ctx.stroke();
+    ctx.restore();
+
+    if(t < 0.6) {
+        let measurements = [
+            {y: cy - 110, w: 100, label: "SHOULDERS"},
+            {y: cy - 60, w: 70, label: "CHEST"},
+            {y: cy - 20, w: 50, label: "WAIST"},
+            {y: cy + 10, w: 80, label: "HIPS"}
+        ];
+        
+        ctx.font = "10px 'Space Mono'";
+        ctx.textAlign = "left";
+        ctx.textBaseline = "middle";
+        
+        measurements.forEach((m, i) => {
+            let anim = Math.min(1, Math.max(0, t*4 - i*0.5));
+            if(anim > 0) {
+                ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+                ctx.beginPath();
+                ctx.moveTo(cx - m.w/2, m.y); ctx.lineTo(cx + m.w/2 + 20*anim, m.y);
+                ctx.stroke();
+                
+                ctx.strokeStyle = 'rgba(255,100,100,0.3)';
+                ctx.beginPath();
+                ctx.moveTo(cx - (m.w*1.2)/2, m.y + 5); ctx.lineTo(cx + (m.w*1.2)/2 + 20*anim, m.y + 5);
+                ctx.stroke();
+                
+                ctx.fillStyle = `rgba(255,255,255,${anim*0.5})`;
+                ctx.fillText(m.label, cx + m.w/2 + 25, m.y);
+            }
+        });
+    }
+}
+
+function drawScene5(t, time, beatPulse) {
+    let cx = width/2, cy = height * 0.7;
+    let bW = 60, bH = 100;
+    
+    let grd = ctx.createLinearGradient(cx - bW/2, cy, cx + bW/2, cy);
+    grd.addColorStop(0, 'rgba(255,255,255,0.05)');
+    grd.addColorStop(0.5, 'rgba(255,255,255,0.15)');
+    grd.addColorStop(1, 'rgba(255,255,255,0.02)');
+    
+    ctx.fillStyle = grd;
+    ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+    ctx.lineWidth = 1;
+    
+    ctx.beginPath();
+    ctx.moveTo(cx - 10, cy - bH); ctx.lineTo(cx + 10, cy - bH);
+    ctx.lineTo(cx + 15, cy - bH + 20); ctx.lineTo(cx + bW/2, cy - bH + 30);
+    ctx.lineTo(cx + bW/2, cy); ctx.lineTo(cx - bW/2, cy);
+    ctx.lineTo(cx - bW/2, cy - bH + 30); ctx.lineTo(cx - 15, cy - bH + 20);
+    ctx.closePath();
+    ctx.fill(); ctx.stroke();
+    
+    ctx.fillStyle = '#d4af37';
+    ctx.fillRect(cx - 12, cy - bH - 15, 24, 15);
+
+    ctx.fillStyle = 'rgba(220,200,255,0.08)';
+    scentParticles.forEach(p => {
+        let py = (p.y - time * p.speed);
+        py = py - Math.floor(py);
+        let actualY = cy - bH - py * height * 0.6;
+        let actualX = cx + p.x * (1 + py * 10) + Math.sin(p.wobble + time * p.wobbleSpeed) * 20 * py;
+        ctx.beginPath(); ctx.arc(actualX, actualY, 1.5, 0, Math.PI*2); ctx.fill();
+    });
+
+    if(t > 0.4) {
+        let amp = 20 + beatPulse * 40;
+        ctx.strokeStyle = 'rgba(200,170,255,0.2)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        for(let x=0; x<width; x+=5) {
+            let y = height/2 + Math.sin(x * 0.02 + time * 2) * amp * Math.sin(x * 0.005);
+            if(x===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+        }
+        ctx.stroke();
+    }
+}
+
+function drawScene6(t, time) {
+    let offset = (time * 10) % 20;
+    
+    ctx.lineWidth = 1;
+    for(let i=0; i<width; i+=20) {
+        ctx.strokeStyle = (i%60 === 0) ? 'rgba(212,175,55,0.15)' : 'rgba(255,255,255,0.06)';
+        ctx.beginPath(); ctx.moveTo(i + offset, 0); ctx.lineTo(i + offset, height); ctx.stroke();
+    }
+    for(let i=0; i<height; i+=20) {
+        ctx.strokeStyle = (i%60 === 0) ? 'rgba(212,175,55,0.15)' : 'rgba(255,255,255,0.06)';
+        ctx.beginPath(); ctx.moveTo(0, i - offset); ctx.lineTo(width, i - offset); ctx.stroke();
+    }
+
+    ctx.strokeStyle = 'rgba(212,175,55,0.8)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(0, height*0.4);
+    let ctrl1X = width * 0.3, ctrl1Y = height * 0.2;
+    let ctrl2X = width * 0.6, ctrl2Y = height * 0.6;
+    for(let s=0; s<=t; s+=0.01) {
+        let bx = Math.pow(1-s,3)*0 + 3*Math.pow(1-s,2)*s*ctrl1X + 3*(1-s)*s*s*ctrl2X + Math.pow(s,3)*width;
+        let by = Math.pow(1-s,3)*height*0.4 + 3*Math.pow(1-s,2)*s*ctrl1Y + 3*(1-s)*s*s*ctrl2Y + Math.pow(s,3)*height*0.4;
+        if(s===0) ctx.moveTo(bx,by); else ctx.lineTo(bx,by);
+    }
+    ctx.stroke();
+
+    if(t > 0.4) {
+        let animT = Math.min(1, (t - 0.4) * 2);
+        let cutoff = 1800 * animT; 
+        for(let i=0; i<2000; i++) {
+            let p = pollution[i];
+            ctx.fillStyle = (i < cutoff) ? 'rgba(50,50,50,0.4)' : 'rgba(100,150,255,0.4)';
+            ctx.fillRect(p.x * width, p.y * height, 2, 2);
+        }
+    }
+}
+
+function drawScene7(t, time) {
+    let cx = width/2, cy = height/2;
+    let rW = Math.min(300, width*0.4);
+    let rH = Math.min(400, height*0.4);
+
+    ctx.strokeStyle = '#d4af37';
+    ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.ellipse(cx, cy, rW, rH, 0, 0, Math.PI*2); ctx.stroke();
+
+    let grd = ctx.createRadialGradient(cx, cy, 0, cx, cy, rW);
+    grd.addColorStop(0, 'rgba(255,255,255,0.05)');
+    grd.addColorStop(1, 'rgba(0,0,0,0.8)');
+    ctx.fillStyle = grd;
+    ctx.fill();
+
+    let assembleProgress = t < 0.5 ? t*2 : 1 - (t-0.5)*2; 
+    ctx.fillStyle = `rgba(255,255,255,${0.1 + assembleProgress * 0.3})`;
+    mirrorParticles.forEach(p => {
+        let px = cx + (p.baseX - 0.5) * rW * 1.5;
+        let py = cy + (p.baseY - 0.5) * rH * 1.5;
+        let scatterX = cx + p.randX * rW * 2;
+        let scatterY = cy + p.randY * rH * 2;
+        let curX = scatterX + (px - scatterX) * assembleProgress;
+        let curY = scatterY + (py - scatterY) * assembleProgress;
+        
+        let dx = (curX - cx)/rW, dy = (curY - cy)/rH;
+        if(dx*dx + dy*dy < 1) {
+            ctx.beginPath(); ctx.arc(curX, curY, 2, 0, Math.PI*2); ctx.fill();
+        }
+    });
+
+    if(t > 0.85) {
+        let crackT = Math.min(1, (t - 0.85) * 6);
+        ctx.strokeStyle = `rgba(255,255,255,${0.4 * crackT})`;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        for(let i=0; i<8; i++) {
+            let angle = (i / 8) * Math.PI * 2 + Math.random()*0.5;
+            let destX = cx + Math.cos(angle) * rW * crackT;
+            let destY = cy + Math.sin(angle) * rH * crackT;
+            ctx.moveTo(cx + (Math.random()-0.5)*20, cy + (Math.random()-0.5)*20);
+            let midX = cx + Math.cos(angle) * rW * 0.5 * crackT + (Math.random()-0.5)*30;
+            let midY = cy + Math.sin(angle) * rH * 0.5 * crackT + (Math.random()-0.5)*30;
+            ctx.lineTo(midX, midY); ctx.lineTo(destX, destY);
+        }
+        ctx.stroke();
+    }
+}
+
+function drawScene8(t, time) {
+    let coneT = Math.min(1, t * 2);
+    ctx.fillStyle = 'rgba(255,255,255,0.05)';
+    ctx.beginPath();
+    let topW = width * 0.1 * (1-coneT);
+    ctx.moveTo(width/2 - topW, 0);
+    ctx.lineTo(width/2 + topW, 0);
+    ctx.lineTo(width/2 + width*0.4, height);
+    ctx.lineTo(width/2 - width*0.4, height);
+    ctx.fill();
+
+    ctx.save();
+    ctx.globalAlpha = 0.04 * Math.min(1, t * 2); 
+    drawScene1(1, time, 0);
+    drawScene5(1, time, 0);
+    drawScene6(1, time);
+    drawScene7(0, time);
+    ctx.restore();
+}
+
+function draw(time) {
+    ctx.fillStyle = '#050505';
+    ctx.fillRect(0, 0, width, height);
+
+    let progress = scrollProgress;
+
+    ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(width/2, 0); ctx.lineTo(width/2, height); ctx.stroke();
+
+    let beatVal = Math.sin(time * Math.PI * 2 * 0.8) * 0.5 + 0.5;
+    let spotOpacity = 0.02 + beatVal * 0.02;
+    let grd = ctx.createRadialGradient(width/2, 0, 0, width/2, 0, height*0.6);
+    grd.addColorStop(0, `rgba(255,255,255,${spotOpacity})`);
+    grd.addColorStop(1, 'transparent');
+    ctx.fillStyle = grd;
+    ctx.fillRect(0, 0, width, height);
+
+    ctx.fillStyle = 'rgba(255,255,255,0.04)';
+    let pCount = width < 768 ? 15 : 30;
+    for(let i=0; i<pCount; i++) {
+        let p = fabricParticles[i];
+        let py = (p.y + time * p.speed) % 1.0;
+        let px = p.x + Math.sin(time * p.driftSpeed) * p.drift;
+        ctx.fillRect(px * width, py * height, 1, p.h);
+    }
+
+    renderScene(drawScene1, progress / 0.12, time, beatVal);
+    renderScene(drawScene2, (progress - 0.12) / 0.12, time);
+    renderScene(drawScene3, (progress - 0.24) / 0.12, time);
+    renderScene(drawScene4, (progress - 0.36) / 0.12, time);
+    renderScene(drawScene5, (progress - 0.48) / 0.12, time, beatVal);
+    renderScene(drawScene6, (progress - 0.60) / 0.12, time);
+    renderScene(drawScene7, (progress - 0.72) / 0.14, time);
+    renderScene(drawScene8, (progress - 0.86) / 0.14, time);
+
+    let currentScene = 1;
+    if(progress >= 0.12) currentScene = 2;
+    if(progress >= 0.24) currentScene = 3;
+    if(progress >= 0.36) currentScene = 4;
+    if(progress >= 0.48) currentScene = 5;
+    if(progress >= 0.60) currentScene = 6;
+    if(progress >= 0.72) currentScene = 7;
+    if(progress >= 0.86) currentScene = 8;
+
+    updateUI(progress, currentScene);
+}
+
+function loop() {
+    scrollY += (targetScrollY - scrollY) * 0.04;
+    let docHeight = document.body.scrollHeight - window.innerHeight;
+    scrollProgress = docHeight > 0 ? Math.min(1, Math.max(0, scrollY / docHeight)) : 0;
+    
+    let time = performance.now() / 1000;
+    draw(time);
+    if(audioInitialized) scheduleAudio();
+    requestAnimationFrame(loop);
+}
+
+window.addEventListener('scroll', () => { targetScrollY = window.scrollY; });
+
+['scroll', 'touchstart', 'click', 'keydown'].forEach(evt => {
+    window.addEventListener(evt, () => { if(!audioInitialized) initAudio(); }, {once: true});
+});
+
+document.getElementById('mute-btn').addEventListener('click', (e) => {
+    e.stopPropagation();
+    if(!audioInitialized) {
+        initAudio();
+    } else {
+        isMuted = !isMuted;
+        masterGain.gain.setTargetAtTime(isMuted ? 0 : 0.7, audioCtx.currentTime, 0.1);
+        e.target.innerText = isMuted ? '♪ OFF' : '♪ ON';
+    }
+});
+
+initUI();
+loop();
