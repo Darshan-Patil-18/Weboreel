@@ -1,0 +1,1210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Zen Garden</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@1,400;1,600&family=DM+Sans:wght@400;500&family=Noto+Serif+JP:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --sand-base: #c8a870;
+            --text-main: #222;
+            --ui-bg: rgba(255, 255, 255, 0.8);
+            --night-overlay: rgba(0, 0, 30, 0);
+            --night-brightness: 1;
+        }
+        
+        body.night-mode {
+            --text-main: #ddd;
+            --ui-bg: rgba(20, 20, 30, 0.8);
+            --night-overlay: rgba(0, 0, 30, 0.4);
+            --night-brightness: 0.6;
+        }
+
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+            font-family: 'DM Sans', sans-serif;
+            background-color: var(--sand-base);
+        }
+
+        #garden-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+            filter: brightness(var(--night-brightness));
+            transition: filter 2s ease;
+        }
+
+        #night-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: var(--night-overlay);
+            pointer-events: none;
+            z-index: 5;
+            transition: background-color 2s ease;
+            box-shadow: inset 0 0 150px rgba(0,0,0,0.3);
+        }
+
+        #elements-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 2;
+            pointer-events: none; /* Let pointer events pass through to canvas when not on elements */
+        }
+
+        /* Bamboo Border */
+        #bamboo-frame {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 4;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+        .bamboo-border-top, .bamboo-border-bottom {
+            display: flex;
+            width: 100%;
+            height: 15px;
+            overflow: hidden;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+        .bamboo-border-bottom { box-shadow: 0 -5px 15px rgba(0,0,0,0.2); }
+        .bamboo-stick-h {
+            width: 8px;
+            height: 120%;
+            background: linear-gradient(to right, #4a7c2b, #6a9c4b, #3a6c1b);
+            margin-right: 2px;
+            border-radius: 4px;
+            transform: translateY(calc(var(--y-offset) * 1px));
+        }
+
+        /* Garden Elements */
+        .garden-element {
+            position: absolute;
+            pointer-events: auto;
+            transform: translate(-50%, -50%);
+            cursor: grab;
+            filter: brightness(var(--night-brightness));
+            transition: filter 2s ease;
+        }
+        .garden-element:active { cursor: grabbing; }
+
+        .stone {
+            border-radius: 50% 45% 55% 40% / 45% 55% 40% 50%;
+            background: radial-gradient(circle at 35% 30%, #888, #444, #222);
+            box-shadow: 4px 6px 10px rgba(0,0,0,0.5), inset -2px -4px 6px rgba(0,0,0,0.4);
+        }
+        .stone.size-S { width: 30px; height: 32px; }
+        .stone.size-M { width: 50px; height: 48px; }
+        .stone.size-L { width: 80px; height: 75px; }
+
+        .bamboo-group {
+            display: flex;
+            align-items: flex-end;
+            transform-origin: bottom center;
+        }
+        .bamboo-stalk {
+            width: 8px;
+            background: linear-gradient(to right, #4a7c2b, #6a9c4b, #3a6c1b);
+            border-radius: 4px;
+            position: relative;
+            box-shadow: 2px 2px 5px rgba(0,0,0,0.3);
+        }
+        .bamboo-node {
+            position: absolute;
+            width: 10px;
+            height: 2px;
+            background: #2a4c0b;
+            left: -1px;
+            border-radius: 1px;
+        }
+
+        .moss {
+            width: 50px;
+            height: 35px;
+            border-radius: 50% 60% 40% 50%;
+            background: radial-gradient(ellipse at 30% 30%, #3d6a2b, #1a3d0f);
+            box-shadow: inset 2px 2px 5px rgba(255,255,255,0.1), 2px 4px 6px rgba(0,0,0,0.3);
+            filter: url(#noise-filter) brightness(var(--night-brightness));
+        }
+
+        .lantern {
+            width: 30px;
+            height: 50px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .lantern-top {
+            width: 30px; height: 10px; background: #666; clip-path: polygon(20% 0%, 80% 0%, 100% 100%, 0% 100%);
+        }
+        .lantern-mid {
+            width: 16px; height: 20px; background: #555; position: relative;
+        }
+        .lantern-base {
+            width: 20px; height: 20px; background: #444;
+        }
+        .lantern-glow {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            width: 8px; height: 12px;
+            background: rgba(255,200,100,0.1);
+            border-radius: 50%;
+            transition: box-shadow 2s ease, background 2s ease;
+        }
+        body.night-mode .lantern-glow {
+            background: rgba(255,200,100,0.9);
+            box-shadow: 0 0 15px 5px rgba(255,200,100,0.6);
+        }
+
+        /* UI Toolbar */
+        #toolbar {
+            position: absolute;
+            right: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            z-index: 10;
+        }
+
+        .tool-btn {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            background: var(--ui-bg);
+            border: 1px solid rgba(0,0,0,0.1);
+            color: var(--text-main);
+            font-size: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+            transition: all 0.3s ease;
+            position: relative;
+        }
+        .tool-btn:hover {
+            transform: scale(1.1);
+            background: #fff;
+            color: #000;
+        }
+        body.night-mode .tool-btn:hover {
+            background: #334;
+            color: #fff;
+        }
+        .tool-btn.active {
+            background: #4a7c2b;
+            color: white;
+            border-color: #3a6c1b;
+        }
+
+        .tool-label {
+            position: absolute;
+            right: 55px;
+            background: var(--ui-bg);
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-family: 'Cormorant Garamond', serif;
+            font-style: italic;
+            font-size: 16px;
+            color: var(--text-main);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s;
+            white-space: nowrap;
+        }
+        .tool-btn:hover .tool-label {
+            opacity: 1;
+        }
+
+        /* Sub-menu for stone sizes & patterns */
+        .sub-menu {
+            position: absolute;
+            right: 55px;
+            display: flex;
+            gap: 8px;
+            background: var(--ui-bg);
+            padding: 6px;
+            border-radius: 20px;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        }
+        .tool-btn:hover .sub-menu, .sub-menu:hover {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        .sub-btn {
+            width: 32px; height: 32px;
+            border-radius: 50%;
+            background: rgba(0,0,0,0.05);
+            border: none;
+            cursor: pointer;
+            font-size: 12px;
+            display: flex; justify-content: center; align-items: center;
+            transition: background 0.2s;
+            color: var(--text-main);
+        }
+        .sub-btn:hover, .sub-btn.active {
+            background: rgba(0,0,0,0.15);
+        }
+        body.night-mode .sub-btn { background: rgba(255,255,255,0.1); color: #ddd; }
+        body.night-mode .sub-btn:hover, body.night-mode .sub-btn.active { background: rgba(255,255,255,0.2); }
+
+        /* Bottom Controls */
+        #bottom-controls {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            display: flex;
+            gap: 15px;
+            z-index: 10;
+        }
+
+        #title-box {
+            position: absolute;
+            top: 30px;
+            left: 40px;
+            z-index: 10;
+            pointer-events: none;
+            color: rgba(60, 40, 20, 0.8);
+            text-shadow: 1px 1px 2px rgba(255,255,255,0.3);
+            transition: color 2s;
+        }
+        body.night-mode #title-box {
+            color: rgba(200, 200, 220, 0.8);
+            text-shadow: 1px 1px 5px rgba(0,0,0,0.8);
+        }
+        h1 {
+            font-family: 'Noto Serif JP', serif;
+            margin: 0;
+            font-size: 36px;
+            letter-spacing: 2px;
+            font-weight: 400;
+        }
+        p.subtitle {
+            font-family: 'Cormorant Garamond', serif;
+            font-style: italic;
+            margin: 5px 0 0 0;
+            font-size: 18px;
+        }
+
+        /* Mobile Adjustments */
+        #mobile-menu-toggle {
+            display: none;
+        }
+        @media (max-width: 768px) {
+            #toolbar {
+                right: -80px; /* Hidden by default */
+                transition: right 0.3s ease;
+                background: var(--ui-bg);
+                padding: 15px 10px;
+                border-radius: 20px 0 0 20px;
+                box-shadow: -2px 0 10px rgba(0,0,0,0.1);
+            }
+            #toolbar.open { right: 0; }
+            #mobile-menu-toggle {
+                display: flex;
+                position: absolute;
+                top: 20px; right: 20px;
+                z-index: 20;
+            }
+            .tool-label { display: none; }
+            .sub-menu { right: 100%; margin-right: 10px; }
+            
+            #title-box {
+                top: 20px; left: 20px;
+            }
+            h1 { font-size: 28px; }
+        }
+
+        /* Rake cursor */
+        .cursor-rake {
+            cursor: crosshair;
+        }
+        
+        .stars {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none;
+            z-index: 3;
+            opacity: 0;
+            transition: opacity 2s ease;
+            background-image: 
+                radial-gradient(1px 1px at 20px 30px, #eee, rgba(0,0,0,0)),
+                radial-gradient(1px 1px at 40px 70px, #fff, rgba(0,0,0,0)),
+                radial-gradient(1.5px 1.5px at 50px 160px, #ddd, rgba(0,0,0,0)),
+                radial-gradient(1px 1px at 90px 40px, #fff, rgba(0,0,0,0)),
+                radial-gradient(2px 2px at 130px 80px, #fff, rgba(0,0,0,0)),
+                radial-gradient(1px 1px at 160px 120px, #ddd, rgba(0,0,0,0));
+            background-repeat: repeat;
+            background-size: 200px 200px;
+        }
+        body.night-mode .stars { opacity: 0.6; }
+
+    </style>
+</head>
+<body>
+
+    <!-- SVG Filters -->
+    <svg style="width:0;height:0;position:absolute;" aria-hidden="true" focusable="false">
+      <filter id="noise-filter">
+        <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="3" stitchTiles="stitch"/>
+        <feColorMatrix type="matrix" values="1 0 0 0 0, 0 1 0 0 0, 0 0 1 0 0, 0 0 0 0.15 0" in="turbulence" result="coloredNoise"/>
+        <feComposite operator="in" in="coloredNoise" in2="SourceGraphic" result="composite"/>
+        <feBlend mode="multiply" in="composite" in2="SourceGraphic"/>
+      </filter>
+    </svg>
+
+    <div id="garden-container" class="cursor-rake">
+        <canvas id="sand-canvas"></canvas>
+        <div id="elements-layer"></div>
+        <div class="stars"></div>
+        <div id="night-overlay"></div>
+        
+        <div id="bamboo-frame">
+            <div class="bamboo-border-top" id="bb-top"></div>
+            <div style="flex:1;"></div>
+            <div class="bamboo-border-bottom" id="bb-bot"></div>
+        </div>
+
+        <div id="title-box">
+            <h1>zen_garden</h1>
+            <p class="subtitle">a meditative space</p>
+        </div>
+
+        <div id="mobile-menu-toggle" class="tool-btn" onclick="toggleMenu()">⚙️</div>
+
+        <div id="toolbar">
+            <div class="tool-btn active" data-tool="rake" onclick="selectTool('rake')">
+                ⟈
+                <span class="tool-label">Rake</span>
+            </div>
+            
+            <div class="tool-btn" data-tool="stone">
+                ○
+                <span class="tool-label">Stone</span>
+                <div class="sub-menu">
+                    <button class="sub-btn active" onclick="selectTool('stone', 'S', event)">S</button>
+                    <button class="sub-btn" onclick="selectTool('stone', 'M', event)">M</button>
+                    <button class="sub-btn" onclick="selectTool('stone', 'L', event)">L</button>
+                </div>
+            </div>
+
+            <div class="tool-btn" data-tool="bamboo" onclick="selectTool('bamboo')">
+                🎍
+                <span class="tool-label">Bamboo</span>
+            </div>
+
+            <div class="tool-btn" data-tool="moss" onclick="selectTool('moss')">
+                🌿
+                <span class="tool-label">Moss</span>
+            </div>
+
+            <div class="tool-btn" data-tool="lantern" onclick="selectTool('lantern')">
+                🏮
+                <span class="tool-label">Lantern</span>
+            </div>
+
+            <div style="height: 10px;"></div>
+
+            <div class="tool-btn" data-tool="pattern">
+                🌀
+                <span class="tool-label">Patterns</span>
+                <div class="sub-menu">
+                    <button class="sub-btn" title="Circles" onclick="drawPattern('circles', event)">⭕</button>
+                    <button class="sub-btn" title="Waves" onclick="drawPattern('waves', event)">〰️</button>
+                    <button class="sub-btn" title="Spiral" onclick="drawPattern('spiral', event)">🌀</button>
+                </div>
+            </div>
+
+            <div class="tool-btn" onclick="undo()" title="Undo">
+                ↺
+                <span class="tool-label">Undo</span>
+            </div>
+
+            <div class="tool-btn" onclick="clearGarden()" title="Clear">
+                ✕
+                <span class="tool-label">Clear</span>
+            </div>
+
+            <div class="tool-btn" onclick="saveGarden()" title="Save Image">
+                📷
+                <span class="tool-label">Save Image</span>
+            </div>
+        </div>
+
+        <div id="bottom-controls">
+            <div class="tool-btn" id="btn-daynight" onclick="toggleDayNight()">☀️</div>
+            <div class="tool-btn" id="btn-mute" onclick="toggleMute()">☯</div>
+        </div>
+    </div>
+
+<script>
+    // --- Setup & State ---
+    const canvas = document.getElementById('sand-canvas');
+    const ctx = canvas.getContext('2d', { alpha: false, willReadFrequently: true });
+    const elementsLayer = document.getElementById('elements-layer');
+    const container = document.getElementById('garden-container');
+    
+    let width, height;
+    let currentTool = 'rake';
+    let currentStoneSize = 'S';
+    let isDragging = false;
+    let lastPos = {x: 0, y: 0};
+    
+    let isNight = false;
+    let isMuted = true; // start muted to comply with browser autoplay
+    let audioInitialized = false;
+    
+    // History for Undo (saves snapshots)
+    let history = [];
+    const MAX_HISTORY = 10;
+    
+    // Elements state
+    let elements = [];
+    let draggedElement = null;
+
+    // Rake settings
+    const tines = 5;
+    const spacing = 6;
+    
+    // Audio Context
+    let actx;
+    let masterGain;
+    let convolver;
+    let ambientNodes = [];
+
+    // --- Initialization ---
+    function init() {
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+        
+        generateBambooBorder();
+        
+        // Input Events
+        container.addEventListener('pointerdown', handlePointerDown);
+        window.addEventListener('pointermove', handlePointerMove);
+        window.addEventListener('pointerup', handlePointerUp);
+        container.addEventListener('contextmenu', e => {
+            if(e.target.classList.contains('garden-element')) {
+                e.preventDefault();
+                removeElement(e.target);
+            } else {
+                e.preventDefault(); // prevent default context menu
+            }
+        });
+        
+        // Load or clear
+        const saved = localStorage.getItem('zenGardenState');
+        if (saved) {
+            loadState(saved);
+        } else {
+            drawSandBase();
+            saveHistory();
+        }
+    }
+
+    function resizeCanvas() {
+        const dpr = window.devicePixelRatio || 1;
+        width = window.innerWidth;
+        height = window.innerHeight;
+        canvas.width = width * dpr;
+        canvas.height = height * dpr;
+        ctx.scale(dpr, dpr);
+        // Redraw base if empty, otherwise we would need to scale image
+        // To keep it simple, just draw sand if it's the first time
+        if (history.length === 0) drawSandBase();
+    }
+
+    // --- Drawing ---
+    function drawSandBase() {
+        ctx.fillStyle = '#c8a870';
+        ctx.fillRect(0, 0, width, height);
+
+        // Noise
+        const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const data = imgData.data;
+        for (let i = 0; i < data.length; i += 4) {
+            const noise = (Math.random() - 0.5) * 15;
+            data[i] += noise;
+            data[i+1] += noise;
+            data[i+2] += noise;
+        }
+        ctx.putImageData(imgData, 0, 0);
+    }
+
+    function drawRakeLine(p1, p2) {
+        const dx = p2.x - p1.x;
+        const dy = p2.y - p1.y;
+        const dist = Math.sqrt(dx*dx + dy*dy);
+        if (dist === 0) return;
+        
+        const nx = -dy / dist;
+        const ny = dx / dist;
+
+        ctx.strokeStyle = 'rgba(160, 120, 60, 0.6)';
+        ctx.lineWidth = 2;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+
+        ctx.beginPath();
+        for (let i = 0; i < tines; i++) {
+            const offset = (i - Math.floor(tines/2)) * spacing;
+            const sx = p1.x + nx * offset;
+            const sy = p1.y + ny * offset;
+            const ex = p2.x + nx * offset;
+            const ey = p2.y + ny * offset;
+            
+            ctx.moveTo(sx, sy);
+            ctx.lineTo(ex, ey);
+        }
+        ctx.stroke();
+    }
+
+    // --- Input Handling ---
+    function handlePointerDown(e) {
+        if (!audioInitialized) initAudio();
+        
+        // Ignore UI clicks
+        if (e.target.closest('#toolbar') || e.target.closest('#bottom-controls') || e.target.closest('#mobile-menu-toggle')) return;
+        
+        const pos = {x: e.clientX, y: e.clientY};
+        
+        // Check if dragging an element
+        if (e.target.classList.contains('garden-element') && currentTool === 'rake') {
+            draggedElement = e.target;
+            isDragging = true;
+            lastPos = pos;
+            return;
+        }
+
+        if (currentTool === 'rake') {
+            isDragging = true;
+            lastPos = pos;
+            saveHistory();
+            startRakeSound();
+        } else {
+            placeElement(currentTool, pos);
+        }
+    }
+
+    function handlePointerMove(e) {
+        if (!isDragging) return;
+        
+        const pos = {x: e.clientX, y: e.clientY};
+        
+        if (draggedElement) {
+            draggedElement.style.left = pos.x + 'px';
+            draggedElement.style.top = pos.y + 'px';
+        } else if (currentTool === 'rake') {
+            drawRakeLine(lastPos, pos);
+            updateRakeSound();
+        }
+        
+        lastPos = pos;
+    }
+
+    function handlePointerUp(e) {
+        if (isDragging) {
+            isDragging = false;
+            stopRakeSound();
+            if (draggedElement) {
+                // Update element array coords
+                const id = draggedElement.dataset.id;
+                const el = elements.find(el => el.id == id);
+                if (el) {
+                    el.x = parseInt(draggedElement.style.left);
+                    el.y = parseInt(draggedElement.style.top);
+                }
+                draggedElement = null;
+                saveHistory();
+            }
+        }
+    }
+
+    // --- Element Placement ---
+    function placeElement(type, pos) {
+        if (elements.length >= 25) {
+            alert("The garden is full.");
+            return;
+        }
+
+        const id = Date.now();
+        const elObj = { id, type, x: pos.x, y: pos.y, size: currentStoneSize };
+        elements.push(elObj);
+        renderElement(elObj);
+        
+        playDropSound();
+        saveHistory();
+
+        // Auto circles around stone
+        if (type === 'stone') {
+            drawConcentricCircles(pos);
+        }
+    }
+
+    function renderElement(el) {
+        const div = document.createElement('div');
+        div.className = `garden-element ${el.type}`;
+        div.dataset.id = el.id;
+        div.style.left = el.x + 'px';
+        div.style.top = el.y + 'px';
+
+        if (el.type === 'stone') {
+            div.classList.add(`size-${el.size}`);
+        } else if (el.type === 'bamboo') {
+            const group = document.createElement('div');
+            group.className = 'bamboo-group';
+            const count = 3 + Math.floor(Math.random() * 3);
+            for(let i=0; i<count; i++) {
+                const stalk = document.createElement('div');
+                stalk.className = 'bamboo-stalk';
+                stalk.style.height = (60 + Math.random()*60) + 'px';
+                stalk.style.transform = `rotate(${Math.random()*6 - 3}deg)`;
+                stalk.style.marginLeft = i === 0 ? '0' : '-3px';
+                
+                // Nodes
+                const nodes = 3 + Math.floor(Math.random()*2);
+                for(let j=1; j<nodes; j++) {
+                    const node = document.createElement('div');
+                    node.className = 'bamboo-node';
+                    node.style.bottom = `${(j/nodes)*100}%`;
+                    stalk.appendChild(node);
+                }
+                group.appendChild(stalk);
+            }
+            div.appendChild(group);
+            // Adjust hit box
+            div.style.width = '30px';
+            div.style.height = '60px';
+            div.style.transform = `translate(-50%, -100%)`; // anchor bottom
+        } else if (el.type === 'lantern') {
+            div.innerHTML = `
+                <div class="lantern-top"></div>
+                <div class="lantern-mid"><div class="lantern-glow"></div></div>
+                <div class="lantern-base"></div>
+            `;
+        }
+        
+        elementsLayer.appendChild(div);
+    }
+
+    function removeElement(domEl) {
+        const id = domEl.dataset.id;
+        elements = elements.filter(el => el.id != id);
+        domEl.remove();
+        saveHistory();
+    }
+
+    // --- Tools & Patterns ---
+    function selectTool(tool, subArg, event) {
+        if(event) {
+            event.stopPropagation();
+            // Update active state of sub buttons
+            const siblings = event.target.parentElement.querySelectorAll('.sub-btn');
+            siblings.forEach(b => b.classList.remove('active'));
+            event.target.classList.add('active');
+        }
+
+        currentTool = tool;
+        if(tool === 'stone' && subArg) currentStoneSize = subArg;
+
+        document.querySelectorAll('.tool-btn').forEach(btn => btn.classList.remove('active'));
+        document.querySelector(`.tool-btn[data-tool="${tool}"]`).classList.add('active');
+
+        container.className = tool === 'rake' ? 'cursor-rake' : 'cursor-crosshair';
+        if(tool !== 'rake') container.style.cursor = 'crosshair';
+        else container.style.cursor = 'crosshair'; // use CSS class for rake
+    }
+
+    function toggleMenu() {
+        document.getElementById('toolbar').classList.toggle('open');
+    }
+
+    // --- Patterns ---
+    async function drawPattern(type, e) {
+        if(e) e.stopPropagation();
+        saveHistory();
+        
+        const cx = width / 2;
+        const cy = height / 2;
+        
+        if (type === 'circles') {
+            // Draw circles around all stones
+            const stones = elements.filter(el => el.type === 'stone');
+            if (stones.length === 0) drawConcentricCircles({x: cx, y: cy});
+            else stones.forEach(s => drawConcentricCircles(s));
+        } else if (type === 'waves') {
+            drawWaves();
+        } else if (type === 'spiral') {
+            drawSpiral(cx, cy);
+        }
+    }
+
+    async function drawConcentricCircles(center) {
+        const steps = 60;
+        let prevPos = null;
+        for(let r = 20; r <= 80; r += 15) {
+            for(let i = 0; i <= steps; i++) {
+                const angle = (i / steps) * Math.PI * 2;
+                const pos = {
+                    x: center.x + Math.cos(angle) * r,
+                    y: center.y + Math.sin(angle) * r
+                };
+                if(i > 0) drawRakeLine(prevPos, pos);
+                prevPos = pos;
+            }
+            if(r % 30 === 0) await new Promise(res => setTimeout(res, 50)); // animation effect
+            if(r % 30 === 0) playPatternTone();
+        }
+    }
+
+    async function drawWaves() {
+        const w = width;
+        const h = height;
+        const amp = 20;
+        const freq = 0.01;
+        
+        for (let y = 50; y < h; y += 40) {
+            let prevPos = null;
+            for (let x = 0; x <= w; x += 20) {
+                const pos = { x, y: y + Math.sin(x * freq) * amp };
+                if(x > 0) drawRakeLine(prevPos, pos);
+                prevPos = pos;
+            }
+            await new Promise(res => setTimeout(res, 30));
+            if(y % 80 < 40) playPatternTone();
+        }
+    }
+
+    async function drawSpiral(cx, cy) {
+        let prevPos = {x: cx, y: cy};
+        for(let i=0; i<100; i++) {
+            const r = i * 4;
+            const angle = i * 0.2;
+            const pos = {
+                x: cx + Math.cos(angle) * r,
+                y: cy + Math.sin(angle) * r
+            };
+            drawRakeLine(prevPos, pos);
+            prevPos = pos;
+            if(i % 5 === 0) {
+                await new Promise(res => setTimeout(res, 20));
+                playPatternTone();
+            }
+        }
+    }
+
+    // --- History & State ---
+    function saveHistory() {
+        const dataURL = canvas.toDataURL('image/webp', 0.8);
+        history.push({
+            img: dataURL,
+            els: JSON.parse(JSON.stringify(elements))
+        });
+        if(history.length > MAX_HISTORY) history.shift();
+        
+        // Save to local storage
+        localStorage.setItem('zenGardenState', JSON.stringify({
+            img: dataURL,
+            els: elements,
+            isNight
+        }));
+    }
+
+    function undo() {
+        if (history.length > 1) {
+            history.pop(); // Remove current state
+            const state = history[history.length - 1];
+            restoreState(state);
+            playWhoosh();
+        } else if (history.length === 1) {
+            clearGarden(true);
+        }
+    }
+
+    function clearGarden(bypassConfirm = false) {
+        if(bypassConfirm || confirm("Rake the garden clean?")) {
+            elements = [];
+            elementsLayer.innerHTML = '';
+            drawSandBase();
+            saveHistory();
+            playWhoosh();
+        }
+    }
+
+    function restoreState(state) {
+        const img = new Image();
+        img.onload = () => {
+            ctx.clearRect(0, 0, width, height);
+            ctx.drawImage(img, 0, 0, width, height);
+            
+            elementsLayer.innerHTML = '';
+            elements = JSON.parse(JSON.stringify(state.els));
+            elements.forEach(renderElement);
+        };
+        img.src = state.img;
+    }
+
+    function loadState(savedStr) {
+        try {
+            const state = JSON.parse(savedStr);
+            restoreState(state);
+            if (state.isNight) {
+                isNight = false; // toggle will switch it
+                toggleDayNight();
+            }
+        } catch(e) {
+            drawSandBase();
+        }
+    }
+
+    function saveGarden() {
+        // Create a temporary canvas to combine sand + elements for saving
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = width;
+        tempCanvas.height = height;
+        const tctx = tempCanvas.getContext('2d');
+        
+        tctx.drawImage(canvas, 0, 0);
+        
+        // Draw stones (simplified representation for image save)
+        elements.forEach(el => {
+            if(el.type === 'stone') {
+                tctx.fillStyle = '#444';
+                tctx.beginPath();
+                const r = el.size === 'S' ? 15 : (el.size === 'M' ? 25 : 40);
+                tctx.arc(el.x, el.y, r, 0, Math.PI*2);
+                tctx.fill();
+            }
+        });
+        
+        const link = document.createElement('a');
+        link.download = 'my_zen_garden.png';
+        link.href = tempCanvas.toDataURL('image/png');
+        link.click();
+    }
+
+    function toggleDayNight() {
+        isNight = !isNight;
+        document.body.classList.toggle('night-mode', isNight);
+        const btn = document.getElementById('btn-daynight');
+        btn.textContent = isNight ? '🌙' : '☀️';
+        if (actx) adjustAudioForNight();
+    }
+
+    // --- Bamboo Frame Gen ---
+    function generateBambooBorder() {
+        const top = document.getElementById('bb-top');
+        const bot = document.getElementById('bb-bot');
+        top.innerHTML = ''; bot.innerHTML = '';
+        
+        const count = Math.floor(window.innerWidth / 10);
+        for(let i=0; i<count; i++) {
+            const st1 = document.createElement('div');
+            st1.className = 'bamboo-stick-h';
+            st1.style.setProperty('--y-offset', Math.random() * -5);
+            top.appendChild(st1);
+            
+            const st2 = document.createElement('div');
+            st2.className = 'bamboo-stick-h';
+            st2.style.setProperty('--y-offset', Math.random() * 5);
+            bot.appendChild(st2);
+        }
+    }
+
+    // --- Web Audio API ---
+    function initAudio() {
+        if(audioInitialized) return;
+        audioInitialized = true;
+        
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        actx = new AudioContext();
+        masterGain = actx.createGain();
+        masterGain.gain.value = isMuted ? 0 : 1;
+        
+        convolver = actx.createConvolver();
+        createReverb(convolver);
+        
+        masterGain.connect(actx.destination);
+        convolver.connect(masterGain);
+        
+        startAmbientSound();
+        startWaterWindLoops();
+    }
+
+    function toggleMute() {
+        isMuted = !isMuted;
+        const btn = document.getElementById('btn-mute');
+        btn.style.opacity = isMuted ? 0.5 : 1;
+        
+        if(!audioInitialized && !isMuted) initAudio();
+        if(actx) {
+            masterGain.gain.setTargetAtTime(isMuted ? 0 : 1, actx.currentTime, 0.5);
+            if(!isMuted && actx.state === 'suspended') actx.resume();
+        }
+    }
+
+    function createReverb(conv) {
+        const rate = actx.sampleRate;
+        const length = rate * 3;
+        const impulse = actx.createBuffer(2, length, rate);
+        const left = impulse.getChannelData(0);
+        const right = impulse.getChannelData(1);
+        for (let i = 0; i < length; i++) {
+            const decay = Math.exp(-i / (rate * 1.0));
+            left[i] = (Math.random() * 2 - 1) * decay;
+            right[i] = (Math.random() * 2 - 1) * decay;
+        }
+        conv.buffer = impulse;
+    }
+
+    function startAmbientSound() {
+        // Deep Sub
+        const sub = actx.createOscillator();
+        sub.frequency.value = 80;
+        const subGain = actx.createGain();
+        subGain.gain.value = 0.03;
+        sub.connect(subGain).connect(convolver);
+        sub.start();
+        ambientNodes.push(sub);
+
+        // Pads
+        [240, 360].forEach(freq => {
+            const osc = actx.createOscillator();
+            osc.frequency.value = freq;
+            const lfo = actx.createOscillator();
+            lfo.frequency.value = 0.05 + Math.random()*0.02;
+            const lfoGain = actx.createGain();
+            lfoGain.gain.value = 0.01;
+            
+            const oscGain = actx.createGain();
+            oscGain.gain.value = 0.01;
+            
+            lfo.connect(lfoGain).connect(oscGain.gain);
+            osc.connect(oscGain).connect(convolver);
+            
+            lfo.start();
+            osc.start();
+            ambientNodes.push(osc, lfo);
+        });
+        
+        // Shakuhachi breath
+        const shaku = actx.createOscillator();
+        shaku.type = 'square';
+        shaku.frequency.value = 370;
+        
+        const filter = actx.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.value = 600;
+        
+        const shakuGain = actx.createGain();
+        shakuGain.gain.value = 0;
+        
+        const tremolo = actx.createOscillator();
+        tremolo.frequency.value = 4; // breath flutter
+        const tremGain = actx.createGain();
+        tremGain.gain.value = 0.01;
+        tremolo.connect(tremGain).connect(shakuGain.gain);
+        
+        shaku.connect(filter).connect(shakuGain).connect(convolver);
+        shaku.start(); tremolo.start();
+        
+        // Random breath bursts
+        setInterval(() => {
+            if(Math.random() > 0.7 && !isMuted) {
+                shaku.frequency.value = [370, 440, 494][Math.floor(Math.random()*3)];
+                shakuGain.gain.setTargetAtTime(0.015, actx.currentTime, 1);
+                shakuGain.gain.setTargetAtTime(0, actx.currentTime + 3, 2);
+            }
+        }, 12000);
+    }
+
+    function adjustAudioForNight() {
+        // Shift pad frequencies slightly
+        if(ambientNodes.length > 2) {
+            ambientNodes[1].frequency.setTargetAtTime(isNight ? 220 : 240, actx.currentTime, 2);
+            ambientNodes[3].frequency.setTargetAtTime(isNight ? 330 : 360, actx.currentTime, 2);
+        }
+    }
+
+    function startWaterWindLoops() {
+        // Water Drip
+        setInterval(() => {
+            if(Math.random() > 0.5 && !isMuted) {
+                const osc = actx.createOscillator();
+                osc.frequency.setValueAtTime(800, actx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(400, actx.currentTime + 0.1);
+                
+                const gain = actx.createGain();
+                gain.gain.setValueAtTime(0, actx.currentTime);
+                gain.gain.linearRampToValueAtTime(0.05, actx.currentTime + 0.01);
+                gain.gain.exponentialRampToValueAtTime(0.001, actx.currentTime + 0.1);
+                
+                osc.connect(gain).connect(convolver);
+                osc.start(); osc.stop(actx.currentTime + 0.2);
+            }
+        }, 8000 + Math.random()*12000);
+
+        // Wind chimes
+        const chimes = [784, 1047, 1319, 1568];
+        setInterval(() => {
+            if(Math.random() > 0.4 && !isMuted) {
+                const count = 1 + Math.floor(Math.random()*2);
+                for(let i=0; i<count; i++) {
+                    setTimeout(() => {
+                        const osc = actx.createOscillator();
+                        osc.type = 'sine';
+                        osc.frequency.value = chimes[Math.floor(Math.random()*chimes.length)];
+                        const gain = actx.createGain();
+                        gain.gain.setValueAtTime(0, actx.currentTime);
+                        gain.gain.linearRampToValueAtTime(0.02, actx.currentTime + 0.05);
+                        gain.gain.exponentialRampToValueAtTime(0.001, actx.currentTime + 2);
+                        
+                        osc.connect(gain).connect(convolver);
+                        osc.start(); osc.stop(actx.currentTime + 2.5);
+                    }, i * 300 + Math.random()*200);
+                }
+            }
+        }, 15000 + Math.random()*15000);
+    }
+
+    let rakeNoise, rakeGain;
+    function startRakeSound() {
+        if(!actx || isMuted) return;
+        if(rakeNoise) rakeNoise.stop();
+        
+        const bufferSize = actx.sampleRate * 2;
+        const buffer = actx.createBuffer(1, bufferSize, actx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+        
+        rakeNoise = actx.createBufferSource();
+        rakeNoise.buffer = buffer;
+        rakeNoise.loop = true;
+        
+        const filter = actx.createBiquadFilter();
+        filter.type = 'bandpass';
+        filter.frequency.value = 500;
+        filter.Q.value = 0.5;
+        
+        rakeGain = actx.createGain();
+        rakeGain.gain.value = 0.0;
+        
+        rakeNoise.connect(filter).connect(rakeGain).connect(masterGain);
+        rakeNoise.start();
+    }
+    
+    function updateRakeSound() {
+        if(rakeGain) {
+            // Slight modulation based on movement
+            rakeGain.gain.setTargetAtTime(0.06 + Math.random()*0.02, actx.currentTime, 0.1);
+        }
+    }
+    
+    function stopRakeSound() {
+        if(rakeGain) {
+            rakeGain.gain.setTargetAtTime(0, actx.currentTime, 0.2);
+            setTimeout(() => { if(rakeNoise) rakeNoise.stop(); }, 300);
+        }
+    }
+
+    function playDropSound() {
+        if(!actx || isMuted) return;
+        const bufferSize = actx.sampleRate * 0.2;
+        const buffer = actx.createBuffer(1, bufferSize, actx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+        
+        const noise = actx.createBufferSource();
+        noise.buffer = buffer;
+        
+        const filter = actx.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.value = 200;
+        
+        const gain = actx.createGain();
+        gain.gain.setValueAtTime(0.3, actx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, actx.currentTime + 0.15);
+        
+        noise.connect(filter).connect(gain).connect(convolver);
+        noise.start(); noise.stop(actx.currentTime + 0.2);
+    }
+
+    function playPatternTone() {
+        if(!actx || isMuted) return;
+        const osc = actx.createOscillator();
+        osc.type = 'sine';
+        osc.frequency.value = 400 + Math.random()*200;
+        const gain = actx.createGain();
+        gain.gain.setValueAtTime(0.02, actx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, actx.currentTime + 0.5);
+        osc.connect(gain).connect(convolver);
+        osc.start(); osc.stop(actx.currentTime + 0.6);
+    }
+
+    function playWhoosh() {
+        if(!actx || isMuted) return;
+        const bufferSize = actx.sampleRate * 0.5;
+        const buffer = actx.createBuffer(1, bufferSize, actx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+        
+        const noise = actx.createBufferSource();
+        noise.buffer = buffer;
+        
+        const filter = actx.createBiquadFilter();
+        filter.type = 'bandpass';
+        filter.frequency.setValueAtTime(100, actx.currentTime);
+        filter.frequency.exponentialRampToValueAtTime(1000, actx.currentTime + 0.5);
+        
+        const gain = actx.createGain();
+        gain.gain.setValueAtTime(0, actx.currentTime);
+        gain.gain.linearRampToValueAtTime(0.1, actx.currentTime + 0.1);
+        gain.gain.exponentialRampToValueAtTime(0.01, actx.currentTime + 0.5);
+        
+        noise.connect(filter).connect(gain).connect(convolver);
+        noise.start(); noise.stop(actx.currentTime + 0.6);
+    }
+
+    // Initialize on load
+    window.onload = init;
+
+</script>
+</body>
+</html>
