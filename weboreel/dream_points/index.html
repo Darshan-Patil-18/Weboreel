@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>dream_journal</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@1,400&family=Montserrat:wght@200;400&display=swap');
+
+  body, html {
+    margin: 0; padding: 0; width: 100vw; height: 100vh; overflow: hidden;
+    background: #020205; color: #fff; font-family: 'Montserrat', sans-serif;
+  }
+  
+  canvas { position: absolute; top: 0; left: 0; z-index: 1; pointer-events: none; }
+
+  #ui-layer {
+    position: absolute; top: 0; left: 0; width: 100vw; height: 100vh;
+    z-index: 10; display: flex;
+  }
+
+  .editor {
+    width: 50vw; height: 100vh; padding: 50px; box-sizing: border-box;
+    display: flex; flex-direction: column;
+    background: linear-gradient(to right, rgba(0,0,0,0.8), rgba(0,0,0,0));
+  }
+
+  .header { font-size: 14px; letter-spacing: 4px; text-transform: uppercase; color: #a8b0d3; margin-bottom: 20px; }
+  
+  textarea {
+    flex-grow: 1; width: 100%; background: transparent; border: none;
+    color: rgba(255,255,255,0.9); font-family: 'Cormorant Garamond', serif;
+    font-size: 2rem; font-style: italic; line-height: 1.5; outline: none; resize: none;
+    text-shadow: 0 0 10px rgba(255,255,255,0.2);
+  }
+  textarea::placeholder { color: rgba(255,255,255,0.2); }
+
+  .btn {
+    background: transparent; border: 1px solid rgba(255,255,255,0.3);
+    color: #fff; padding: 10px 30px; font-family: 'Montserrat', sans-serif;
+    font-size: 12px; letter-spacing: 2px; cursor: pointer; transition: all 0.3s;
+    align-self: flex-start; margin-top: 20px; border-radius: 20px;
+  }
+  .btn:hover { background: #fff; color: #000; }
+
+  .sky-view {
+    width: 50vw; height: 100vh; position: relative;
+  }
+
+  .star-node {
+    position: absolute; width: 6px; height: 6px; background: #fff;
+    border-radius: 50%; box-shadow: 0 0 10px #fff; cursor: pointer;
+    transition: transform 0.3s; animation: pulse 3s infinite alternate;
+  }
+  .star-node:hover { transform: scale(2); }
+  
+  @keyframes pulse { 0% { opacity: 0.5; box-shadow: 0 0 5px #fff; } 100% { opacity: 1; box-shadow: 0 0 15px #fff; } }
+
+  .dream-modal {
+    position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    background: rgba(10,10,20,0.9); border: 1px solid rgba(255,255,255,0.1);
+    backdrop-filter: blur(10px); padding: 40px; border-radius: 8px;
+    max-width: 500px; width: 90%; z-index: 100; display: none;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+  }
+  .modal-date { font-size: 12px; color: #888; margin-bottom: 10px; }
+  .modal-text { font-family: 'Cormorant Garamond', serif; font-size: 1.5rem; font-style: italic; line-height: 1.5; margin-bottom: 20px;}
+  .close-modal { cursor: pointer; color: #888; text-decoration: underline; font-size: 12px; }
+
+</style>
+</head>
+<body>
+
+<canvas id="bgCanvas"></canvas>
+
+<div id="ui-layer">
+  <div class="editor">
+    <div class="header">Record a Dream</div>
+    <textarea id="dreamInput" placeholder="I found myself floating above a quiet ocean..."></textarea>
+    <button class="btn" onclick="saveDream()">CRYSTALLIZE</button>
+  </div>
+  <div class="sky-view" id="sky"></div>
+</div>
+
+<div class="dream-modal" id="modal">
+  <div class="modal-date" id="m-date"></div>
+  <div class="modal-text" id="m-text"></div>
+  <div class="close-modal" onclick="closeModal()">Close</div>
+</div>
+
+<script>
+  const canvas = document.getElementById('bgCanvas');
+  const ctx = canvas.getContext('2d');
+  let w, h;
+
+  function resize() {
+    w = canvas.width = window.innerWidth;
+    h = canvas.height = window.innerHeight;
+  }
+  window.addEventListener('resize', resize); resize();
+
+  // Audio Context
+  let actx, masterGain;
+  let isAudioInit = false;
+  
+  function initAudio() {
+    if(isAudioInit) return;
+    actx = new (window.AudioContext || window.webkitAudioContext)();
+    masterGain = actx.createGain(); masterGain.gain.value = 0.2;
+    masterGain.connect(actx.destination);
+    
+    // Ambient drone
+    const osc1 = actx.createOscillator(); osc1.frequency.value = 55; // A1
+    const osc2 = actx.createOscillator(); osc2.frequency.value = 55.5; // slow beat
+    const osc3 = actx.createOscillator(); osc3.frequency.value = 82.41; // E2
+    
+    [osc1, osc2, osc3].forEach(osc => {
+      const g = actx.createGain(); g.gain.value = 0.1;
+      osc.connect(g); g.connect(masterGain); osc.start();
+    });
+    isAudioInit = true;
+  }
+
+  function playChime() {
+    if(!actx) return;
+    const osc = actx.createOscillator(); osc.type = 'sine';
+    const g = actx.createGain();
+    osc.frequency.setValueAtTime(880 + Math.random()*200, actx.currentTime);
+    g.gain.setValueAtTime(0, actx.currentTime);
+    g.gain.linearRampToValueAtTime(0.3, actx.currentTime + 0.1);
+    g.gain.exponentialRampToValueAtTime(0.01, actx.currentTime + 2);
+    osc.connect(g); g.connect(masterGain);
+    osc.start(); osc.stop(actx.currentTime + 2);
+  }
+
+  // Visuals
+  const orbs = [];
+  const keywordColors = {
+    'ocean': '#0a4275', 'water': '#3498db', 'fly': '#e0f7fa', 'sky': '#87ceeb',
+    'fall': '#e74c3c', 'dark': '#2c3e50', 'light': '#f1c40f', 'fire': '#e67e22',
+    'run': '#c0392b', 'monster': '#8e44ad', 'love': '#ffb6c1', 'tree': '#2ecc71',
+    'green': '#27ae60', 'red': '#c0392b', 'blue': '#2980b9'
+  };
+
+  document.getElementById('dreamInput').addEventListener('input', (e) => {
+    initAudio();
+    const text = e.target.value.toLowerCase();
+    const words = text.split(/\s+/);
+    const lastWord = words[words.length-1];
+    
+    if(e.data === ' ' && lastWord) {
+      if(keywordColors[lastWord]) {
+        spawnOrb(keywordColors[lastWord]);
+      } else {
+        if(Math.random() < 0.2) spawnOrb('#ffffff');
+      }
+    }
+  });
+
+  function spawnOrb(color) {
+    playChime();
+    orbs.push({
+      x: w * 0.25 + (Math.random()*200 - 100),
+      y: h * 0.5 + (Math.random()*200 - 100),
+      r: 10, maxR: Math.random()*150 + 50,
+      color: color, alpha: 0.8,
+      vx: (Math.random()-0.5)*0.5, vy: (Math.random()-0.5)*0.5
+    });
+  }
+
+  function loop() {
+    ctx.fillStyle = 'rgba(2, 2, 5, 0.05)';
+    ctx.fillRect(0,0,w,h);
+
+    ctx.globalCompositeOperation = 'screen';
+    for(let i=orbs.length-1; i>=0; i--) {
+      let o = orbs[i];
+      o.r += (o.maxR - o.r) * 0.01;
+      o.alpha -= 0.002;
+      o.x += o.vx; o.y += o.vy;
+
+      if(o.alpha <= 0) { orbs.splice(i, 1); continue; }
+
+      const grad = ctx.createRadialGradient(o.x, o.y, 0, o.x, o.y, o.r);
+      // parse hex to rgba
+      let r = parseInt(o.color.slice(1,3),16), g = parseInt(o.color.slice(3,5),16), b = parseInt(o.color.slice(5,7),16);
+      grad.addColorStop(0, `rgba(${r},${g},${b},${o.alpha})`);
+      grad.addColorStop(1, `rgba(${r},${g},${b},0)`);
+
+      ctx.beginPath(); ctx.arc(o.x, o.y, o.r, 0, Math.PI*2);
+      ctx.fillStyle = grad; ctx.fill();
+    }
+    ctx.globalCompositeOperation = 'source-over';
+    requestAnimationFrame(loop);
+  }
+  loop();
+
+  // Data Logic
+  let dreams = [];
+  const sky = document.getElementById('sky');
+
+  function saveDream() {
+    const text = document.getElementById('dreamInput').value.trim();
+    if(!text) return;
+    
+    const d = { id: Date.now(), text, date: new Date().toLocaleDateString() };
+    dreams.push(d);
+    document.getElementById('dreamInput').value = '';
+    
+    // Spawn star in sky
+    const star = document.createElement('div');
+    star.className = 'star-node';
+    star.style.left = (10 + Math.random()*80) + '%';
+    star.style.top = (10 + Math.random()*80) + '%';
+    star.onclick = () => openModal(d);
+    sky.appendChild(star);
+
+    // Audio feedback
+    if(actx) {
+      const osc = actx.createOscillator(); const g = actx.createGain();
+      osc.frequency.setValueAtTime(440, actx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(1760, actx.currentTime + 0.5);
+      g.gain.setValueAtTime(0.5, actx.currentTime); g.gain.exponentialRampToValueAtTime(0.01, actx.currentTime+1);
+      osc.connect(g); g.connect(masterGain); osc.start(); osc.stop(actx.currentTime+1);
+    }
+
+    // Flash background
+    const oldBg = document.body.style.background;
+    document.body.style.background = '#fff';
+    setTimeout(()=> document.body.style.background = '#020205', 50);
+  }
+
+  function openModal(d) {
+    document.getElementById('m-date').innerText = d.date;
+    document.getElementById('m-text').innerText = d.text;
+    document.getElementById('modal').style.display = 'block';
+  }
+
+  function closeModal() {
+    document.getElementById('modal').style.display = 'none';
+  }
+
+</script>
+</body>
+</html>
