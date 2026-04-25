@@ -1,0 +1,975 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>pixel_city</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500&family=Press+Start+2P&display=swap');
+
+        :root {
+            --bg: #1e1e24;
+            --panel: #2b2b36;
+            --text: #e0e0e0;
+            --accent: #ffb703;
+            --border: #444455;
+            --hover: #3d3d4d;
+        }
+
+        * {
+            box-sizing: border-box;
+            user-select: none;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg);
+            color: var(--text);
+            font-family: 'DM Sans', sans-serif;
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .left-panel {
+            width: 300px;
+            background-color: var(--panel);
+            border-right: 2px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            padding: 10px;
+            overflow-y: auto;
+            z-index: 10;
+        }
+
+        .header {
+            font-family: 'Press Start 2P', cursive;
+            font-size: 16px;
+            text-align: center;
+            color: var(--accent);
+            margin: 15px 0 25px 0;
+            line-height: 1.4;
+            text-shadow: 2px 2px 0 #000;
+        }
+
+        .category {
+            margin-bottom: 20px;
+        }
+
+        .category-title {
+            font-family: 'Press Start 2P', cursive;
+            font-size: 10px;
+            color: #888;
+            margin-bottom: 10px;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 5px;
+        }
+
+        .tile-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+        }
+
+        .tile-btn {
+            background-color: var(--bg);
+            border: 2px solid var(--border);
+            border-radius: 4px;
+            height: 60px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.1s;
+            position: relative;
+        }
+
+        .tile-btn:hover {
+            background-color: var(--hover);
+        }
+
+        .tile-btn.active {
+            border-color: var(--accent);
+            box-shadow: 0 0 10px rgba(255, 183, 3, 0.5);
+        }
+
+        .tile-preview {
+            width: 30px;
+            height: 30px;
+            image-rendering: pixelated;
+        }
+
+        .tile-label {
+            font-size: 10px;
+            margin-top: 5px;
+            text-align: center;
+        }
+
+        .main-area {
+            flex-grow: 1;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background-color: #111;
+            overflow: hidden;
+            background-image: linear-gradient(45deg, #181818 25%, transparent 25%), 
+                              linear-gradient(-45deg, #181818 25%, transparent 25%), 
+                              linear-gradient(45deg, transparent 75%, #181818 75%), 
+                              linear-gradient(-45deg, transparent 75%, #181818 75%);
+            background-size: 20px 20px;
+            background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+        }
+
+        canvas {
+            image-rendering: pixelated;
+            cursor: crosshair;
+            box-shadow: 0 10px 50px rgba(0,0,0,0.8);
+        }
+
+        .controls {
+            position: absolute;
+            bottom: 20px;
+            display: flex;
+            gap: 15px;
+            background-color: rgba(43, 43, 54, 0.9);
+            padding: 10px 20px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            backdrop-filter: blur(5px);
+        }
+
+        .btn {
+            font-family: 'Press Start 2P', cursive;
+            font-size: 10px;
+            background-color: var(--bg);
+            color: var(--text);
+            border: 2px solid var(--border);
+            padding: 10px 15px;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: all 0.2s;
+        }
+
+        .btn:hover {
+            background-color: var(--hover);
+            transform: translateY(-2px);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn.primary {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        .time-info {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            font-family: 'Press Start 2P', cursive;
+            font-size: 14px;
+            background-color: rgba(0, 0, 0, 0.6);
+            padding: 10px;
+            border-radius: 4px;
+            border: 1px solid var(--border);
+            color: #fff;
+        }
+
+        #tooltip {
+            position: absolute;
+            background-color: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            pointer-events: none;
+            display: none;
+            z-index: 100;
+        }
+
+        /* Ambient tint overlay */
+        #tint-overlay {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            pointer-events: none;
+            background-color: rgba(0,0,0,0);
+            transition: background-color 2s ease;
+            z-index: 5;
+            mix-blend-mode: multiply;
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="left-panel">
+        <div class="header">PIXEL CITY</div>
+
+        <div class="category">
+            <div class="category-title">🏗️ BUILDINGS</div>
+            <div class="tile-grid" id="buildings-grid"></div>
+        </div>
+
+        <div class="category">
+            <div class="category-title">🛣️ ROADS</div>
+            <div class="tile-grid" id="roads-grid"></div>
+        </div>
+
+        <div class="category">
+            <div class="category-title">🌳 NATURE</div>
+            <div class="tile-grid" id="nature-grid"></div>
+        </div>
+        
+        <div class="category">
+            <div class="category-title">🛠️ TOOLS</div>
+            <div class="tile-grid">
+                <div class="tile-btn" id="tool-erase" onclick="selectTile('erase')">
+                    <div style="font-size: 24px;">🗑️</div>
+                    <div class="tile-label">Erase</div>
+                </div>
+                <div class="tile-btn" id="tool-pan" onclick="selectTile('pan')">
+                    <div style="font-size: 24px;">✋</div>
+                    <div class="tile-label">Pan</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="main-area" id="main-area">
+        <canvas id="gameCanvas" width="600" height="500"></canvas>
+        <div id="tint-overlay"></div>
+        
+        <div class="time-info" id="time-display">12:00 PM</div>
+
+        <div class="controls">
+            <button class="btn" onclick="toggleTime()">TOGGLE DAY/NIGHT</button>
+            <button class="btn" onclick="clearCity()">CLEAR</button>
+            <button class="btn primary" onclick="exportCity()">EXPORT PNG</button>
+        </div>
+    </div>
+
+    <div id="tooltip"></div>
+
+    <script>
+        // Audio Context setup
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        const actx = new AudioContext();
+        const masterGain = actx.createGain();
+        masterGain.gain.value = 0.3;
+        masterGain.connect(actx.destination);
+
+        function playPlaceSound() {
+            if (actx.state === 'suspended') actx.resume();
+            const osc = actx.createOscillator();
+            const gain = actx.createGain();
+            osc.type = 'square';
+            osc.frequency.setValueAtTime(400, actx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(800, actx.currentTime + 0.05);
+            gain.gain.setValueAtTime(0.1, actx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, actx.currentTime + 0.1);
+            osc.connect(gain);
+            gain.connect(masterGain);
+            osc.start();
+            osc.stop(actx.currentTime + 0.1);
+        }
+
+        function playEraseSound() {
+            if (actx.state === 'suspended') actx.resume();
+            const osc = actx.createOscillator();
+            const gain = actx.createGain();
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(200, actx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(50, actx.currentTime + 0.1);
+            gain.gain.setValueAtTime(0.1, actx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, actx.currentTime + 0.1);
+            osc.connect(gain);
+            gain.connect(masterGain);
+            osc.start();
+            osc.stop(actx.currentTime + 0.1);
+        }
+
+        // Canvas Setup
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d', { alpha: false });
+        
+        // Grid config
+        const TILE_SIZE = 20; // 20x20 pixels per tile
+        const COLS = 30;
+        const ROWS = 25;
+        canvas.width = COLS * TILE_SIZE;
+        canvas.height = ROWS * TILE_SIZE;
+
+        // Camera
+        let camera = { x: 0, y: 0, zoom: 1 };
+        let isPanning = false;
+        let startPan = { x: 0, y: 0 };
+
+        // City Data
+        let grid = new Array(COLS * ROWS).fill(null);
+        // Cars and People
+        let cars = [];
+        let people = [];
+
+        // Time System
+        let time = 12; // 0 to 24
+        let isDay = true;
+        let timeSpeed = 0.005; // speed of time progression
+
+        // Tiles Dictionary
+        const TILES = {
+            'house': { name: 'House', cat: 'buildings', w: 2, h: 2, draw: drawHouse, desc: 'Small 2x2 home' },
+            'apt': { name: 'Apartment', cat: 'buildings', w: 2, h: 4, draw: drawApt, desc: 'Tall 2x4 building' },
+            'office': { name: 'Office', cat: 'buildings', w: 3, h: 5, draw: drawOffice, desc: '3x5 glass tower' },
+            'shop': { name: 'Shop', cat: 'buildings', w: 2, h: 2, draw: drawShop, desc: '2x2 storefront' },
+            'factory': { name: 'Factory', cat: 'buildings', w: 3, h: 3, draw: drawFactory, desc: '3x3 industrial' },
+            'hospital': { name: 'Hospital', cat: 'buildings', w: 3, h: 3, draw: drawHospital, desc: '3x3 medical' },
+            'road_h': { name: 'Road H', cat: 'roads', w: 1, h: 1, draw: drawRoadH, type: 'road', desc: 'Horizontal road' },
+            'road_v': { name: 'Road V', cat: 'roads', w: 1, h: 1, draw: drawRoadV, type: 'road', desc: 'Vertical road' },
+            'road_i': { name: 'Intersection', cat: 'roads', w: 1, h: 1, draw: drawRoadI, type: 'road', desc: 'Intersection' },
+            'grass': { name: 'Grass', cat: 'nature', w: 1, h: 1, draw: drawGrass, desc: 'Green park space' },
+            'tree': { name: 'Tree', cat: 'nature', w: 1, h: 1, draw: drawTree, desc: 'A lush tree' },
+            'water': { name: 'Water', cat: 'nature', w: 1, h: 1, draw: drawWater, type: 'water', desc: 'Animated water' }
+        };
+
+        let currentTile = 'house'; // ID of selected tile
+
+        // Initialize UI
+        function initUI() {
+            const bGrid = document.getElementById('buildings-grid');
+            const rGrid = document.getElementById('roads-grid');
+            const nGrid = document.getElementById('nature-grid');
+
+            for (let [id, tile] of Object.entries(TILES)) {
+                let btn = document.createElement('div');
+                btn.className = 'tile-btn';
+                btn.id = 'tile-' + id;
+                btn.onclick = () => selectTile(id);
+                
+                // Create preview canvas
+                let pCanvas = document.createElement('canvas');
+                pCanvas.className = 'tile-preview';
+                pCanvas.width = tile.w * TILE_SIZE;
+                pCanvas.height = tile.h * TILE_SIZE;
+                let pCtx = pCanvas.getContext('2d');
+                // Draw background grass for preview
+                pCtx.fillStyle = '#7ec850';
+                pCtx.fillRect(0,0,pCanvas.width,pCanvas.height);
+                tile.draw(pCtx, 0, 0, tile.w, tile.h, true); // true for preview
+
+                let label = document.createElement('div');
+                label.className = 'tile-label';
+                label.innerText = tile.name;
+
+                btn.appendChild(pCanvas);
+                btn.appendChild(label);
+
+                // Tooltips
+                btn.onmouseenter = (e) => showTooltip(e, tile.desc);
+                btn.onmouseleave = hideTooltip;
+
+                if (tile.cat === 'buildings') bGrid.appendChild(btn);
+                if (tile.cat === 'roads') rGrid.appendChild(btn);
+                if (tile.cat === 'nature') nGrid.appendChild(btn);
+            }
+            selectTile(currentTile);
+        }
+
+        function selectTile(id) {
+            document.querySelectorAll('.tile-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById('tile-' + id)?.classList.add('active');
+            if(id === 'erase' || id === 'pan') {
+                document.getElementById('tool-' + id).classList.add('active');
+            }
+            currentTile = id;
+            if (id === 'pan') {
+                canvas.style.cursor = 'grab';
+            } else {
+                canvas.style.cursor = 'crosshair';
+            }
+        }
+
+        // --- DRAWING FUNCTIONS FOR TILES ---
+        function drawHouse(ctx, x, y, w, h, isPreview=false) {
+            let px = x * TILE_SIZE;
+            let py = y * TILE_SIZE;
+            let pw = w * TILE_SIZE;
+            let ph = h * TILE_SIZE;
+            
+            // Base
+            ctx.fillStyle = '#e6cda3';
+            ctx.fillRect(px + 4, py + 16, pw - 8, ph - 16);
+            
+            // Roof
+            ctx.fillStyle = '#d33f49';
+            ctx.beginPath();
+            ctx.moveTo(px, py + 16);
+            ctx.lineTo(px + pw/2, py + 4);
+            ctx.lineTo(px + pw, py + 16);
+            ctx.fill();
+
+            // Door
+            ctx.fillStyle = '#8b5a2b';
+            ctx.fillRect(px + pw/2 - 4, py + ph - 12, 8, 12);
+
+            // Window
+            ctx.fillStyle = (!isDay && !isPreview && Math.random()>0.3) ? '#f9dc5c' : '#87ceeb'; // glow at night
+            ctx.fillRect(px + 6, py + 20, 8, 8);
+            ctx.fillRect(px + pw - 14, py + 20, 8, 8);
+        }
+
+        function drawApt(ctx, x, y, w, h, isPreview=false) {
+            let px = x * TILE_SIZE;
+            let py = y * TILE_SIZE;
+            let pw = w * TILE_SIZE;
+            let ph = h * TILE_SIZE;
+
+            ctx.fillStyle = '#8d99ae';
+            ctx.fillRect(px + 2, py + 2, pw - 4, ph - 2);
+
+            // Windows
+            for(let i=0; i<4; i++) {
+                for(let j=0; j<2; j++) {
+                    ctx.fillStyle = (!isDay && !isPreview && Math.random()>0.4) ? '#f9dc5c' : '#457b9d';
+                    ctx.fillRect(px + 6 + j*16, py + 10 + i*16, 12, 10);
+                }
+            }
+        }
+
+        function drawOffice(ctx, x, y, w, h, isPreview=false) {
+            let px = x * TILE_SIZE;
+            let py = y * TILE_SIZE;
+            let pw = w * TILE_SIZE;
+            let ph = h * TILE_SIZE;
+
+            ctx.fillStyle = '#2b2d42';
+            ctx.fillRect(px, py, pw, ph);
+
+            // Glass panels
+            for(let i=0; i<5; i++) {
+                for(let j=0; j<3; j++) {
+                    ctx.fillStyle = (!isDay && !isPreview && Math.random()>0.5) ? '#f9dc5c' : '#8d99ae';
+                    ctx.fillRect(px + 2 + j*19, py + 2 + i*19, 17, 17);
+                }
+            }
+        }
+
+        function drawShop(ctx, x, y, w, h, isPreview=false) {
+            let px = x * TILE_SIZE;
+            let py = y * TILE_SIZE;
+            let pw = w * TILE_SIZE;
+            let ph = h * TILE_SIZE;
+
+            ctx.fillStyle = '#f4a261';
+            ctx.fillRect(px+2, py+10, pw-4, ph-10);
+            
+            // Awning
+            ctx.fillStyle = '#e76f51';
+            ctx.fillRect(px, py+10, pw, 10);
+            for(let i=0; i<4; i++) {
+                ctx.fillStyle = (i%2==0) ? '#e76f51' : '#f4a261';
+                ctx.beginPath();
+                ctx.arc(px + 5 + i*10, py + 20, 5, 0, Math.PI, false);
+                ctx.fill();
+            }
+
+            // Window
+            ctx.fillStyle = (!isDay && !isPreview) ? '#f9dc5c' : '#a8dadc';
+            ctx.fillRect(px+6, py+24, pw-12, 12);
+        }
+
+        function drawFactory(ctx, x, y, w, h, isPreview=false) {
+            let px = x * TILE_SIZE;
+            let py = y * TILE_SIZE;
+            let pw = w * TILE_SIZE;
+            let ph = h * TILE_SIZE;
+
+            ctx.fillStyle = '#6c757d';
+            ctx.fillRect(px, py + 20, pw, ph - 20);
+            
+            // Chimneys
+            ctx.fillStyle = '#495057';
+            ctx.fillRect(px + 10, py, 10, 20);
+            ctx.fillRect(px + 40, py + 5, 8, 15);
+
+            // Smoke (animated later, just static here)
+            ctx.fillStyle = 'rgba(200,200,200,0.5)';
+            ctx.beginPath(); ctx.arc(px + 15, py - 10, 8, 0, Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.arc(px + 44, py - 5, 6, 0, Math.PI*2); ctx.fill();
+
+            // Roof
+            ctx.fillStyle = '#343a40';
+            ctx.beginPath(); ctx.moveTo(px, py+20); ctx.lineTo(px+20, py+10); ctx.lineTo(px+20, py+20); ctx.fill();
+            ctx.beginPath(); ctx.moveTo(px+20, py+20); ctx.lineTo(px+40, py+10); ctx.lineTo(px+40, py+20); ctx.fill();
+            ctx.beginPath(); ctx.moveTo(px+40, py+20); ctx.lineTo(px+60, py+10); ctx.lineTo(px+60, py+20); ctx.fill();
+        }
+
+        function drawHospital(ctx, x, y, w, h, isPreview=false) {
+            let px = x * TILE_SIZE;
+            let py = y * TILE_SIZE;
+            let pw = w * TILE_SIZE;
+            let ph = h * TILE_SIZE;
+
+            ctx.fillStyle = '#f8f9fa';
+            ctx.fillRect(px+5, py+5, pw-10, ph-5);
+
+            // Cross
+            ctx.fillStyle = '#e63946';
+            ctx.fillRect(px + pw/2 - 4, py + 15, 8, 20);
+            ctx.fillRect(px + pw/2 - 10, py + 21, 20, 8);
+
+            // Windows
+            for(let i=0; i<2; i++) {
+                for(let j=0; j<2; j++) {
+                    ctx.fillStyle = (!isDay && !isPreview) ? '#f9dc5c' : '#a8dadc';
+                    ctx.fillRect(px + 12 + j*28, py + 40 + i*10, 8, 8);
+                }
+            }
+        }
+
+        function drawRoadH(ctx, x, y, w, h) {
+            let px = x * TILE_SIZE;
+            let py = y * TILE_SIZE;
+            ctx.fillStyle = '#495057';
+            ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
+            ctx.fillStyle = '#fca311';
+            ctx.fillRect(px, py + 9, TILE_SIZE, 2);
+        }
+
+        function drawRoadV(ctx, x, y, w, h) {
+            let px = x * TILE_SIZE;
+            let py = y * TILE_SIZE;
+            ctx.fillStyle = '#495057';
+            ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
+            ctx.fillStyle = '#fca311';
+            ctx.fillRect(px + 9, py, 2, TILE_SIZE);
+        }
+
+        function drawRoadI(ctx, x, y, w, h) {
+            let px = x * TILE_SIZE;
+            let py = y * TILE_SIZE;
+            ctx.fillStyle = '#495057';
+            ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
+        }
+
+        function drawGrass(ctx, x, y, w, h) {
+            // Background is already grass, maybe add some texture
+            let px = x * TILE_SIZE;
+            let py = y * TILE_SIZE;
+            ctx.fillStyle = '#88d15a';
+            ctx.fillRect(px+2, py+2, 4, 4);
+            ctx.fillRect(px+12, py+8, 4, 4);
+            ctx.fillRect(px+6, py+14, 4, 4);
+        }
+
+        function drawTree(ctx, x, y, w, h) {
+            let px = x * TILE_SIZE;
+            let py = y * TILE_SIZE;
+            ctx.fillStyle = '#7ec850'; // bg
+            ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
+
+            // Trunk
+            ctx.fillStyle = '#7f4f24';
+            ctx.fillRect(px + 8, py + 12, 4, 8);
+            
+            // Leaves
+            ctx.fillStyle = '#386641';
+            ctx.beginPath();
+            ctx.arc(px + 10, py + 10, 8, 0, Math.PI*2);
+            ctx.fill();
+            ctx.fillStyle = '#52b788';
+            ctx.beginPath();
+            ctx.arc(px + 8, py + 8, 5, 0, Math.PI*2);
+            ctx.fill();
+        }
+
+        function drawWater(ctx, x, y, w, h) {
+            let px = x * TILE_SIZE;
+            let py = y * TILE_SIZE;
+            ctx.fillStyle = '#4cc9f0';
+            ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
+
+            // Water animation wave
+            let offset = (performance.now() / 500 + x + y) % 2;
+            ctx.fillStyle = '#48cae4';
+            ctx.fillRect(px + (offset>1?0:10), py + 5, 10, 2);
+            ctx.fillRect(px + (offset>1?10:0), py + 15, 10, 2);
+        }
+
+        // --- INTERACTION ---
+        let isDrawing = false;
+        let lastPlaced = {x: -1, y: -1};
+
+        canvas.addEventListener('mousedown', e => {
+            if (currentTile === 'pan') {
+                isPanning = true;
+                startPan = { x: e.clientX - camera.x, y: e.clientY - camera.y };
+                canvas.style.cursor = 'grabbing';
+            } else {
+                isDrawing = true;
+                handleAction(e);
+            }
+        });
+
+        canvas.addEventListener('mousemove', e => {
+            if (isPanning) {
+                camera.x = e.clientX - startPan.x;
+                camera.y = e.clientY - startPan.y;
+            } else if (isDrawing) {
+                handleAction(e);
+            }
+        });
+
+        window.addEventListener('mouseup', () => {
+            isDrawing = false;
+            if (isPanning) {
+                isPanning = false;
+                canvas.style.cursor = 'grab';
+            }
+            lastPlaced = {x: -1, y: -1};
+        });
+
+        canvas.addEventListener('wheel', e => {
+            e.preventDefault();
+            const zoomAmount = e.deltaY * -0.001;
+            const newZoom = Math.min(Math.max(0.5, camera.zoom + zoomAmount), 3);
+            
+            // Zoom towards mouse
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+            
+            camera.x = mouseX - (mouseX - camera.x) * (newZoom / camera.zoom);
+            camera.y = mouseY - (mouseY - camera.y) * (newZoom / camera.zoom);
+            camera.zoom = newZoom;
+        });
+
+        function handleAction(e) {
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+
+            const worldX = (mouseX - camera.x) / camera.zoom;
+            const worldY = (mouseY - camera.y) / camera.zoom;
+
+            const gridX = Math.floor(worldX / TILE_SIZE);
+            const gridY = Math.floor(worldY / TILE_SIZE);
+
+            if (gridX >= 0 && gridX < COLS && gridY >= 0 && gridY < ROWS) {
+                if (gridX === lastPlaced.x && gridY === lastPlaced.y) return;
+                lastPlaced = {x: gridX, y: gridY};
+
+                if (currentTile === 'erase') {
+                    if (grid[gridY * COLS + gridX]) {
+                        clearArea(gridX, gridY);
+                        playEraseSound();
+                    }
+                } else if (currentTile !== 'pan') {
+                    let tileDef = TILES[currentTile];
+                    if (canPlace(gridX, gridY, tileDef.w, tileDef.h)) {
+                        placeTile(gridX, gridY, currentTile, tileDef.w, tileDef.h);
+                        playPlaceSound();
+                        
+                        // Check if we placed a road, maybe spawn a car
+                        if (tileDef.type === 'road' && Math.random() > 0.5) {
+                            spawnCar(gridX, gridY);
+                        }
+                    }
+                }
+            }
+        }
+
+        function canPlace(x, y, w, h) {
+            if (x + w > COLS || y + h > ROWS) return false;
+            for (let i = 0; i < w; i++) {
+                for (let j = 0; j < h; j++) {
+                    if (grid[(y + j) * COLS + (x + i)] !== null) return false;
+                }
+            }
+            return true;
+        }
+
+        function placeTile(x, y, id, w, h) {
+            let obj = { id: id, x: x, y: y, w: w, h: h };
+            for (let i = 0; i < w; i++) {
+                for (let j = 0; j < h; j++) {
+                    grid[(y + j) * COLS + (x + i)] = obj; // reference the main object
+                }
+            }
+            
+            // Randomly spawn people on nature or roads
+            if ((id === 'grass' || id === 'tree') && Math.random() > 0.7) {
+                spawnPerson(x, y);
+            }
+        }
+
+        function clearArea(x, y) {
+            let obj = grid[y * COLS + x];
+            if (!obj) return;
+            for (let i = 0; i < obj.w; i++) {
+                for (let j = 0; j < obj.h; j++) {
+                    grid[(obj.y + j) * COLS + (obj.x + i)] = null;
+                }
+            }
+        }
+
+        function clearCity() {
+            if(confirm("Are you sure you want to clear the entire city?")) {
+                grid.fill(null);
+                cars = [];
+                people = [];
+            }
+        }
+
+        // --- ENTITIES (CARS / PEOPLE) ---
+        function spawnCar(x, y) {
+            if(cars.length > 50) return;
+            const colors = ['#e63946', '#457b9d', '#f4a261', '#ffffff', '#2a9d8f'];
+            cars.push({
+                x: x * TILE_SIZE + 10,
+                y: y * TILE_SIZE + 10,
+                color: colors[Math.floor(Math.random() * colors.length)],
+                vx: (Math.random() > 0.5 ? 1 : -1) * 0.5,
+                vy: (Math.random() > 0.5 ? 1 : -1) * 0.5,
+                type: 'car'
+            });
+        }
+
+        function spawnPerson(x, y) {
+            if(people.length > 100) return;
+            people.push({
+                x: x * TILE_SIZE + 10 + (Math.random()*10 - 5),
+                y: y * TILE_SIZE + 10 + (Math.random()*10 - 5),
+                vx: (Math.random() - 0.5) * 0.3,
+                vy: (Math.random() - 0.5) * 0.3,
+                timer: Math.random() * 100
+            });
+        }
+
+        function updateEntities() {
+            // Update Cars
+            for (let i = cars.length - 1; i >= 0; i--) {
+                let c = cars[i];
+                c.x += c.vx;
+                c.y += c.vy;
+                
+                let gx = Math.floor(c.x / TILE_SIZE);
+                let gy = Math.floor(c.y / TILE_SIZE);
+                
+                // Remove if out of bounds
+                if (gx < 0 || gx >= COLS || gy < 0 || gy >= ROWS) {
+                    cars.splice(i, 1);
+                    continue;
+                }
+                
+                // Steer logic
+                let tile = grid[gy * COLS + gx];
+                let isRoad = tile && TILES[tile.id].type === 'road';
+                
+                if (!isRoad) {
+                    // Turn around
+                    c.vx *= -1;
+                    c.vy *= -1;
+                    c.x += c.vx * 2;
+                    c.y += c.vy * 2;
+                } else if (Math.random() < 0.05) {
+                    // Random turn at intersections
+                    if (tile.id === 'road_i') {
+                        if (c.vx !== 0) { c.vy = (Math.random()>0.5?1:-1)*Math.abs(c.vx); c.vx = 0; }
+                        else { c.vx = (Math.random()>0.5?1:-1)*Math.abs(c.vy); c.vy = 0; }
+                    }
+                }
+            }
+
+            // Update People
+            for (let i = people.length - 1; i >= 0; i--) {
+                let p = people[i];
+                p.x += p.vx;
+                p.y += p.vy;
+                p.timer -= 1;
+                if (p.timer <= 0) {
+                    p.vx = (Math.random() - 0.5) * 0.3;
+                    p.vy = (Math.random() - 0.5) * 0.3;
+                    p.timer = 50 + Math.random() * 100;
+                }
+                
+                let gx = Math.floor(p.x / TILE_SIZE);
+                let gy = Math.floor(p.y / TILE_SIZE);
+                if (gx < 0 || gx >= COLS || gy < 0 || gy >= ROWS) {
+                    people.splice(i, 1);
+                }
+            }
+        }
+
+        function drawEntities(ctx) {
+            // Draw Cars
+            for (let c of cars) {
+                ctx.fillStyle = c.color;
+                if (c.vx !== 0) {
+                    ctx.fillRect(c.x - 4, c.y - 2, 8, 4); // Horizontal
+                    if(!isDay) { // headlights
+                        ctx.fillStyle = 'rgba(255,255,200,0.5)';
+                        ctx.fillRect(c.x + (c.vx>0?4:-14), c.y - 2, 10, 4);
+                    }
+                } else {
+                    ctx.fillRect(c.x - 2, c.y - 4, 4, 8); // Vertical
+                    if(!isDay) { // headlights
+                        ctx.fillStyle = 'rgba(255,255,200,0.5)';
+                        ctx.fillRect(c.x - 2, c.y + (c.vy>0?4:-14), 4, 10);
+                    }
+                }
+            }
+
+            // Draw People
+            ctx.fillStyle = '#ffb703';
+            for (let p of people) {
+                ctx.fillRect(p.x - 1, p.y - 1, 2, 2);
+            }
+        }
+
+
+        // --- RENDER LOOP ---
+        function draw() {
+            // Background grass
+            ctx.fillStyle = '#7ec850';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Apply camera
+            ctx.save();
+            ctx.translate(camera.x, camera.y);
+            ctx.scale(camera.zoom, camera.zoom);
+
+            // Draw Grid Lines (optional, maybe too busy)
+            /*
+            ctx.strokeStyle = 'rgba(0,0,0,0.05)';
+            ctx.lineWidth = 1;
+            for(let i=0; i<=COLS; i++) { ctx.beginPath(); ctx.moveTo(i*TILE_SIZE, 0); ctx.lineTo(i*TILE_SIZE, ROWS*TILE_SIZE); ctx.stroke(); }
+            for(let i=0; i<=ROWS; i++) { ctx.beginPath(); ctx.moveTo(0, i*TILE_SIZE); ctx.lineTo(COLS*TILE_SIZE, i*TILE_SIZE); ctx.stroke(); }
+            */
+
+            // Draw Tiles
+            let drawn = new Set();
+            for (let y = 0; y < ROWS; y++) {
+                for (let x = 0; x < COLS; x++) {
+                    let obj = grid[y * COLS + x];
+                    if (obj && !drawn.has(obj)) {
+                        TILES[obj.id].draw(ctx, obj.x, obj.y, obj.w, obj.h);
+                        drawn.add(obj);
+                    }
+                }
+            }
+
+            // Draw Entities
+            drawEntities(ctx);
+
+            ctx.restore();
+        }
+
+        function updateTime() {
+            time += timeSpeed;
+            if (time >= 24) time = 0;
+            
+            // Determine day/night
+            isDay = (time > 6 && time < 18);
+            
+            let hours = Math.floor(time);
+            let mins = Math.floor((time - hours) * 60);
+            let ampm = hours >= 12 ? 'PM' : 'AM';
+            let displayHours = hours % 12;
+            if(displayHours === 0) displayHours = 12;
+            
+            document.getElementById('time-display').innerText = 
+                `${displayHours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')} ${ampm}`;
+
+            // Tint
+            let tint = document.getElementById('tint-overlay');
+            if (isDay) {
+                // Sunrise/Sunset transitions
+                if (time < 8) tint.style.backgroundColor = 'rgba(255, 150, 50, 0.2)';
+                else if (time > 16) tint.style.backgroundColor = 'rgba(255, 100, 50, 0.2)';
+                else tint.style.backgroundColor = 'rgba(0, 0, 0, 0)';
+            } else {
+                tint.style.backgroundColor = 'rgba(10, 10, 40, 0.6)';
+            }
+        }
+
+        function toggleTime() {
+            if(isDay) time = 20; // set to night
+            else time = 10; // set to day
+        }
+
+        function loop() {
+            updateTime();
+            updateEntities();
+            draw();
+            requestAnimationFrame(loop);
+        }
+
+        // Tooltip logic
+        const tooltip = document.getElementById('tooltip');
+        function showTooltip(e, text) {
+            tooltip.innerText = text;
+            tooltip.style.display = 'block';
+            tooltip.style.left = e.pageX + 15 + 'px';
+            tooltip.style.top = e.pageY + 15 + 'px';
+        }
+        function hideTooltip() {
+            tooltip.style.display = 'none';
+        }
+
+        // Export PNG
+        function exportCity() {
+            // Draw pure canvas without camera transform
+            const exportCanvas = document.createElement('canvas');
+            exportCanvas.width = COLS * TILE_SIZE;
+            exportCanvas.height = ROWS * TILE_SIZE;
+            const eCtx = exportCanvas.getContext('2d');
+            
+            eCtx.fillStyle = '#7ec850';
+            eCtx.fillRect(0, 0, exportCanvas.width, exportCanvas.height);
+            
+            let drawn = new Set();
+            for (let y = 0; y < ROWS; y++) {
+                for (let x = 0; x < COLS; x++) {
+                    let obj = grid[y * COLS + x];
+                    if (obj && !drawn.has(obj)) {
+                        TILES[obj.id].draw(eCtx, obj.x, obj.y, obj.w, obj.h);
+                        drawn.add(obj);
+                    }
+                }
+            }
+            // Add tint if night
+            if(!isDay) {
+                eCtx.fillStyle = 'rgba(10, 10, 40, 0.5)';
+                eCtx.fillRect(0,0,exportCanvas.width, exportCanvas.height);
+            }
+
+            const dataURL = exportCanvas.toDataURL("image/png");
+            const link = document.createElement("a");
+            link.download = "my_pixel_city.png";
+            link.href = dataURL;
+            link.click();
+        }
+
+        // Center canvas initially
+        function centerCanvas() {
+            const rect = document.getElementById('main-area').getBoundingClientRect();
+            camera.x = (rect.width - canvas.width) / 2;
+            camera.y = (rect.height - canvas.height) / 2;
+        }
+
+        window.addEventListener('resize', centerCanvas);
+
+        // Init
+        initUI();
+        centerCanvas();
+        loop();
+
+    </script>
+</body>
+</html>
