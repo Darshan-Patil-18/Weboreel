@@ -1,0 +1,1148 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Planet Builder</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;700&display=swap');
+
+        :root {
+            --bg-color: #000005;
+            --panel-bg: #0a0a12;
+            --accent: #2d5a1b;
+            --text-main: #ffffff;
+            --text-muted: #888899;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        /* Only disable selection where needed */
+        button,
+        .terrain-btn {
+            user-select: none;
+        }
+
+        body {
+            display: flex;
+            flex-direction: row;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+            font-family: 'DM Sans', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+        }
+
+        #canvas-wrapper {
+            position: relative;
+            width: 60vw;
+            height: 100vh;
+            background: radial-gradient(ellipse at center, rgba(80, 40, 120, 0.15) 0%, transparent 70%);
+            cursor: grab;
+        }
+
+        #canvas-wrapper:active {
+            cursor: grabbing;
+        }
+
+        #planet-name-overlay {
+            position: absolute;
+            top: 2rem;
+            left: 50%;
+            transform: translateX(-50%);
+            text-align: center;
+            z-index: 10;
+            pointer-events: none;
+            width: 90%;
+        }
+
+        #planet-name-overlay h1 {
+            font-family: 'Bebas Neue', cursive;
+            font-size: clamp(2rem, 4vw, 3rem);
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            text-shadow: 0 2px 10px rgba(0, 0, 0, 0.8);
+            margin-bottom: 0.2rem;
+        }
+
+        #planet-name-overlay p {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            text-shadow: 0 1px 5px rgba(0, 0, 0, 0.8);
+        }
+
+        #control-panel {
+            width: 40vw;
+            height: 100vh;
+            background: var(--panel-bg);
+            border-left: 1px solid rgba(255, 255, 255, 0.07);
+            padding: 2rem;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+        }
+
+        #control-panel::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        #control-panel::-webkit-scrollbar-thumb {
+            background-color: rgba(255, 255, 255, 0.2);
+            border-radius: 3px;
+        }
+
+        .section-title {
+            font-family: 'Bebas Neue', cursive;
+            font-size: 0.85rem;
+            letter-spacing: 0.4em;
+            color: var(--text-muted);
+            margin-bottom: 1rem;
+        }
+
+        .name-input-wrapper input {
+            width: 100%;
+            background: transparent;
+            border: none;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+            font-family: 'Bebas Neue', cursive;
+            font-size: 2rem;
+            color: var(--text-main);
+            padding: 0.5rem 0;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+
+        .name-input-wrapper input:focus {
+            border-bottom-color: var(--accent);
+        }
+
+        .name-input-wrapper input::placeholder {
+            color: rgba(255, 255, 255, 0.2);
+        }
+
+        .terrain-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 0.8rem;
+        }
+
+        .terrain-btn {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: var(--text-main);
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.85rem;
+            padding: 0.8rem 0.5rem;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: center;
+        }
+
+        .terrain-btn:hover {
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .terrain-btn.active {
+            background: var(--accent);
+            border-color: var(--accent);
+            font-weight: bold;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.5) inset;
+        }
+
+        .slider-group {
+            display: flex;
+            flex-direction: column;
+            gap: 1.2rem;
+        }
+
+        .slider-row {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .slider-header {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.85rem;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-muted);
+        }
+
+        .slider-val {
+            color: var(--text-main);
+            font-weight: bold;
+        }
+
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+
+        input[type=range]:focus {
+            outline: none;
+        }
+
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 6px;
+            cursor: pointer;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+        }
+
+        input[type=range]::-webkit-slider-thumb {
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            background: var(--accent);
+            cursor: pointer;
+            -webkit-appearance: none;
+            margin-top: -5px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+            transition: transform 0.1s;
+        }
+
+        input[type=range]::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+        }
+
+        .toggles-group {
+            display: flex;
+            gap: 2rem;
+        }
+
+        .toggle-row {
+            display: flex;
+            align-items: center;
+            gap: 0.8rem;
+            cursor: pointer;
+        }
+
+        .toggle-label {
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-muted);
+        }
+
+        .toggle-pill {
+            width: 44px;
+            height: 24px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            position: relative;
+            transition: background 0.3s;
+        }
+
+        .toggle-pill::after {
+            content: '';
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 20px;
+            height: 20px;
+            background: #fff;
+            border-radius: 50%;
+            transition: transform 0.3s;
+        }
+
+        .toggle-row.active .toggle-pill {
+            background: var(--accent);
+        }
+
+        .toggle-row.active .toggle-pill::after {
+            transform: translateX(20px);
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+        }
+
+        .stat-item {
+            display: flex;
+            flex-direction: column;
+            gap: 0.3rem;
+        }
+
+        .stat-label {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-muted);
+        }
+
+        .stat-value {
+            font-family: 'Bebas Neue', cursive;
+            font-size: 1.8rem;
+            letter-spacing: 1px;
+        }
+
+        .habitability-bar-container {
+            width: 100%;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 2px;
+            margin-top: 0.2rem;
+        }
+
+        .habitability-bar {
+            height: 100%;
+            border-radius: 2px;
+            background: var(--accent);
+            transition: width 0.3s, background-color 0.3s;
+        }
+
+        .btn-generate {
+            width: 100%;
+            padding: 1.2rem;
+            background: var(--accent);
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            font-family: 'Bebas Neue', cursive;
+            font-size: 1.2rem;
+            letter-spacing: 2px;
+            cursor: pointer;
+            transition: opacity 0.2s, transform 0.1s;
+        }
+
+        .btn-generate:hover {
+            opacity: 0.9;
+        }
+
+        .btn-generate:active {
+            transform: scale(0.98);
+        }
+
+        .story-box {
+            white-space: pre-wrap;
+            background: rgba(255, 255, 255, 0.03);
+            border-left: 3px solid var(--accent);
+            padding: 1.5rem;
+            font-size: 0.9rem;
+            color: #ccc;
+            line-height: 1.8;
+            min-height: 120px;
+            height: auto;
+            border-radius: 0 6px 6px 0;
+            display: none;
+            margin-top: 1.5rem;
+
+            /* FIXES */
+            width: 100%;
+            max-width: 100%;
+            overflow-wrap: anywhere;
+            word-break: break-word;
+            white-space: normal;
+            letter-spacing: 0.3px;
+        }
+
+        #mute-btn {
+            position: fixed;
+            bottom: 1.5rem;
+            right: 1.5rem;
+            background: rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #fff;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            z-index: 100;
+            font-size: 1.2rem;
+            transition: all 0.2s;
+        }
+
+        #mute-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        @media (max-width: 768px) {
+            body {
+                flex-direction: column;
+                overflow-y: auto;
+            }
+
+            #canvas-wrapper {
+                width: 100vw;
+                height: 50vh;
+                flex-shrink: 0;
+            }
+
+            #control-panel {
+                width: 100vw;
+                height: auto;
+                min-height: 50vh;
+                padding: 1.5rem;
+                overflow: visible;
+            }
+
+            .terrain-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            #planet-name-overlay h1 {
+                font-size: 2rem;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="canvas-wrapper">
+        <div id="planet-name-overlay">
+            <h1 id="display-name">TERRA NOVA</h1>
+            <p id="display-sub">Class Standard · Age: 4.5 billion years</p>
+        </div>
+        <canvas id="webgl-canvas"></canvas>
+    </div>
+
+    <div id="control-panel">
+
+        <div class="name-input-wrapper">
+            <input type="text" id="planet-name" value="TERRA NOVA" placeholder="Name your planet..." maxlength="20">
+        </div>
+
+        <div>
+            <div class="section-title">TERRAIN</div>
+            <div class="terrain-grid">
+                <div class="terrain-btn" data-terrain="desert">🏜️ DESERT</div>
+                <div class="terrain-btn active" data-terrain="forest">🌲 FOREST</div>
+                <div class="terrain-btn" data-terrain="ice">🧊 ICE</div>
+                <div class="terrain-btn" data-terrain="volcanic">🌋 VOLCANIC</div>
+                <div class="terrain-btn" data-terrain="ocean">🌊 OCEAN</div>
+                <div class="terrain-btn" data-terrain="alien">👽 ALIEN</div>
+            </div>
+        </div>
+
+        <div class="slider-group">
+            <div class="section-title">CONDITIONS</div>
+
+            <div class="slider-row">
+                <div class="slider-header">
+                    <span>Water Level</span>
+                    <span class="slider-val" id="val-water">60%</span>
+                </div>
+                <input type="range" id="slider-water" min="0" max="100" value="60">
+            </div>
+
+            <div class="slider-row">
+                <div class="slider-header">
+                    <span>Atmosphere</span>
+                    <span class="slider-val" id="val-atmosphere">70%</span>
+                </div>
+                <input type="range" id="slider-atmosphere" min="0" max="100" value="70">
+            </div>
+
+            <div class="slider-row">
+                <div class="slider-header">
+                    <span>Temperature</span>
+                    <span class="slider-val" id="val-temperature">45%</span>
+                </div>
+                <input type="range" id="slider-temperature" min="0" max="100" value="45">
+            </div>
+
+            <div class="slider-row">
+                <div class="slider-header">
+                    <span>Life Forms</span>
+                    <span class="slider-val" id="val-life">75%</span>
+                </div>
+                <input type="range" id="slider-life" min="0" max="100" value="75">
+            </div>
+        </div>
+
+        <div>
+            <div class="section-title">ORBITALS</div>
+            <div class="toggles-group">
+                <div class="toggle-row" id="toggle-rings">
+                    <div class="toggle-pill"></div>
+                    <div class="toggle-label">Rings</div>
+                </div>
+                <div class="toggle-row active" id="toggle-moon">
+                    <div class="toggle-pill"></div>
+                    <div class="toggle-label">Moon</div>
+                </div>
+            </div>
+        </div>
+
+        <div>
+            <div class="section-title">PLANET STATS</div>
+            <div class="stats-grid">
+                <div class="stat-item">
+                    <div class="stat-label">Habitability</div>
+                    <div class="stat-value" id="stat-hab">73%</div>
+                    <div class="habitability-bar-container">
+                        <div class="habitability-bar" id="stat-hab-bar" style="width: 73%;"></div>
+                    </div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">Danger Level</div>
+                    <div class="stat-value" id="stat-danger">Low</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">Size Class</div>
+                    <div class="stat-value" id="stat-size">Standard</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">Age (Years)</div>
+                    <div class="stat-value" id="stat-age">4.5B</div>
+                </div>
+            </div>
+        </div>
+
+        <div>
+            <button class="btn-generate" id="btn-story">⚡ GENERATE CIVILISATION</button>
+            <div class="story-box" id="story-box"></div>
+        </div>
+
+    </div>
+
+    <button id="mute-btn">🔊</button>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        const state = {
+            name: "TERRA NOVA",
+            terrain: "forest",
+            water: 60,
+            atmosphere: 70,
+            temperature: 45,
+            life: 75,
+            rings: false,
+            moon: true,
+            sizeClass: "Standard",
+            age: "4.5",
+            muted: false
+        };
+
+        const terrainConfig = {
+            desert: { colors: ['#c8860a', '#a06008', '#daa520'], accent: '#c8860a' },
+            forest: { colors: ['#2d5a1b', '#1a3d0f', '#4a7c2f'], accent: '#2d5a1b' },
+            ice: { colors: ['#e8f4f8', '#b8d4e0', '#ffffff'], accent: '#b8d4e0' },
+            volcanic: { colors: ['#1a0a00', '#3d1500', '#ff4400'], accent: '#ff4400' },
+            ocean: { colors: ['#0a3d6b', '#0d5299', '#1a6bb5'], accent: '#0a3d6b' },
+            alien: { colors: ['#4b0082', '#7b1fa2', '#00e676'], accent: '#7b1fa2' }
+        };
+
+        // --- AUDIO SYSTEM ---
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        let ambientOsc1, ambientOsc2, ambientOsc3, lfo, ambientGain;
+
+        function initAudio() {
+            if (ambientOsc1) return;
+
+            ambientGain = audioCtx.createGain();
+            ambientGain.gain.value = state.muted ? 0 : 1;
+
+            const filter = audioCtx.createBiquadFilter();
+            filter.type = 'lowpass';
+            filter.frequency.value = 800;
+
+            ambientGain.connect(filter);
+            filter.connect(audioCtx.destination);
+
+            ambientOsc1 = audioCtx.createOscillator();
+            ambientOsc1.type = 'sine';
+            ambientOsc1.frequency.value = 55;
+            const gain1 = audioCtx.createGain();
+            gain1.gain.value = 0.05;
+            ambientOsc1.connect(gain1).connect(ambientGain);
+
+            ambientOsc2 = audioCtx.createOscillator();
+            ambientOsc2.type = 'sine';
+            ambientOsc2.frequency.value = 110;
+            const gain2 = audioCtx.createGain();
+            gain2.gain.value = 0.02;
+            ambientOsc2.connect(gain2).connect(ambientGain);
+
+            ambientOsc3 = audioCtx.createOscillator();
+            ambientOsc3.type = 'sine';
+            ambientOsc3.frequency.value = 165;
+            const gain3 = audioCtx.createGain();
+            gain3.gain.value = 0.02;
+
+            lfo = audioCtx.createOscillator();
+            lfo.type = 'sine';
+            lfo.frequency.value = 0.1;
+            const lfoGain = audioCtx.createGain();
+            lfoGain.gain.value = 5;
+            lfo.connect(lfoGain).connect(ambientOsc3.frequency);
+
+            ambientOsc3.connect(gain3).connect(ambientGain);
+
+            ambientOsc1.start();
+            ambientOsc2.start();
+            ambientOsc3.start();
+            lfo.start();
+        }
+
+        function playSound(type) {
+            if (state.muted) return;
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+
+            const now = audioCtx.currentTime;
+
+            switch (type) {
+                case 'slider':
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(400, now);
+                    osc.frequency.exponentialRampToValueAtTime(600, now + 0.08);
+                    gain.gain.setValueAtTime(0.1, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.08);
+                    osc.start(now);
+                    osc.stop(now + 0.08);
+                    break;
+                case 'terrain':
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(600, now);
+                    gain.gain.setValueAtTime(0.15, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.06);
+                    osc.start(now);
+                    osc.stop(now + 0.06);
+                    break;
+                case 'story':
+                    const freqs = [400, 600, 800];
+                    freqs.forEach((f, i) => {
+                        const o = audioCtx.createOscillator();
+                        const g = audioCtx.createGain();
+                        o.type = 'sine';
+                        o.frequency.value = f;
+                        o.connect(g);
+                        g.connect(audioCtx.destination);
+                        const t = now + i * 0.08;
+                        g.gain.setValueAtTime(0.1, t);
+                        g.gain.exponentialRampToValueAtTime(0.01, t + 0.08);
+                        o.start(t);
+                        o.stop(t + 0.08);
+                    });
+                    break;
+                case 'toggleOn':
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(800, now);
+                    gain.gain.setValueAtTime(0.1, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+                    osc.start(now);
+                    osc.stop(now + 0.1);
+                    break;
+                case 'toggleOff':
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(400, now);
+                    gain.gain.setValueAtTime(0.1, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+                    osc.start(now);
+                    osc.stop(now + 0.1);
+                    break;
+            }
+        }
+
+        // --- THREE.JS SETUP ---
+        const canvasWrapper = document.getElementById('canvas-wrapper');
+        const canvas = document.getElementById('webgl-canvas');
+
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(45, canvasWrapper.clientWidth / canvasWrapper.clientHeight, 0.1, 1000);
+        camera.position.z = 3;
+
+        const renderer = new THREE.WebGLRenderer({ canvas: canvas, alpha: true, antialias: true });
+        renderer.setSize(canvasWrapper.clientWidth, canvasWrapper.clientHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+        // Lights
+        const ambientLight = new THREE.AmbientLight(0x334466, 0.4);
+        scene.add(ambientLight);
+
+        const dirLight1 = new THREE.DirectionalLight(0xffeedd, 1.2);
+        dirLight1.position.set(5, 3, 5);
+        scene.add(dirLight1);
+
+        const dirLight2 = new THREE.DirectionalLight(0x112244, 0.2);
+        dirLight2.position.set(-5, -2, -3);
+        scene.add(dirLight2);
+
+        // Stars
+        const starGeo = new THREE.BufferGeometry();
+        const starPositions = new Float32Array(2000 * 3);
+        for (let i = 0; i < 2000; i++) {
+            const r = 800 * Math.cbrt(Math.random());
+            const theta = Math.random() * 2 * Math.PI;
+            const phi = Math.acos(2 * Math.random() - 1);
+            starPositions[i * 3] = r * Math.sin(phi) * Math.cos(theta);
+            starPositions[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
+            starPositions[i * 3 + 2] = r * Math.cos(phi);
+        }
+        starGeo.setAttribute('position', new THREE.BufferAttribute(starPositions, 3));
+        const starMat = new THREE.PointsMaterial({ color: 0xffffff, size: 1.5, sizeAttenuation: false });
+        const stars = new THREE.Points(starGeo, starMat);
+        scene.add(stars);
+
+        // Planet Group
+        const planetGroup = new THREE.Group();
+        scene.add(planetGroup);
+
+        const planetGeo = new THREE.SphereGeometry(1, 64, 64);
+        const planetMat = new THREE.MeshPhongMaterial({
+            shininess: 10
+        });
+        const planetMesh = new THREE.Mesh(planetGeo, planetMat);
+        planetGroup.add(planetMesh);
+
+        const atmoGeo = new THREE.SphereGeometry(1.08, 32, 32);
+        const atmoMat = new THREE.MeshPhongMaterial({
+            transparent: true,
+            opacity: 0.4,
+            side: THREE.FrontSide,
+            depthWrite: false,
+            color: 0x2d5a1b
+        });
+        const atmoMesh = new THREE.Mesh(atmoGeo, atmoMat);
+        planetGroup.add(atmoMesh);
+
+        function generateCloudTexture() {
+            const c = document.createElement('canvas');
+            c.width = 512; c.height = 512;
+            const ctx = c.getContext('2d');
+            ctx.fillStyle = 'rgba(255,255,255,0)';
+            ctx.fillRect(0, 0, 512, 512);
+            ctx.fillStyle = 'rgba(255,255,255,0.4)';
+            ctx.filter = 'blur(4px)';
+            for (let i = 0; i < 50; i++) {
+                const px = Math.random() * 512;
+                const py = Math.random() * 512;
+                const rw = 20 + Math.random() * 60;
+                const rh = 10 + Math.random() * 30;
+                ctx.beginPath();
+                ctx.ellipse(px, py, rw, rh, Math.random() * Math.PI, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            return new THREE.CanvasTexture(c);
+        }
+
+        const cloudGeo = new THREE.SphereGeometry(1.03, 32, 32);
+        const cloudMat = new THREE.MeshPhongMaterial({
+            transparent: true,
+            opacity: 0.6,
+            depthWrite: false,
+            map: generateCloudTexture()
+        });
+        const cloudMesh = new THREE.Mesh(cloudGeo, cloudMat);
+        planetGroup.add(cloudMesh);
+
+        function generateRingTexture() {
+            const c = document.createElement('canvas');
+            c.width = 1; c.height = 256;
+            const ctx = c.getContext('2d');
+            const gradient = ctx.createLinearGradient(0, 0, 0, 256);
+            gradient.addColorStop(0, 'rgba(255,255,255,0)');
+            gradient.addColorStop(0.1, 'rgba(255,255,255,0.8)');
+            gradient.addColorStop(0.4, 'rgba(255,255,255,0.2)');
+            gradient.addColorStop(0.8, 'rgba(255,255,255,0.8)');
+            gradient.addColorStop(1, 'rgba(255,255,255,0)');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, 1, 256);
+            return new THREE.CanvasTexture(c);
+        }
+
+        const ringGeo = new THREE.RingGeometry(1.4, 2.2, 64);
+        const ringMat = new THREE.MeshBasicMaterial({
+            color: 0xffffff,
+            side: THREE.DoubleSide,
+            transparent: true,
+            opacity: 0.7,
+            map: generateRingTexture()
+        });
+        const ringMesh = new THREE.Mesh(ringGeo, ringMat);
+        ringMesh.rotation.x = Math.PI * 0.4;
+        ringMesh.visible = false;
+        planetGroup.add(ringMesh);
+
+        const moonGeo = new THREE.SphereGeometry(0.18, 16, 16);
+        function generateMoonTexture() {
+            const c = document.createElement('canvas');
+            c.width = 128; c.height = 128;
+            const ctx = c.getContext('2d');
+            for (let y = 0; y < 128; y += 4) {
+                for (let x = 0; x < 128; x += 4) {
+                    const l = 100 + Math.random() * 50;
+                    ctx.fillStyle = `rgb(${l},${l},${l})`;
+                    ctx.fillRect(x, y, 4, 4);
+                }
+            }
+            return new THREE.CanvasTexture(c);
+        }
+        const moonMat = new THREE.MeshPhongMaterial({ color: 0x888888, map: generateMoonTexture() });
+        const moonMesh = new THREE.Mesh(moonGeo, moonMat);
+        scene.add(moonMesh);
+
+        // --- CORE LOGIC ---
+
+        function updatePlanetTexture() {
+            if (planetMat.map) planetMat.map.dispose();
+            if (planetMat.specularMap) planetMat.specularMap.dispose();
+
+            const tCanvas = document.createElement('canvas');
+            tCanvas.width = 512; tCanvas.height = 512;
+            const ctx = tCanvas.getContext('2d');
+
+            const sCanvas = document.createElement('canvas');
+            sCanvas.width = 512; sCanvas.height = 512;
+            const sCtx = sCanvas.getContext('2d');
+            sCtx.fillStyle = '#000000';
+            sCtx.fillRect(0, 0, 512, 512);
+
+            const colors = terrainConfig[state.terrain].colors;
+
+            for (let y = 0; y < 512; y += 8) {
+                for (let x = 0; x < 512; x += 8) {
+                    ctx.fillStyle = colors[Math.floor(Math.random() * colors.length)];
+                    ctx.fillRect(x, y, 8, 8);
+                }
+            }
+
+            if (state.water > 0) {
+                const patches = Math.floor(state.water * 2);
+                for (let i = 0; i < patches; i++) {
+                    const px = Math.random() * 512;
+                    const py = Math.random() * 512;
+                    const radius = (state.water / 100) * 40 + Math.random() * 20;
+                    ctx.fillStyle = '#1a6bb5';
+                    ctx.beginPath(); ctx.arc(px, py, radius, 0, Math.PI * 2); ctx.fill();
+                    sCtx.fillStyle = '#ffffff';
+                    sCtx.beginPath(); sCtx.arc(px, py, radius, 0, Math.PI * 2); sCtx.fill();
+                }
+            }
+
+            if (state.life > 0 && state.terrain !== 'ice' && state.terrain !== 'volcanic' && state.terrain !== 'ocean') {
+                const patches = Math.floor(state.life);
+                for (let i = 0; i < patches; i++) {
+                    const px = Math.random() * 512;
+                    const py = Math.random() * 512;
+                    const radius = (state.life / 100) * 15 + Math.random() * 10;
+                    ctx.fillStyle = state.terrain === 'alien' ? '#00e676' : '#2d5a1b';
+                    ctx.beginPath(); ctx.arc(px, py, radius, 0, Math.PI * 2); ctx.fill();
+                }
+            }
+
+            if (state.temperature !== 50) {
+                ctx.globalCompositeOperation = state.temperature > 50 ? 'source-atop' : 'source-atop';
+                const tint = state.temperature > 50 ? `rgba(255, 68, 0, ${(state.temperature - 50) / 150})` : `rgba(0, 150, 255, ${(50 - state.temperature) / 150})`;
+                ctx.fillStyle = tint;
+                ctx.fillRect(0, 0, 512, 512);
+                ctx.globalCompositeOperation = 'source-over';
+            }
+
+            planetMat.map = new THREE.CanvasTexture(tCanvas);
+            planetMat.specularMap = new THREE.CanvasTexture(sCanvas);
+            planetMat.shininess = state.water > 0 ? (state.water / 100) * 50 : 5;
+            planetMat.needsUpdate = true;
+        }
+
+        function updateAtmosphere() {
+            const accent = new THREE.Color(terrainConfig[state.terrain].accent);
+            atmoMat.color = accent;
+            atmoMat.opacity = (state.atmosphere / 100) * 0.4;
+            cloudMesh.visible = state.atmosphere > 40;
+            cloudMat.opacity = (state.atmosphere / 100) * 0.6;
+        }
+
+        function updateAccentColor() {
+            document.documentElement.style.setProperty('--accent', terrainConfig[state.terrain].accent);
+        }
+
+        function calculateStats() {
+            const hab = Math.floor(state.water * 0.3 + state.atmosphere * 0.4 + state.life * 0.3);
+            document.getElementById('stat-hab').innerText = hab + '%';
+            const habBar = document.getElementById('stat-hab-bar');
+            habBar.style.width = hab + '%';
+            habBar.style.backgroundColor = hab > 60 ? '#00e676' : hab > 30 ? '#daa520' : '#ff4400';
+
+            let danger = "Low";
+            if (state.temperature > 80 || state.temperature < 20 || state.terrain === 'volcanic' || state.atmosphere < 20) danger = "High";
+            else if (state.temperature > 60 || state.temperature < 35 || state.water < 20) danger = "Medium";
+            document.getElementById('stat-danger').innerText = danger;
+            document.getElementById('stat-danger').style.color = danger === "High" ? '#ff4400' : danger === "Medium" ? '#daa520' : '#00e676';
+        }
+
+        function randomizeStatsOnNameChange() {
+            const sizes = ["Dwarf", "Standard", "Super", "Giant"];
+            state.sizeClass = sizes[Math.floor(Math.random() * sizes.length)];
+            state.age = (Math.random() * 11 + 1).toFixed(1);
+
+            document.getElementById('stat-size').innerText = state.sizeClass;
+            document.getElementById('stat-age').innerText = state.age + 'B';
+            document.getElementById('display-sub').innerText = `Class ${state.sizeClass} · Age: ${state.age} billion years`;
+        }
+
+        // --- UI EVENTS ---
+
+        document.getElementById('planet-name').addEventListener('input', (e) => {
+            state.name = e.target.value || "UNKNOWN";
+            document.getElementById('display-name').innerText = state.name;
+            initAudio();
+        });
+        document.getElementById('planet-name').addEventListener('change', (e) => {
+            randomizeStatsOnNameChange();
+        });
+
+        document.querySelectorAll('.terrain-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                document.querySelectorAll('.terrain-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                state.terrain = btn.getAttribute('data-terrain');
+
+                updateAccentColor();
+                updatePlanetTexture();
+                updateAtmosphere();
+                calculateStats();
+                playSound('terrain');
+                initAudio();
+            });
+        });
+
+        ['water', 'atmosphere', 'temperature', 'life'].forEach(prop => {
+            const slider = document.getElementById(`slider-${prop}`);
+            const valDisplay = document.getElementById(`val-${prop}`);
+            slider.addEventListener('input', (e) => {
+                state[prop] = parseInt(e.target.value);
+                valDisplay.innerText = state[prop] + '%';
+
+                updatePlanetTexture();
+                updateAtmosphere();
+                calculateStats();
+                playSound('slider');
+                initAudio();
+            });
+        });
+
+        document.getElementById('toggle-rings').addEventListener('click', (e) => {
+            state.rings = !state.rings;
+            e.currentTarget.classList.toggle('active', state.rings);
+            ringMesh.visible = state.rings;
+            playSound(state.rings ? 'toggleOn' : 'toggleOff');
+            initAudio();
+        });
+
+        document.getElementById('toggle-moon').addEventListener('click', (e) => {
+            state.moon = !state.moon;
+            e.currentTarget.classList.toggle('active', state.moon);
+            moonMesh.visible = state.moon;
+            playSound(state.moon ? 'toggleOn' : 'toggleOff');
+            initAudio();
+        });
+
+        // --- STORY GEN ---
+
+        function generateStory() {
+            const name = state.name;
+            const openings = {
+                desert: `The twin suns of ${name} have baked its surface for`,
+                forest: `Ancient trees older than memory cover every inch of ${name} —`,
+                ice: `Beneath the eternal glaciers of ${name} lies`,
+                volcanic: `${name} was born screaming — its volcanoes`,
+                ocean: `There is no land on ${name}. There never was.`,
+                alien: `The laws of physics work differently on ${name}.`
+            };
+
+            const lifeDesc = state.life > 70
+                ? `Civilisations have risen and fallen here ${Math.floor(state.life / 20)} times.`
+                : state.life > 40
+                    ? `Simple life clings to existence in the most unlikely places.`
+                    : state.life > 10
+                        ? `Only microbial life survives the conditions here.`
+                        : `Nothing lives here. Nothing ever has.`;
+
+            const waterDesc = state.water > 70
+                ? `Vast oceans cover most of the surface, hiding secrets in their depths.`
+                : state.water > 40
+                    ? `Rivers and lakes dot the landscape, giving life a chance.`
+                    : state.water > 10
+                        ? `Water is precious here — fought over and worshipped.`
+                        : `Not a drop of liquid water exists on the surface.`;
+
+            const tempDesc = state.temperature > 80
+                ? `The heat is unbearable — metals melt in the afternoon.`
+                : state.temperature > 60
+                    ? `Warm and volatile — seasons are extreme and unpredictable.`
+                    : state.temperature > 40
+                        ? `A temperate world by galactic standards.`
+                        : state.temperature > 20
+                            ? `Cold but survivable — life here is tough.`
+                            : `Frozen to the core — even the atmosphere crystallises at night.`;
+
+            const atmoDesc = state.atmosphere > 70
+                ? `A thick atmosphere traps heat and filters radiation perfectly.`
+                : state.atmosphere > 40
+                    ? `A breathable atmosphere exists — thin but functional.`
+                    : `Almost no atmosphere — the sky is just a thin suggestion.`;
+
+            const endings = [
+                `Explorers who visit ${name} rarely want to leave.`,
+                `${name} has been on every astronomer's watchlist for decades.`,
+                `The galaxy council classifies ${name} as "worth investigating further."`,
+                `Whatever happens next on ${name} — the universe is watching.`
+            ];
+
+            return `${openings[state.terrain]} ${state.age} billion years. ${lifeDesc} ${waterDesc} ${tempDesc} ${atmoDesc} ${endings[Math.floor(Math.random() * endings.length)]}`;
+        }
+
+        let typeTimeout;
+        document.getElementById('btn-story').addEventListener('click', () => {
+            initAudio();
+            playSound('story');
+
+            const text = generateStory();
+            const box = document.getElementById('story-box');
+            box.style.display = 'block';
+            box.innerText = '';
+
+            clearTimeout(typeTimeout);
+            let i = 0;
+            function typeChar() {
+                if (i <= text.length) {
+                    box.textContent = text.slice(0, i);
+                    i++;
+                    typeTimeout = setTimeout(typeChar, 20);
+                }
+            }
+            typeChar();
+        });
+
+        document.getElementById('mute-btn').addEventListener('click', (e) => {
+            state.muted = !state.muted;
+            e.target.innerText = state.muted ? '🔇' : '🔊';
+            if (ambientGain) {
+                ambientGain.gain.setValueAtTime(state.muted ? 0 : 1, audioCtx.currentTime);
+            }
+        });
+
+        // --- CAMERA INTERACTION ---
+
+        let isDragging = false;
+        let previousMousePosition = { x: 0, y: 0 };
+
+        canvasWrapper.addEventListener('mousedown', (e) => {
+            isDragging = true;
+            previousMousePosition = { x: e.offsetX, y: e.offsetY };
+            initAudio();
+        });
+        canvasWrapper.addEventListener('mousemove', (e) => {
+            if (isDragging) {
+                const deltaMove = {
+                    x: e.offsetX - previousMousePosition.x,
+                    y: e.offsetY - previousMousePosition.y
+                };
+                planetGroup.rotation.y += deltaMove.x * 0.005;
+                planetGroup.rotation.x += deltaMove.y * 0.005;
+                previousMousePosition = { x: e.offsetX, y: e.offsetY };
+            }
+        });
+        canvasWrapper.addEventListener('mouseup', () => { isDragging = false; });
+        canvasWrapper.addEventListener('mouseleave', () => { isDragging = false; });
+
+        canvasWrapper.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            camera.position.z += e.deltaY * 0.005;
+            camera.position.z = Math.max(2, Math.min(5, camera.position.z));
+            initAudio();
+        });
+
+        canvasWrapper.addEventListener('touchstart', (e) => {
+            isDragging = true;
+            previousMousePosition = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+            initAudio();
+        });
+        canvasWrapper.addEventListener('touchmove', (e) => {
+            if (isDragging) {
+                const deltaMove = {
+                    x: e.touches[0].clientX - previousMousePosition.x,
+                    y: e.touches[0].clientY - previousMousePosition.y
+                };
+                planetGroup.rotation.y += deltaMove.x * 0.005;
+                planetGroup.rotation.x += deltaMove.y * 0.005;
+                previousMousePosition = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+            }
+        });
+        canvasWrapper.addEventListener('touchend', () => { isDragging = false; });
+
+        // --- ANIMATION LOOP & INIT ---
+
+        let time = 0;
+        function animate() {
+            requestAnimationFrame(animate);
+
+            planetGroup.rotation.y += 0.003;
+            cloudMesh.rotation.y += 0.004;
+            stars.rotation.y += 0.00005;
+
+            if (state.moon) {
+                time += 0.01;
+                moonMesh.position.x = Math.cos(time * 0.5) * 2.2;
+                moonMesh.position.z = Math.sin(time * 0.5) * 2.2;
+                // keep moon aligned relative to camera perspective to see orbit better
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        window.addEventListener('resize', () => {
+            camera.aspect = canvasWrapper.clientWidth / canvasWrapper.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(canvasWrapper.clientWidth, canvasWrapper.clientHeight);
+        });
+
+        function init() {
+            updateAccentColor();
+            updatePlanetTexture();
+            updateAtmosphere();
+            calculateStats();
+            randomizeStatsOnNameChange();
+
+            // Generate initial story
+            const text = generateStory();
+            const box = document.getElementById('story-box');
+            box.style.display = 'block';
+            let i = 0;
+            function typeChar() {
+                if (i < text.length) {
+                    box.innerText += text.charAt(i);
+                    i++;
+                    typeTimeout = setTimeout(typeChar, 20);
+                }
+            }
+            typeChar();
+
+            animate();
+        }
+
+        init();
+
+    </script>
+</body>
+
+</html>
