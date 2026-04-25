@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>universe_scale</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;600&display=swap');
+
+  body, html { margin: 0; padding: 0; height: 500vh; background: #000; color: #fff; font-family: 'Space Grotesk', sans-serif; overflow-x: hidden; }
+
+  #viewport {
+    position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+    display: flex; align-items: center; justify-content: center; z-index: 1; pointer-events: none;
+  }
+
+  /* SVG Canvas for shapes */
+  svg { position: absolute; overflow: visible; }
+  
+  .circle { fill: transparent; stroke: #fff; stroke-width: 1px; transition: all 0.1s; }
+  .filled { fill: rgba(255,255,255,0.1); }
+
+  #info-panel {
+    position: fixed; bottom: 40px; left: 40px; z-index: 10;
+    max-width: 400px;
+  }
+  
+  #scale-val { font-size: 1.5rem; color: #888; font-weight: 300; }
+  #title { font-size: 3rem; font-weight: 600; margin: 10px 0; text-shadow: 0 0 20px rgba(255,255,255,0.5); }
+  #desc { font-size: 1.1rem; line-height: 1.5; color: #bbb; }
+
+  #scroll-hint {
+    position: fixed; top: 40px; left: 40px; font-size: 1rem; color: #666; letter-spacing: 2px;
+    animation: bounce 2s infinite; z-index: 10;
+  }
+  @keyframes bounce { 0%,100% { transform: translateY(0); } 50% { transform: translateY(10px); } }
+
+</style>
+</head>
+<body>
+
+<div id="scroll-hint">SCROLL TO ZOOM</div>
+
+<div id="viewport">
+  <svg id="svg" width="100%" height="100%">
+    <circle id="main-circle" cx="50%" cy="50%" r="0" class="circle filled"></circle>
+  </svg>
+</div>
+
+<div id="info-panel">
+  <div id="scale-val">10^0 m</div>
+  <div id="title">Human</div>
+  <div id="desc">You are here. A collection of trillions of cells experiencing the cosmos.</div>
+</div>
+
+<script>
+  const data = [
+    { exp: -35, name: "Planck Length", desc: "The smallest measurable distance in physics.", r: 2 },
+    { exp: -15, name: "Proton", desc: "Building block of atomic nuclei.", r: 5 },
+    { exp: -10, name: "Atom", desc: "A cloud of electrons orbiting a nucleus.", r: 20 },
+    { exp: -6, name: "Bacteria", desc: "Single-celled organism.", r: 50 },
+    { exp: -3, name: "Ant", desc: "Small insect.", r: 100 },
+    { exp: 0, name: "Human", desc: "You are here.", r: 200 },
+    { exp: 4, name: "Mount Everest", desc: "Highest mountain on Earth.", r: 400 },
+    { exp: 7, name: "Earth", desc: "Our home planet.", r: 600 },
+    { exp: 9, name: "Sun", desc: "The star at the center of our Solar System.", r: 800 },
+    { exp: 13, name: "Solar System", desc: "Our star and its planetary system.", r: 1000 },
+    { exp: 21, name: "Milky Way", desc: "Our home galaxy containing billions of stars.", r: 1500 },
+    { exp: 26, name: "Observable Universe", desc: "The limit of what we can see.", r: 2000 }
+  ];
+
+  const minExp = data[0].exp;
+  const maxExp = data[data.length-1].exp;
+
+  // Audio Context
+  let actx, droneOsc, lpf;
+  function initAudio() {
+    if(actx) return;
+    actx = new (window.AudioContext || window.webkitAudioContext)();
+    droneOsc = actx.createOscillator(); droneOsc.type = 'triangle'; droneOsc.frequency.value = 55;
+    
+    lpf = actx.createBiquadFilter(); lpf.type = 'lowpass'; lpf.frequency.value = 200;
+    
+    let g = actx.createGain(); g.gain.value = 0.2;
+    droneOsc.connect(lpf); lpf.connect(g); g.connect(actx.destination);
+    droneOsc.start();
+  }
+  document.body.addEventListener('click', initAudio, {once:true});
+  window.addEventListener('scroll', () => { if(!actx) initAudio(); });
+
+  const mainCircle = document.getElementById('main-circle');
+  const title = document.getElementById('title');
+  const desc = document.getElementById('desc');
+  const scaleVal = document.getElementById('scale-val');
+
+  window.addEventListener('scroll', () => {
+    let scrollRatio = window.scrollY / (document.body.scrollHeight - window.innerHeight);
+    let currentExp = minExp + scrollRatio * (maxExp - minExp);
+    
+    // Find closest data point
+    let closest = data[0];
+    let minDist = Math.abs(currentExp - closest.exp);
+    for(let i=1; i<data.length; i++) {
+      let d = Math.abs(currentExp - data[i].exp);
+      if(d < minDist) { minDist = d; closest = data[i]; }
+    }
+
+    title.innerText = closest.name;
+    desc.innerText = closest.desc;
+    scaleVal.innerText = `10^${Math.round(currentExp)} meters`;
+
+    // Visual scale mapping
+    let visualRadius = 10 + Math.pow((currentExp - minExp) / (maxExp - minExp), 2) * 1500;
+    mainCircle.setAttribute('r', visualRadius);
+
+    // Audio modification based on scale
+    if(lpf) {
+      // Deeper sound for large scales, higher for small scales
+      lpf.frequency.value = 100 + (1 - scrollRatio) * 2000;
+      droneOsc.frequency.value = 30 + (1 - scrollRatio) * 100;
+    }
+  });
+
+</script>
+</body>
+</html>
