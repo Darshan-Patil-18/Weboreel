@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>budget_arena</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
+  body, html {
+    margin: 0; padding: 0; min-height: 100vh; background: #1a1a1a; color: #fff;
+    font-family: 'Press Start 2P', cursive; display: flex; flex-direction: column; align-items: center;
+  }
+
+  header { width: 100%; padding: 20px; text-align: center; background: #000; border-bottom: 4px solid #444; }
+  h1 { font-size: 20px; color: #f1c40f; text-shadow: 2px 2px #e67e22; margin: 0; }
+  .total-gold { margin-top: 10px; color: #f39c12; font-size: 14px; }
+
+  .arena {
+    width: 90%; max-width: 800px; margin-top: 30px; display: flex; flex-direction: column; gap: 20px;
+  }
+
+  .boss-card {
+    background: #2c3e50; border: 4px solid #34495e; padding: 20px; border-radius: 8px;
+    display: flex; flex-direction: column; gap: 10px; position: relative;
+  }
+
+  .boss-header { display: flex; justify-content: space-between; align-items: center; }
+  .boss-name { font-size: 12px; color: #ecf0f1; }
+  .boss-hp-text { font-size: 10px; color: #bdc3c7; }
+
+  .hp-bar-bg { width: 100%; height: 20px; background: #000; border: 2px solid #555; position: relative; }
+  .hp-bar-fill { height: 100%; background: #2ecc71; width: 100%; transition: width 0.3s, background 0.3s; }
+
+  .controls { display: flex; gap: 10px; margin-top: 10px; }
+  .btn-attack {
+    background: #e74c3c; color: white; border: 2px solid #c0392b; font-family: inherit;
+    font-size: 10px; padding: 10px; cursor: pointer; flex-grow: 1; transition: transform 0.1s;
+  }
+  .btn-attack:active { transform: translateY(2px); }
+  .btn-heal { background: #3498db; border-color: #2980b9; }
+
+  /* Damage Popups */
+  .dmg-popup {
+    position: absolute; color: #ff0000; font-size: 14px; font-weight: bold;
+    pointer-events: none; animation: floatUp 1s forwards; text-shadow: 1px 1px 0 #000; z-index: 10;
+  }
+  @keyframes floatUp { 0% { transform: translateY(0); opacity: 1; } 100% { transform: translateY(-30px); opacity: 0; } }
+
+  .add-boss {
+    background: #000; color: #2ecc71; border: 4px dashed #2ecc71; font-family: inherit; font-size: 12px;
+    padding: 20px; cursor: pointer; margin-top: 20px;
+  }
+  .add-boss:hover { background: #111; }
+
+</style>
+</head>
+<body>
+
+<header>
+  <h1>BUDGET ARENA</h1>
+  <div class="total-gold" id="total-gold">TOTAL GOLD: $0</div>
+</header>
+
+<div class="arena" id="arena"></div>
+<button class="add-boss" onclick="addCategory()">+ SUMMON NEW EXPENSE BOSS</button>
+
+<script>
+  let actx;
+  function initAudio() { if(!actx) actx = new (window.AudioContext || window.webkitAudioContext)(); }
+
+  function playHit() {
+    if(!actx) return;
+    const osc = actx.createOscillator(); osc.type = 'sawtooth';
+    const g = actx.createGain();
+    osc.frequency.setValueAtTime(150, actx.currentTime); osc.frequency.exponentialRampToValueAtTime(10, actx.currentTime+0.1);
+    g.gain.setValueAtTime(0.3, actx.currentTime); g.gain.exponentialRampToValueAtTime(0.001, actx.currentTime+0.1);
+    osc.connect(g); g.connect(actx.destination); osc.start(); osc.stop(actx.currentTime+0.1);
+  }
+
+  function playHeal() {
+    if(!actx) return;
+    const osc = actx.createOscillator(); osc.type = 'square';
+    const g = actx.createGain();
+    osc.frequency.setValueAtTime(400, actx.currentTime); osc.frequency.linearRampToValueAtTime(800, actx.currentTime+0.1);
+    g.gain.setValueAtTime(0.2, actx.currentTime); g.gain.exponentialRampToValueAtTime(0.001, actx.currentTime+0.2);
+    osc.connect(g); g.connect(actx.destination); osc.start(); osc.stop(actx.currentTime+0.2);
+  }
+
+  let categories = [
+    { id: 1, name: "GROCERIES GOBLIN", budget: 400, spent: 150 },
+    { id: 2, name: "RENT DRAGON", budget: 1500, spent: 1500 },
+    { id: 3, name: "ENTERTAINMENT SLIME", budget: 200, spent: 50 }
+  ];
+
+  function render() {
+    const arena = document.getElementById('arena');
+    arena.innerHTML = '';
+    let totalSpent = 0;
+
+    categories.forEach((cat, index) => {
+      totalSpent += cat.spent;
+      const pct = Math.max(0, 100 - (cat.spent / cat.budget * 100));
+      
+      let color = '#2ecc71';
+      if(pct < 50) color = '#f1c40f';
+      if(pct < 20) color = '#e74c3c';
+      if(pct === 0) color = '#000'; // Dead boss
+
+      const el = document.createElement('div');
+      el.className = 'boss-card';
+      el.innerHTML = `
+        <div class="boss-header">
+          <div class="boss-name">${cat.name}</div>
+          <div class="boss-hp-text">HP: $${cat.budget - cat.spent} / $${cat.budget}</div>
+        </div>
+        <div class="hp-bar-bg">
+          <div class="hp-bar-fill" style="width: ${pct}%; background: ${color}"></div>
+        </div>
+        <div class="controls">
+          <button class="btn-attack" onclick="spend(${index}, 10, event)">ATTACK ($10)</button>
+          <button class="btn-attack" onclick="spend(${index}, 50, event)">STRONG ATK ($50)</button>
+          <button class="btn-attack btn-heal" onclick="heal(${index}, 10, event)">HEAL (+$10)</button>
+        </div>
+      `;
+      arena.appendChild(el);
+    });
+
+    document.getElementById('total-gold').innerText = `TOTAL SPENT: $${totalSpent}`;
+  }
+
+  function spawnDamage(x, y, amount, isHeal) {
+    const d = document.createElement('div');
+    d.className = 'dmg-popup';
+    d.innerText = isHeal ? `+${amount}` : `-${amount}`;
+    if(isHeal) d.style.color = '#2ecc71';
+    d.style.left = (x - 20 + Math.random()*40) + 'px';
+    d.style.top = (y - 20) + 'px';
+    document.body.appendChild(d);
+    setTimeout(() => d.remove(), 1000);
+  }
+
+  window.spend = function(idx, amount, event) {
+    initAudio(); playHit();
+    if(categories[idx].spent + amount <= categories[idx].budget) {
+      categories[idx].spent += amount;
+    } else {
+      categories[idx].spent = categories[idx].budget; // dead
+    }
+    spawnDamage(event.clientX, event.clientY, amount, false);
+    render();
+  };
+
+  window.heal = function(idx, amount, event) {
+    initAudio(); playHeal();
+    if(categories[idx].spent - amount >= 0) {
+      categories[idx].spent -= amount;
+    } else {
+      categories[idx].spent = 0;
+    }
+    spawnDamage(event.clientX, event.clientY, amount, true);
+    render();
+  };
+
+  window.addCategory = function() {
+    let name = prompt("Enter Boss Name (Category):", "UTILITY BEAST");
+    let budget = parseInt(prompt("Enter Boss Max HP (Budget):", "200"));
+    if(name && !isNaN(budget)) {
+      categories.push({ id: Date.now(), name: name.toUpperCase(), budget: budget, spent: 0 });
+      render();
+    }
+  };
+
+  render();
+</script>
+</body>
+</html>
