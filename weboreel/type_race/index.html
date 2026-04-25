@@ -1,0 +1,1746 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Type Race</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Rajdhani:wght@700&family=Space+Mono&display=swap');
+
+        :root {
+            --bg: #08080f;
+            --accent: #00aaff;
+            --accent-dim: rgba(0, 170, 255, 0.15);
+            --correct: #00ff88;
+            --error: #ff3333;
+            --text-main: #ffffff;
+            --text-dim: rgba(255, 255, 255, 0.5);
+            --text-dark: #666666;
+            --rank-turtle: #888888;
+            --rank-sloth: #8b5a2b;
+            --rank-walker: #ffffff;
+            --rank-runner: #00aaff;
+            --rank-cyclist: #00ff88;
+            --rank-speedster: #ffcc00;
+            --rank-pilot: #ff8800;
+            --rank-rocket: #ff3333;
+            --rank-lightning: #ffd700;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text-main);
+            font-family: 'Rajdhani', sans-serif;
+            overflow: hidden;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        /* Ambient Backgrounds */
+        .vignette {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: radial-gradient(circle at center, transparent 30%, #000000 100%);
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        .grain {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            opacity: 0.03;
+            pointer-events: none;
+            z-index: 11;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+        }
+
+        .spotlight {
+            position: fixed;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            width: 120vw; height: 120vh;
+            background: radial-gradient(circle at center, rgba(0, 170, 255, 0.05) 0%, transparent 60%);
+            pointer-events: none;
+            z-index: -1;
+        }
+
+        .speed-lines {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            z-index: -2;
+            overflow: hidden;
+        }
+
+        .speed-line {
+            position: absolute;
+            height: 1px;
+            background: rgba(255, 255, 255, 0.02);
+            transform: rotate(-15deg);
+            animation: sweep linear infinite;
+        }
+
+        @keyframes sweep {
+            from { left: -100%; }
+            to { left: 200%; }
+        }
+
+        /* Screen Management */
+        .screen {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.6s ease;
+            z-index: 1;
+            padding: 2rem;
+        }
+
+        .screen.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        /* Audio Toggle */
+        #audio-toggle {
+            position: fixed;
+            top: 20px; right: 20px;
+            font-size: 1.5rem;
+            cursor: pointer;
+            z-index: 100;
+            opacity: 0.5;
+            transition: opacity 0.3s;
+        }
+        #audio-toggle:hover { opacity: 1; }
+
+        /* Buttons & Inputs */
+        button {
+            font-family: 'Rajdhani', sans-serif;
+            cursor: pointer;
+            border: none;
+            outline: none;
+            background: transparent;
+            color: var(--text-main);
+            transition: all 0.2s;
+        }
+
+        .glass-pill {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 0.5rem 1.5rem;
+            border-radius: 50px;
+            font-size: 1.2rem;
+            letter-spacing: 1px;
+            backdrop-filter: blur(5px);
+        }
+
+        .glass-pill:hover, .glass-pill.active {
+            background: var(--accent-dim);
+            border-color: var(--accent);
+            box-shadow: 0 0 15px rgba(0, 170, 255, 0.2);
+        }
+
+        /* Typography Defaults */
+        h1, h2, .bebas { font-family: 'Bebas Neue', cursive; }
+        .mono { font-family: 'Space Mono', monospace; }
+
+        /* START SCREEN */
+        #start-screen .badge {
+            color: var(--accent);
+            letter-spacing: 0.5em;
+            font-size: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        #start-screen h1 {
+            font-size: clamp(5rem, 15vw, 10rem);
+            line-height: 0.9;
+            text-align: center;
+            margin-bottom: 1rem;
+        }
+
+        .title-outline {
+            -webkit-text-stroke: 2px var(--text-main);
+            color: transparent;
+        }
+
+        #start-screen .subtitle {
+            color: var(--text-dark);
+            font-size: 1.2rem;
+            margin-bottom: 3rem;
+        }
+
+        .diff-selector {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 3rem;
+        }
+
+        .diff-label {
+            letter-spacing: 0.4em;
+            color: var(--text-dark);
+            font-size: 0.9rem;
+        }
+
+        .diff-buttons {
+            display: flex;
+            gap: 1rem;
+        }
+
+        .pb-display {
+            font-size: 0.9rem;
+            color: var(--accent);
+            margin-bottom: 2rem;
+            padding: 0.5rem 1rem;
+            background: rgba(0, 170, 255, 0.1);
+            border-radius: 4px;
+            display: none;
+        }
+
+        .btn-start {
+            background: linear-gradient(135deg, #00aaff, #0066ff);
+            font-family: 'Bebas Neue', cursive;
+            font-size: 2.5rem;
+            padding: 0.8rem 4rem;
+            border-radius: 50px;
+            box-shadow: 0 10px 30px rgba(0, 170, 255, 0.4);
+            letter-spacing: 2px;
+            margin-bottom: 1rem;
+        }
+
+        .btn-start:hover {
+            transform: scale(1.04);
+            box-shadow: 0 10px 40px rgba(0, 170, 255, 0.6);
+        }
+
+        .pro-tip {
+            font-size: 0.8rem;
+            color: var(--text-dark);
+            font-style: italic;
+        }
+
+        /* RACE SCREEN */
+        .hud {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 2rem;
+            width: 100%;
+            max-width: 1000px;
+            margin-bottom: 2rem;
+            text-align: center;
+        }
+
+        .metric-value {
+            font-size: clamp(2.5rem, 5vw, 4rem);
+            line-height: 1;
+        }
+
+        .metric-label {
+            color: var(--text-dark);
+            font-size: 0.9rem;
+            letter-spacing: 1px;
+            margin-top: 0.5rem;
+        }
+
+        /* WPM Colors */
+        .wpm-grey { color: #888; }
+        .wpm-blue { color: #00aaff; text-shadow: 0 0 10px rgba(0,170,255,0.5); }
+        .wpm-green { color: #00ff88; text-shadow: 0 0 10px rgba(0,255,136,0.5); }
+        .wpm-yellow { color: #ffcc00; text-shadow: 0 0 10px rgba(255,204,0,0.5); }
+        .wpm-orange { color: #ff8800; text-shadow: 0 0 10px rgba(255,136,0,0.5); }
+        .wpm-red { color: #ff3333; text-shadow: 0 0 15px rgba(255,51,51,0.8); animation: pulse 0.5s infinite alternate; }
+
+        @keyframes pulse {
+            from { transform: scale(1); }
+            to { transform: scale(1.05); }
+        }
+
+        .acc-high { color: var(--correct); }
+        .acc-med { color: var(--rank-speedster); }
+        .acc-low { color: var(--error); }
+        
+        .timer-low { color: var(--error); animation: pulse 0.5s infinite alternate; }
+
+        .ghost-behind { color: #888; }
+        .ghost-ahead { color: var(--accent); }
+
+        .race-track-container {
+            width: 100%;
+            max-width: 1000px;
+            margin-bottom: 3rem;
+        }
+
+        .track {
+            position: relative;
+            height: 8px;
+            width: 100%;
+            background: rgba(255,255,255,0.05);
+            margin: 2rem 0;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+        }
+
+        .track::after {
+            content: '';
+            position: absolute;
+            left: 0; top: 3px;
+            width: 100%; height: 2px;
+            background: repeating-linear-gradient(90deg, rgba(255,255,255,0.2) 0, rgba(255,255,255,0.2) 10px, transparent 10px, transparent 20px);
+        }
+
+        .track-label {
+            position: absolute;
+            left: -80px;
+            width: 70px;
+            text-align: right;
+            font-size: 0.9rem;
+            color: var(--text-dim);
+        }
+
+        .car {
+            position: absolute;
+            top: -6px;
+            left: 0%;
+            width: 0; height: 0;
+            border-top: 10px solid transparent;
+            border-bottom: 10px solid transparent;
+            border-left: 15px solid;
+            transition: left 0.3s linear;
+            z-index: 2;
+        }
+
+        .car-user { border-left-color: var(--accent); }
+        .car-user.glowing {
+            filter: drop-shadow(0 0 8px var(--accent));
+        }
+        .car-ghost { border-left-color: rgba(255,255,255,0.3); }
+
+        .track-status {
+            position: absolute;
+            top: -25px;
+            font-size: 0.8rem;
+            font-weight: bold;
+            transform: translateX(-50%);
+        }
+
+        .track-status.ahead { color: var(--correct); }
+        .track-status.behind { color: var(--error); }
+
+        .typing-area {
+            position: relative;
+            width: min(1000px, 95vw);
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 12px;
+            padding: clamp(1.5rem, 4vw, 2.5rem);
+            font-size: clamp(1.1rem, 2.5vw, 1.4rem);
+            line-height: 2;
+            cursor: text;
+        }
+
+        .hidden-input {
+            position: absolute;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .char {
+            color: rgba(255,255,255,0.3);
+            position: relative;
+        }
+
+        .char.correct { color: var(--correct); }
+        .char.wrong {
+            background-color: var(--error);
+            color: white;
+            border-radius: 2px;
+        }
+
+        .word.error-word {
+            text-decoration: underline wavy var(--error) 2px;
+            text-underline-offset: 4px;
+        }
+
+        .cursor {
+            position: absolute;
+            width: 2px;
+            height: 1.2em;
+            background-color: var(--accent);
+            animation: blink 1.06s infinite step-end;
+            margin-top: 0.4em;
+            transition: left 0.05s, top 0.05s;
+            pointer-events: none;
+        }
+
+        .cursor.no-blink { animation: none; opacity: 1; }
+
+        @keyframes blink {
+            50% { opacity: 0; }
+        }
+
+        .progress-bar-container {
+            width: min(1000px, 95vw);
+            margin-top: 1.5rem;
+            text-align: center;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 3px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 2px;
+            overflow: hidden;
+            margin-bottom: 0.5rem;
+        }
+
+        .progress-fill {
+            height: 100%;
+            width: 0%;
+            background: var(--accent);
+            transition: width 0.2s linear;
+        }
+
+        .progress-text {
+            font-size: 0.8rem;
+            color: var(--text-dark);
+        }
+
+        /* Countdown Overlay */
+        #countdown-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(8, 8, 15, 0.9);
+            z-index: 50;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s;
+        }
+
+        #countdown-text {
+            font-size: 15rem;
+            font-family: 'Bebas Neue', cursive;
+            color: var(--accent);
+            text-shadow: 0 0 30px var(--accent-dim);
+            opacity: 0;
+        }
+
+        .slam {
+            animation: slam 0.8s cubic-bezier(0.1, 0.9, 0.2, 1);
+        }
+
+        @keyframes slam {
+            0% { transform: scale(2); opacity: 0; }
+            20% { transform: scale(1); opacity: 1; }
+            80% { transform: scale(1); opacity: 1; }
+            100% { transform: scale(0.8); opacity: 0; }
+        }
+
+        /* RESULTS SCREEN */
+        #results-screen {
+            transform: translateY(100px);
+            transition: all 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
+        }
+        #results-screen.active {
+            transform: translateY(0);
+        }
+
+        .rank-reveal {
+            text-align: center;
+            margin-bottom: 3rem;
+            transform: scale(0);
+            opacity: 0;
+        }
+
+        .rank-reveal.show {
+            animation: bounceIn 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+
+        @keyframes bounceIn {
+            0% { transform: scale(0); opacity: 0; }
+            50% { transform: scale(1.2); opacity: 1; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        .rank-icon { font-size: 5rem; margin-bottom: 0.5rem; line-height: 1; }
+        .rank-name { font-size: clamp(3rem, 10vw, 6rem); line-height: 0.9; text-shadow: 0 0 20px currentColor; }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1.5rem;
+            width: 100%;
+            max-width: 900px;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: rgba(255,255,255,0.03);
+            border-top: 3px solid var(--accent);
+            border-radius: 8px;
+            padding: 1.5rem;
+            text-align: center;
+            backdrop-filter: blur(5px);
+            opacity: 0;
+            transform: translateY(20px);
+        }
+
+        .stat-card.show {
+            animation: slideUpFade 0.5s forwards;
+        }
+
+        @keyframes slideUpFade {
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .stat-card .value { font-size: 2.5rem; margin-bottom: 0.5rem; }
+        .stat-card .label { color: var(--text-dark); font-size: 0.9rem; letter-spacing: 1px; }
+
+        .pb-indicator {
+            height: 3rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 2rem;
+            font-size: 1.2rem;
+        }
+
+        .pb-new {
+            color: #ffd700;
+            font-family: 'Bebas Neue', cursive;
+            font-size: 2rem;
+            letter-spacing: 2px;
+            text-shadow: 0 0 15px rgba(255, 215, 0, 0.5);
+            animation: pulse 1s infinite alternate;
+        }
+
+        .pb-miss { color: var(--text-dim); }
+
+        .ghost-chart {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            width: 100%;
+            max-width: 600px;
+            margin-bottom: 3rem;
+        }
+
+        .chart-row {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .chart-label { width: 80px; text-align: right; color: var(--text-dim); font-size: 0.9rem; }
+        .chart-bar-container { flex: 1; height: 12px; background: rgba(255,255,255,0.05); border-radius: 6px; overflow: hidden; }
+        .chart-bar { height: 100%; width: 0; transition: width 1s cubic-bezier(0.1, 0.8, 0.2, 1); }
+        .chart-bar.user { background: var(--accent); }
+        .chart-bar.ghost { background: rgba(255,255,255,0.3); }
+        .chart-value { width: 50px; font-family: 'Space Mono', monospace; font-size: 0.9rem; }
+
+        .mistakes-review {
+            text-align: center;
+            margin-bottom: 3rem;
+            max-width: 800px;
+        }
+
+        .mistakes-title { color: var(--text-dark); margin-bottom: 1rem; letter-spacing: 1px; font-size: 0.9rem; }
+        .mistakes-list { display: flex; flex-wrap: wrap; gap: 0.8rem; justify-content: center; }
+        .mistake-pill { background: rgba(255, 51, 51, 0.1); border: 1px solid var(--error); color: var(--error); padding: 0.3rem 1rem; border-radius: 20px; font-family: 'Space Mono', monospace; }
+        .perfect-msg { color: var(--correct); font-style: italic; }
+
+        .action-buttons {
+            display: flex;
+            gap: 1.5rem;
+        }
+
+        .action-buttons button {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 1.2rem;
+            padding: 0.8rem 2rem;
+        }
+
+        /* LEADERBOARD SCREEN */
+        #leaderboard-screen .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+            max-width: 900px;
+            margin-bottom: 2rem;
+        }
+
+        .table-container {
+            width: 100%;
+            max-width: 900px;
+            max-height: 60vh;
+            overflow-y: auto;
+            background: rgba(255,255,255,0.03);
+            border-radius: 8px;
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+
+        .table-container::-webkit-scrollbar { width: 8px; }
+        .table-container::-webkit-scrollbar-track { background: rgba(255,255,255,0.02); }
+        .table-container::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
+
+        table { width: 100%; border-collapse: collapse; text-align: left; }
+        th { padding: 1rem; color: var(--text-dark); letter-spacing: 1px; font-weight: normal; border-bottom: 1px solid rgba(255,255,255,0.05); position: sticky; top: 0; background: #0c0c16; z-index: 1;}
+        td { padding: 1rem; border-bottom: 1px solid rgba(255,255,255,0.02); font-family: 'Space Mono', monospace; font-size: 0.9rem; }
+        
+        .row-gold { background: rgba(255, 215, 0, 0.05); }
+        .row-gold td { color: #ffd700; }
+        
+        .quote-preview { max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-dim); }
+
+        .empty-state { text-align: center; padding: 3rem; color: var(--text-dark); }
+
+        /* Confetti */
+        .confetti {
+            position: absolute;
+            width: 10px; height: 10px;
+            z-index: 40;
+            pointer-events: none;
+        }
+
+        /* Mobile Adjustments */
+        @media (max-width: 768px) {
+            .hud { grid-template-columns: repeat(2, 1fr); gap: 1rem; }
+            .metric-value { font-size: 2.5rem; }
+            .race-track-container { display: none; }
+            .typing-area { font-size: 1rem; padding: 1rem; }
+            .stats-grid { grid-template-columns: repeat(2, 1fr); }
+            .action-buttons { flex-direction: column; }
+            table { font-size: 0.8rem; }
+            th, td { padding: 0.5rem; }
+            .quote-preview { max-width: 100px; }
+            
+            #mobile-track {
+                display: flex;
+                justify-content: space-between;
+                width: 95vw;
+                font-family: 'Space Mono', monospace;
+                font-size: 0.8rem;
+                color: var(--text-dim);
+                margin-bottom: 1rem;
+            }
+        }
+        @media (min-width: 769px) {
+            #mobile-track { display: none; }
+        }
+    </style>
+</head>
+<body>
+    <div class="vignette"></div>
+    <div class="grain"></div>
+    <div class="spotlight"></div>
+    <div class="speed-lines" id="speed-lines"></div>
+
+    <div id="audio-toggle">🔊</div>
+
+    <!-- START SCREEN -->
+    <div id="start-screen" class="screen active">
+        <div class="badge">🏁 TYPE RACE</div>
+        <h1><span class="title-outline">RACE YOUR</span><br>GHOST</h1>
+        <div class="subtitle">Beat your best. Every single time.</div>
+
+        <div class="diff-selector">
+            <div class="diff-label">SELECT DIFFICULTY</div>
+            <div class="diff-buttons">
+                <button class="glass-pill" data-diff="easy">🐢 EASY</button>
+                <button class="glass-pill active" data-diff="medium">⚡ MEDIUM</button>
+                <button class="glass-pill" data-diff="hard">🔥 HARD</button>
+            </div>
+        </div>
+
+        <div class="pb-display" id="start-pb">YOUR BEST: -- WPM · RANK: --</div>
+
+        <button class="btn-start" id="btn-start">🏁 START RACE</button>
+        <div class="pro-tip">Pro tip: Don't look at your keyboard</div>
+    </div>
+
+    <!-- RACE SCREEN -->
+    <div id="race-screen" class="screen">
+        <div class="hud">
+            <div>
+                <div class="metric-value bebas" id="hud-wpm">0</div>
+                <div class="metric-label">WPM</div>
+            </div>
+            <div>
+                <div class="metric-value bebas" id="hud-acc">100<span style="font-size:0.5em">%</span></div>
+                <div class="metric-label">ACCURACY</div>
+            </div>
+            <div>
+                <div class="metric-value bebas mono" id="hud-time">0.0</div>
+                <div class="metric-label">TIMER</div>
+            </div>
+            <div>
+                <div class="metric-value bebas" id="hud-ghost">--</div>
+                <div class="metric-label">GHOST BEST</div>
+            </div>
+        </div>
+
+        <div id="mobile-track">
+            <span id="mt-user">YOU: 0%</span>
+            <span id="mt-ghost">GHOST: 0%</span>
+        </div>
+
+        <div class="race-track-container">
+            <div class="track">
+                <div class="track-label">YOU</div>
+                <div class="car car-user" id="car-user">
+                    <div class="track-status" id="track-status-user"></div>
+                </div>
+            </div>
+            <div class="track" id="track-ghost-wrapper">
+                <div class="track-label">👻 GHOST</div>
+                <div class="car car-ghost" id="car-ghost"></div>
+            </div>
+        </div>
+
+        <div class="typing-area" id="typing-area">
+            <div id="quote-display"></div>
+            <div class="cursor" id="cursor"></div>
+            <input type="text" class="hidden-input" id="hidden-input" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+        </div>
+
+        <div class="progress-bar-container">
+            <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+            <div class="progress-text" id="progress-text">Word 0 of 0</div>
+        </div>
+    </div>
+
+    <!-- RESULTS SCREEN -->
+    <div id="results-screen" class="screen">
+        <div class="rank-reveal" id="rank-reveal">
+            <div class="rank-icon" id="res-rank-icon">🏎️</div>
+            <div class="rank-name bebas" id="res-rank-name">SPEEDSTER</div>
+        </div>
+
+        <div class="stats-grid" id="stats-grid">
+            <div class="stat-card">
+                <div class="value bebas" id="res-wpm">0</div>
+                <div class="label">WPM</div>
+            </div>
+            <div class="stat-card">
+                <div class="value bebas" id="res-acc">0%</div>
+                <div class="label">ACCURACY</div>
+            </div>
+            <div class="stat-card">
+                <div class="value bebas mono" id="res-time">0.0s</div>
+                <div class="label">TIME</div>
+            </div>
+            <div class="stat-card">
+                <div class="value bebas" id="res-best">0</div>
+                <div class="label">BEST WPM</div>
+            </div>
+        </div>
+
+        <div class="pb-indicator" id="pb-indicator"></div>
+
+        <div class="ghost-chart" id="ghost-chart">
+            <div class="chart-row">
+                <div class="chart-label">YOU</div>
+                <div class="chart-bar-container"><div class="chart-bar user" id="chart-user-bar"></div></div>
+                <div class="chart-value" id="chart-user-val">0</div>
+            </div>
+            <div class="chart-row">
+                <div class="chart-label">👻 GHOST</div>
+                <div class="chart-bar-container"><div class="chart-bar ghost" id="chart-ghost-bar"></div></div>
+                <div class="chart-value" id="chart-ghost-val">0</div>
+            </div>
+        </div>
+
+        <div class="mistakes-review">
+            <div class="mistakes-title">YOUR MISTAKES:</div>
+            <div class="mistakes-list" id="mistakes-list"></div>
+        </div>
+
+        <div class="action-buttons">
+            <button class="glass-pill" id="btn-again">🔄 RACE AGAIN</button>
+            <button class="glass-pill" id="btn-new">⏭️ NEW QUOTE</button>
+            <button class="glass-pill" id="btn-board">🏆 LEADERBOARD</button>
+        </div>
+    </div>
+
+    <!-- LEADERBOARD SCREEN -->
+    <div id="leaderboard-screen" class="screen">
+        <div class="header">
+            <h2 class="bebas" style="font-size:3rem">LEADERBOARD</h2>
+            <div style="display:flex;gap:1rem;">
+                <button class="glass-pill" id="btn-back">← BACK</button>
+                <button class="glass-pill" id="btn-clear" style="border-color:var(--error);color:var(--error)">🗑️ CLEAR ALL</button>
+            </div>
+        </div>
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>RANK</th>
+                        <th>WPM</th>
+                        <th>ACC</th>
+                        <th>QUOTE</th>
+                        <th>DATE</th>
+                    </tr>
+                </thead>
+                <tbody id="leaderboard-body"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- COUNTDOWN OVERLAY -->
+    <div id="countdown-overlay">
+        <div id="countdown-text">3</div>
+    </div>
+
+    <script>
+        // --- QUOTE BANK ---
+        const quotes = {
+            easy: [
+                "The quick brown fox jumps over the lazy dog near the riverbank every single morning.",
+                "Life is what happens when you are busy making other plans for the future.",
+                "In the middle of every difficulty lies a great opportunity waiting to be found.",
+                "You miss one hundred percent of the shots that you never take in your life.",
+                "The only way to do great work is to love what you do each day."
+            ],
+            medium: [
+                "Twenty years from now you will be more disappointed by the things you did not do than by the ones you did.",
+                "It is not the mountain we conquer but ourselves and the doubt that lives within our minds.",
+                "Success is not final and failure is not fatal. It is the courage to continue that counts most.",
+                "The greatest glory in living lies not in never falling but in rising every time we fall down.",
+                "Technology is best when it brings people together and creates something larger than any individual."
+            ],
+            hard: [
+                "The most common form of despair is not being who you are, and the extraordinary circumstances of existence demand extraordinary courage to navigate authentically.",
+                "Imagination is more important than knowledge, for knowledge is limited to all we now know and understand, while imagination embraces the entire world and all there ever will be.",
+                "The difference between a stumbling block and a stepping stone is how high you raise your foot, and the determination with which you place it forward deliberately.",
+                "Perfection is not attainable, but if we chase perfection we can catch excellence, and excellence pursued consistently becomes the foundation of an extraordinary life.",
+                "We are what we repeatedly do, therefore excellence is not an act but a habit cultivated through deliberate practice and an unwavering commitment to continuous improvement."
+            ]
+        };
+
+        // --- RANKS ---
+        const getRank = (wpm) => {
+            if (wpm < 20) return { icon: '🐢', name: 'TURTLE', color: 'var(--rank-turtle)' };
+            if (wpm < 35) return { icon: '🦥', name: 'SLOTH', color: 'var(--rank-sloth)' };
+            if (wpm < 50) return { icon: '🚶', name: 'WALKER', color: 'var(--rank-walker)' };
+            if (wpm < 65) return { icon: '🏃', name: 'RUNNER', color: 'var(--rank-runner)' };
+            if (wpm < 80) return { icon: '🚴', name: 'CYCLIST', color: 'var(--rank-cyclist)' };
+            if (wpm < 95) return { icon: '🏎️', name: 'SPEEDSTER', color: 'var(--rank-speedster)' };
+            if (wpm < 110) return { icon: '✈️', name: 'PILOT', color: 'var(--rank-pilot)' };
+            if (wpm < 130) return { icon: '🚀', name: 'ROCKET', color: 'var(--rank-rocket)' };
+            return { icon: '⚡', name: 'LIGHTNING GOD', color: 'var(--rank-lightning)', glow: true };
+        };
+
+        // --- STATE ---
+        let state = {
+            screen: 'start',
+            difficulty: 'medium',
+            quote: '',
+            words: [],
+            chars: [],
+            charIdx: 0,
+            startTime: 0,
+            elapsedMs: 0,
+            active: false,
+            correctKeys: 0,
+            totalKeys: 0,
+            mistakeWords: new Set(),
+            currentWordIdx: 0,
+            ghostData: null,
+            recordedData: [],
+            wpm: 0,
+            ghostWpm: 0,
+            animationFrame: null,
+            lastAudioWpm: 0,
+            seenQuotes: { easy: [], medium: [], hard: [] }
+        };
+
+        // --- AUDIO ENGINE ---
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        let audioCtx;
+        let isMuted = false;
+        let ambientGain, raceGain;
+        let ambientOscs = [];
+        let raceNodes = [];
+        let beatInterval;
+
+        function initAudio() {
+            if (audioCtx) return;
+            audioCtx = new AudioCtx();
+            
+            ambientGain = audioCtx.createGain();
+            ambientGain.connect(audioCtx.destination);
+            ambientGain.gain.value = 0.04;
+
+            raceGain = audioCtx.createGain();
+            raceGain.connect(audioCtx.destination);
+            raceGain.gain.value = 0;
+
+            startAmbient();
+            updateMuteState();
+        }
+
+        function toggleMute() {
+            isMuted = !isMuted;
+            document.getElementById('audio-toggle').innerText = isMuted ? '🔇' : '🔊';
+            updateMuteState();
+            if(!audioCtx) initAudio();
+            if(audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+        }
+
+        function updateMuteState() {
+            if(!audioCtx) return;
+            const targetVolume = isMuted ? 0 : 1;
+            ambientGain.gain.setTargetAtTime(isMuted ? 0 : 0.04, audioCtx.currentTime, 0.1);
+            if(state.active) {
+                raceGain.gain.setTargetAtTime(isMuted ? 0 : 1, audioCtx.currentTime, 0.1);
+            }
+        }
+
+        function startAmbient() {
+            [110, 165].forEach(freq => {
+                const osc = audioCtx.createOscillator();
+                const lfo = audioCtx.createOscillator();
+                const lfoGain = audioCtx.createGain();
+                
+                osc.type = 'sine';
+                osc.frequency.value = freq;
+                
+                lfo.type = 'sine';
+                lfo.frequency.value = 0.2;
+                lfoGain.gain.value = 0.02;
+                
+                lfo.connect(lfoGain);
+                lfoGain.connect(ambientGain.gain);
+                
+                osc.connect(ambientGain);
+                osc.start();
+                lfo.start();
+                ambientOscs.push({osc, lfo});
+            });
+        }
+
+        function playSound(type) {
+            if (!audioCtx || isMuted) return;
+            
+            const t = audioCtx.currentTime;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            
+            if (type === 'tick') {
+                osc.type = 'sine';
+                osc.frequency.value = 1000;
+                gain.gain.setValueAtTime(0.08, t);
+                gain.gain.exponentialRampToValueAtTime(0.001, t + 0.015);
+                osc.start(t);
+                osc.stop(t + 0.015);
+            } else if (type === 'buzz') {
+                osc.type = 'square';
+                osc.frequency.value = 150;
+                gain.gain.setValueAtTime(0.15, t);
+                gain.gain.exponentialRampToValueAtTime(0.001, t + 0.08);
+                osc.start(t);
+                osc.stop(t + 0.08);
+            } else if (type.startsWith('countdown')) {
+                const freq = type === 'countdown-go' ? 800 : (400 + (parseInt(type.split('-')[1])-1)*100);
+                const dur = type === 'countdown-go' ? 0.6 : 0.2;
+                osc.type = 'sine';
+                osc.frequency.value = freq;
+                gain.gain.setValueAtTime(0.1, t);
+                gain.gain.exponentialRampToValueAtTime(0.001, t + dur);
+                osc.start(t);
+                osc.stop(t + dur);
+            } else if (type === 'fanfare') {
+                const freqs = [523, 659, 784, 1047];
+                freqs.forEach((f, i) => {
+                    const o = audioCtx.createOscillator();
+                    const g = audioCtx.createGain();
+                    o.type = 'square';
+                    o.frequency.value = f;
+                    o.connect(g);
+                    g.connect(audioCtx.destination);
+                    g.gain.setValueAtTime(0, t + i*0.1);
+                    g.gain.linearRampToValueAtTime(0.05, t + i*0.1 + 0.02);
+                    g.gain.exponentialRampToValueAtTime(0.001, t + i*0.1 + 0.1);
+                    o.start(t + i*0.1);
+                    o.stop(t + i*0.1 + 0.1);
+                });
+            } else if (type === 'sparkle') {
+                const freqs = [784, 1047, 1319];
+                freqs.forEach((f, i) => {
+                    const o = audioCtx.createOscillator();
+                    const g = audioCtx.createGain();
+                    o.type = 'sine';
+                    o.frequency.value = f;
+                    o.connect(g);
+                    g.connect(audioCtx.destination);
+                    g.gain.setValueAtTime(0.1, t + i*0.05);
+                    g.gain.exponentialRampToValueAtTime(0.001, t + i*0.05 + 0.1);
+                    o.start(t + i*0.05);
+                    o.stop(t + i*0.05 + 0.1);
+                });
+            }
+        }
+
+        function createNoiseBuffer() {
+            const bufferSize = audioCtx.sampleRate * 0.1;
+            const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+            const data = buffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) {
+                data[i] = Math.random() * 2 - 1;
+            }
+            return buffer;
+        }
+        let noiseBuffer = null;
+
+        function playDrum(type, time) {
+            if(!audioCtx || isMuted) return;
+            if(!noiseBuffer) noiseBuffer = createNoiseBuffer();
+            
+            const t = time;
+            
+            if (type === 'kick') {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                const src = audioCtx.createBufferSource();
+                const filter = audioCtx.createBiquadFilter();
+                const noiseGain = audioCtx.createGain();
+                
+                src.buffer = noiseBuffer;
+                filter.type = 'lowpass';
+                filter.frequency.value = 300;
+                
+                src.connect(filter);
+                filter.connect(noiseGain);
+                noiseGain.connect(raceGain);
+                
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(150, t);
+                osc.frequency.exponentialRampToValueAtTime(0.01, t + 0.1);
+                
+                osc.connect(gain);
+                gain.connect(raceGain);
+                
+                gain.gain.setValueAtTime(0.3, t);
+                gain.gain.exponentialRampToValueAtTime(0.01, t + 0.1);
+                noiseGain.gain.setValueAtTime(0.2, t);
+                noiseGain.gain.exponentialRampToValueAtTime(0.01, t + 0.08);
+                
+                osc.start(t); osc.stop(t+0.1);
+                src.start(t); src.stop(t+0.08);
+            } else if (type === 'snare') {
+                const src = audioCtx.createBufferSource();
+                const filter = audioCtx.createBiquadFilter();
+                const gain = audioCtx.createGain();
+                
+                src.buffer = noiseBuffer;
+                filter.type = 'highpass';
+                filter.frequency.value = 2000;
+                
+                src.connect(filter);
+                filter.connect(gain);
+                gain.connect(raceGain);
+                
+                gain.gain.setValueAtTime(0.2, t);
+                gain.gain.exponentialRampToValueAtTime(0.01, t + 0.06);
+                
+                src.start(t); src.stop(t+0.06);
+            } else if (type === 'hihat') {
+                const src = audioCtx.createBufferSource();
+                const filter = audioCtx.createBiquadFilter();
+                const gain = audioCtx.createGain();
+                
+                src.buffer = noiseBuffer;
+                filter.type = 'highpass';
+                filter.frequency.value = 8000;
+                
+                src.connect(filter);
+                filter.connect(gain);
+                gain.connect(raceGain);
+                
+                gain.gain.setValueAtTime(0.08, t);
+                gain.gain.exponentialRampToValueAtTime(0.01, t + 0.03);
+                
+                src.start(t); src.stop(t+0.03);
+            } else if (type === 'bass') {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.value = 55;
+                osc.connect(gain);
+                gain.connect(raceGain);
+                gain.gain.setValueAtTime(0.12, t);
+                gain.gain.exponentialRampToValueAtTime(0.01, t + 0.2);
+                osc.start(t); osc.stop(t+0.2);
+            }
+        }
+
+        let synthLeadState = 0;
+        const synthNotes = [523, 494, 440, 494];
+        
+        function playSynth(time) {
+            if(!audioCtx || isMuted) return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'square';
+            osc.frequency.value = synthNotes[Math.floor(synthLeadState/2) % 4];
+            osc.connect(gain);
+            gain.connect(raceGain);
+            gain.gain.setValueAtTime(0.06, time);
+            gain.gain.exponentialRampToValueAtTime(0.01, time + 0.1);
+            osc.start(time); osc.stop(time+0.1);
+            synthLeadState++;
+        }
+
+        let beatCount = 0;
+        function scheduleRaceAudio() {
+            if (!state.active || !audioCtx) return;
+            
+            const bpm = 130 + (state.wpm * 0.3);
+            const beatDur = 60 / bpm;
+            const halfBeatDur = beatDur / 2;
+            
+            // We schedule ahead
+            const t = audioCtx.currentTime;
+            
+            if (beatCount % 4 === 0) playDrum('kick', t);
+            if (beatCount % 4 === 2) playDrum('snare', t);
+            
+            playDrum('hihat', t);
+            if (beatCount % 4 === 0) playDrum('bass', t);
+            
+            playSynth(t);
+            
+            beatCount++;
+            beatInterval = setTimeout(scheduleRaceAudio, halfBeatDur * 1000);
+        }
+
+        function startRaceAudio() {
+            if (!audioCtx) initAudio();
+            ambientGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.5);
+            if(!isMuted) raceGain.gain.setTargetAtTime(1, audioCtx.currentTime, 0.5);
+            beatCount = 0;
+            synthLeadState = 0;
+            scheduleRaceAudio();
+        }
+
+        function stopRaceAudio() {
+            if (beatInterval) clearTimeout(beatInterval);
+            if (audioCtx) {
+                raceGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.5);
+                if(!isMuted) ambientGain.gain.setTargetAtTime(0.04, audioCtx.currentTime, 1);
+            }
+        }
+
+        // --- BACKGROUND LINES ---
+        const speedLinesContainer = document.getElementById('speed-lines');
+        for(let i=0; i<8; i++) {
+            const line = document.createElement('div');
+            line.className = 'speed-line';
+            line.style.top = `${Math.random() * 100}%`;
+            line.style.width = `${Math.random() * 50 + 20}%`;
+            line.style.animationDuration = `${Math.random() * 1 + 0.5}s`;
+            line.style.animationDelay = `${Math.random() * 2}s`;
+            speedLinesContainer.appendChild(line);
+        }
+
+        function updateSpeedLines() {
+            const speed = state.active ? Math.max(0.2, 1.5 - (state.wpm/100)) : 1.5;
+            document.querySelectorAll('.speed-line').forEach(line => {
+                line.style.animationDuration = `${speed * (Math.random() * 0.5 + 0.5)}s`;
+            });
+        }
+
+        // --- UI BINDINGS ---
+        document.querySelectorAll('.diff-buttons button').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                document.querySelectorAll('.diff-buttons button').forEach(b => b.classList.remove('active'));
+                e.target.classList.add('active');
+                state.difficulty = e.target.dataset.diff;
+                loadStartScreenData();
+            });
+        });
+
+        document.getElementById('btn-start').addEventListener('click', startSequence);
+        document.getElementById('audio-toggle').addEventListener('click', toggleMute);
+        
+        document.getElementById('btn-again').addEventListener('click', () => {
+            showScreen('start');
+            startSequence(state.quote); // Same quote
+        });
+        document.getElementById('btn-new').addEventListener('click', () => {
+            showScreen('start');
+            startSequence(); // New quote
+        });
+        document.getElementById('btn-board').addEventListener('click', () => {
+            showScreen('leaderboard');
+            renderLeaderboard();
+        });
+        document.getElementById('btn-back').addEventListener('click', () => {
+            showScreen('start');
+            loadStartScreenData();
+        });
+        document.getElementById('btn-clear').addEventListener('click', () => {
+            if(confirm('Clear all local data?')) {
+                localStorage.clear();
+                renderLeaderboard();
+                loadStartScreenData();
+            }
+        });
+
+        const typingArea = document.getElementById('typing-area');
+        const hiddenInput = document.getElementById('hidden-input');
+        typingArea.addEventListener('click', () => {
+            if (state.active) hiddenInput.focus();
+        });
+
+        // --- CORE LOGIC ---
+        function loadStartScreenData() {
+            const ghost = JSON.parse(localStorage.getItem(`ghost_${state.difficulty}`));
+            const pbDisplay = document.getElementById('start-pb');
+            if (ghost) {
+                const rank = getRank(ghost.wpm);
+                pbDisplay.innerHTML = `YOUR BEST: ${Math.round(ghost.wpm)} WPM · RANK: <span style="color:${rank.color}">${rank.name}</span>`;
+                pbDisplay.style.display = 'inline-block';
+            } else {
+                pbDisplay.style.display = 'none';
+            }
+        }
+
+        function getQuote(diff) {
+            let pool = quotes[diff];
+            let seen = state.seenQuotes[diff];
+            if (seen.length >= pool.length) {
+                state.seenQuotes[diff] = [];
+                seen = [];
+            }
+            let available = pool.filter(q => !seen.includes(q));
+            let selected = available[Math.floor(Math.random() * available.length)];
+            state.seenQuotes[diff].push(selected);
+            return selected;
+        }
+
+        function startSequence(forceQuote = null) {
+            initAudio();
+            document.querySelectorAll('.speed-line').forEach(l => l.style.animationDuration = '0.2s'); // accel
+            
+            if (typeof forceQuote !== 'string') forceQuote = null;
+            
+            state.quote = forceQuote || getQuote(state.difficulty);
+            state.words = state.quote.split(' ');
+            state.chars = state.quote.split('');
+            state.ghostData = JSON.parse(localStorage.getItem(`ghost_${state.difficulty}`));
+            
+            showScreen('race');
+            setupTypingArea();
+            resetHUD();
+            
+            const overlay = document.getElementById('countdown-overlay');
+            const text = document.getElementById('countdown-text');
+            overlay.style.opacity = '1';
+            
+            let count = 3;
+            const cntInt = setInterval(() => {
+                if (count > 0) {
+                    text.innerText = count;
+                    text.className = 'slam';
+                    playSound(`countdown-${count}`);
+                    setTimeout(() => text.className='', 700);
+                    count--;
+                } else if (count === 0) {
+                    text.innerText = "GO!";
+                    text.className = 'slam';
+                    text.style.color = 'var(--correct)';
+                    playSound('countdown-go');
+                    setTimeout(() => text.className='', 700);
+                    count--;
+                } else {
+                    clearInterval(cntInt);
+                    overlay.style.opacity = '0';
+                    text.style.color = 'var(--accent)';
+                    startGame();
+                }
+            }, 800);
+        }
+
+        function setupTypingArea() {
+            const qd = document.getElementById('quote-display');
+            qd.innerHTML = '';
+            state.chars.forEach((c, i) => {
+                const span = document.createElement('span');
+                span.innerText = c;
+                span.className = 'char';
+                span.id = `char-${i}`;
+                qd.appendChild(span);
+            });
+            updateWordWrappers();
+            
+            state.charIdx = 0;
+            state.currentWordIdx = 0;
+            state.correctKeys = 0;
+            state.totalKeys = 0;
+            state.mistakeWords = new Set();
+            state.recordedData = [];
+            updateCursor();
+            updateProgress();
+            
+            const trackGhost = document.getElementById('track-ghost-wrapper');
+            if(state.ghostData) {
+                trackGhost.style.opacity = 1;
+                document.getElementById('mt-ghost').style.display = 'inline';
+            } else {
+                trackGhost.style.opacity = 0.2;
+                document.getElementById('mt-ghost').style.display = 'none';
+            }
+            document.getElementById('car-ghost').style.left = '0%';
+            document.getElementById('car-user').style.left = '0%';
+        }
+
+        function updateWordWrappers() {
+            // Group chars into words for error styling
+            const qd = document.getElementById('quote-display');
+            qd.innerHTML = '';
+            let wordSpan = document.createElement('span');
+            wordSpan.className = 'word';
+            wordSpan.id = `word-0`;
+            let wIdx = 0;
+            
+            state.chars.forEach((c, i) => {
+                const span = document.createElement('span');
+                span.innerText = c;
+                span.className = 'char';
+                span.id = `char-${i}`;
+                wordSpan.appendChild(span);
+                
+                if (c === ' ' || i === state.chars.length - 1) {
+                    qd.appendChild(wordSpan);
+                    if (c === ' ') {
+                        // Keep space out of word wrapper or inside? Inside is easier for tracking.
+                    }
+                    wIdx++;
+                    wordSpan = document.createElement('span');
+                    wordSpan.className = 'word';
+                    wordSpan.id = `word-${wIdx}`;
+                }
+            });
+        }
+        
+        function getWordIdx(charIdx) {
+            let idx = 0;
+            for(let i=0; i<charIdx; i++) {
+                if(state.chars[i] === ' ') idx++;
+            }
+            return idx;
+        }
+
+        function updateCursor() {
+            const cursor = document.getElementById('cursor');
+            const targetChar = document.getElementById(`char-${state.charIdx}`);
+            if (targetChar) {
+                cursor.style.left = `${targetChar.offsetLeft - 1}px`;
+                cursor.style.top = `${targetChar.offsetTop}px`;
+                cursor.style.height = `${targetChar.offsetHeight * 0.8}px`;
+            } else if(state.charIdx >= state.chars.length) {
+                const last = document.getElementById(`char-${state.chars.length-1}`);
+                cursor.style.left = `${last.offsetLeft + last.offsetWidth}px`;
+                cursor.style.top = `${last.offsetTop}px`;
+            }
+            
+            // Reset blink
+            cursor.classList.add('no-blink');
+            setTimeout(() => cursor.classList.remove('no-blink'), 50);
+        }
+
+        function resetHUD() {
+            document.getElementById('hud-wpm').innerText = '0';
+            document.getElementById('hud-wpm').className = 'metric-value bebas wpm-grey';
+            document.getElementById('hud-acc').innerHTML = '100<span style="font-size:0.5em">%</span>';
+            document.getElementById('hud-acc').className = 'metric-value bebas acc-high';
+            document.getElementById('hud-time').innerText = '0.0';
+            document.getElementById('hud-time').className = 'metric-value bebas mono';
+            document.getElementById('hud-ghost').innerText = state.ghostData ? '0' : '--';
+        }
+
+        function startGame() {
+            state.active = true;
+            state.startTime = performance.now();
+            hiddenInput.value = '';
+            hiddenInput.focus();
+            startRaceAudio();
+            updateSpeedLines();
+            gameLoop();
+        }
+
+        hiddenInput.addEventListener('input', (e) => {
+            if (!state.active) return;
+            const val = hiddenInput.value;
+            const inputChar = val[val.length - 1];
+            hiddenInput.value = ''; // clear immediately
+            
+            // Handle backspace via input event (inputType)
+            if (e.inputType === 'deleteContentBackward') {
+                handleBackspace();
+                return;
+            }
+            
+            if (inputChar) handleChar(inputChar);
+        });
+
+        // Better backspace handling via keydown
+        hiddenInput.addEventListener('keydown', (e) => {
+            if (!state.active) {
+                if(e.key === 'Escape') {
+                    // Pause logic could go here, omitting for simplicity/space, 
+                    // though requested, let's keep it tight.
+                }
+                return;
+            }
+            if (e.key === 'Tab') e.preventDefault();
+            if (e.key === 'Backspace') {
+                e.preventDefault();
+                handleBackspace();
+            }
+        });
+
+        function handleChar(char) {
+            if (state.charIdx >= state.chars.length) return;
+            
+            state.totalKeys++;
+            const expected = state.chars[state.charIdx];
+            const charEl = document.getElementById(`char-${state.charIdx}`);
+            const wordIdx = getWordIdx(state.charIdx);
+            
+            if (char === expected) {
+                // Correct
+                charEl.classList.add('correct');
+                charEl.classList.remove('wrong');
+                state.correctKeys++;
+                state.charIdx++;
+                playSound('tick');
+                
+                // Clear word error if moving to next word
+                const prevWordIdx = getWordIdx(state.charIdx - 1);
+                if (wordIdx !== getWordIdx(state.charIdx)) {
+                    document.getElementById(`word-${prevWordIdx}`).classList.remove('error-word');
+                }
+                
+                // Record
+                state.recordedData.push({ ms: Math.floor(performance.now() - state.startTime), idx: state.charIdx });
+                
+                if (state.charIdx === state.chars.length) {
+                    endGame();
+                }
+            } else {
+                // Wrong
+                charEl.classList.add('wrong');
+                document.getElementById(`word-${wordIdx}`).classList.add('error-word');
+                state.mistakeWords.add(state.words[wordIdx].replace(/[^a-zA-Z]/g, ''));
+                playSound('buzz');
+            }
+            
+            updateCursor();
+            updateProgress();
+            updateStatsInstant();
+        }
+
+        function handleBackspace() {
+            if (state.charIdx > 0) {
+                const currentEl = document.getElementById(`char-${state.charIdx}`);
+                if (currentEl && currentEl.classList.contains('wrong')) {
+                    currentEl.classList.remove('wrong');
+                } else {
+                    state.charIdx--;
+                    const prevEl = document.getElementById(`char-${state.charIdx}`);
+                    prevEl.classList.remove('correct', 'wrong');
+                }
+                
+                const wordIdx = getWordIdx(state.charIdx);
+                // check if word has any remaining wrongs
+                let hasWrong = false;
+                const wordSpan = document.getElementById(`word-${wordIdx}`);
+                if(wordSpan) {
+                    Array.from(wordSpan.children).forEach(c => {
+                        if(c.classList.contains('wrong')) hasWrong = true;
+                    });
+                    if(!hasWrong) wordSpan.classList.remove('error-word');
+                }
+                
+                updateCursor();
+                updateProgress();
+            }
+        }
+
+        function updateProgress() {
+            const pct = (state.charIdx / state.chars.length) * 100;
+            document.getElementById('progress-fill').style.width = `${pct}%`;
+            document.getElementById('car-user').style.left = `${pct}%`;
+            document.getElementById('mt-user').innerText = `YOU: ${Math.floor(pct)}%`;
+            
+            const wordsComplete = getWordIdx(state.charIdx);
+            document.getElementById('progress-text').innerText = `Word ${Math.min(wordsComplete + 1, state.words.length)} of ${state.words.length}`;
+        }
+
+        function updateStatsInstant() {
+            // Accuracy
+            const acc = state.totalKeys === 0 ? 100 : Math.max(0, Math.floor((state.correctKeys / state.totalKeys) * 100));
+            const accEl = document.getElementById('hud-acc');
+            accEl.innerHTML = `${acc}<span style="font-size:0.5em">%</span>`;
+            accEl.className = `metric-value bebas ${acc > 95 ? 'acc-high' : acc > 85 ? 'acc-med' : 'acc-low'}`;
+        }
+
+        function gameLoop() {
+            if (!state.active) return;
+            
+            const now = performance.now();
+            state.elapsedMs = now - state.startTime;
+            const elapsedSec = state.elapsedMs / 1000;
+            
+            // Timer
+            const timeEl = document.getElementById('hud-time');
+            timeEl.innerText = elapsedSec.toFixed(1);
+            
+            // WPM (calculated properly every frame for smoothness)
+            if (elapsedSec > 0.5) {
+                state.wpm = Math.max(0, Math.floor((state.correctKeys / 5) / (elapsedSec / 60)));
+                const wpmEl = document.getElementById('hud-wpm');
+                wpmEl.innerText = state.wpm;
+                
+                // Color
+                let wColor = 'wpm-grey';
+                if(state.wpm>=30) wColor = 'wpm-blue';
+                if(state.wpm>=50) wColor = 'wpm-green';
+                if(state.wpm>=70) wColor = 'wpm-yellow';
+                if(state.wpm>=90) wColor = 'wpm-orange';
+                if(state.wpm>=110) wColor = 'wpm-red';
+                wpmEl.className = `metric-value bebas ${wColor}`;
+                
+                updateSpeedLines();
+            }
+
+            // Ghost logic
+            if (state.ghostData && state.ghostData.timestamps.length > 0) {
+                let ghostIdx = 0;
+                for (let i = state.ghostData.timestamps.length - 1; i >= 0; i--) {
+                    if (state.ghostData.timestamps[i].ms <= state.elapsedMs) {
+                        ghostIdx = state.ghostData.timestamps[i].idx;
+                        break;
+                    }
+                }
+                const ghostPct = (ghostIdx / state.chars.length) * 100;
+                document.getElementById('car-ghost').style.left = `${ghostPct}%`;
+                document.getElementById('mt-ghost').innerText = `GHOST: ${Math.floor(ghostPct)}%`;
+                
+                // Ghost WPM approx
+                if (elapsedSec > 0.5) {
+                    state.ghostWpm = Math.max(0, Math.floor((ghostIdx / 5) / (elapsedSec / 60)));
+                    document.getElementById('hud-ghost').innerText = state.ghostWpm;
+                }
+
+                // Status logic
+                const statusUser = document.getElementById('track-status-user');
+                const carUser = document.getElementById('car-user');
+                const ghostEl = document.getElementById('hud-ghost');
+                
+                if (state.charIdx > ghostIdx) {
+                    statusUser.innerText = "AHEAD!";
+                    statusUser.className = "track-status ahead";
+                    carUser.classList.add('glowing');
+                    ghostEl.className = "metric-value bebas ghost-behind";
+                } else if (state.charIdx < ghostIdx) {
+                    statusUser.innerText = "BEHIND";
+                    statusUser.className = "track-status behind";
+                    carUser.classList.remove('glowing');
+                    ghostEl.className = "metric-value bebas ghost-ahead";
+                } else {
+                    statusUser.innerText = "";
+                    carUser.classList.remove('glowing');
+                    ghostEl.className = "metric-value bebas";
+                }
+            }
+
+            state.animationFrame = requestAnimationFrame(gameLoop);
+        }
+
+        function endGame() {
+            state.active = false;
+            cancelAnimationFrame(state.animationFrame);
+            stopRaceAudio();
+            playSound('fanfare');
+            
+            const finalTime = state.elapsedMs / 1000;
+            const finalWpm = Math.floor((state.chars.length / 5) / (finalTime / 60));
+            const finalAcc = Math.floor((state.chars.length / state.totalKeys) * 100);
+            const rank = getRank(finalWpm);
+            
+            // Save Data
+            const oldBest = state.ghostData ? state.ghostData.wpm : 0;
+            const isPB = finalWpm > oldBest;
+            
+            if (isPB) {
+                setTimeout(() => playSound('sparkle'), 500);
+                const newData = {
+                    wpm: finalWpm,
+                    accuracy: finalAcc,
+                    quote: state.quote,
+                    timestamps: state.recordedData,
+                    date: new Date().toISOString()
+                };
+                localStorage.setItem(`ghost_${state.difficulty}`, JSON.stringify(newData));
+                fireConfetti();
+            }
+
+            // Leaderboard Entry
+            const entry = { wpm: finalWpm, accuracy: finalAcc, time: finalTime, quote: state.quote, date: new Date().toLocaleDateString(), rank: rank.name };
+            const board = JSON.parse(localStorage.getItem('leaderboard') || '[]');
+            board.push(entry);
+            board.sort((a,b) => b.wpm - a.wpm);
+            localStorage.setItem('leaderboard', JSON.stringify(board.slice(0,20)));
+
+            // Populate Results
+            document.getElementById('res-rank-icon').innerText = rank.icon;
+            document.getElementById('res-rank-name').innerText = rank.name;
+            document.getElementById('res-rank-name').style.color = rank.color;
+            if(rank.glow) document.getElementById('res-rank-name').style.textShadow = `0 0 30px ${rank.color}`;
+            
+            document.getElementById('res-wpm').innerText = finalWpm;
+            document.getElementById('res-wpm').style.color = rank.color;
+            document.getElementById('res-acc').innerText = `${finalAcc}%`;
+            document.getElementById('res-time').innerText = `${finalTime.toFixed(1)}s`;
+            document.getElementById('res-best').innerText = isPB ? finalWpm : oldBest;
+
+            const pbInd = document.getElementById('pb-indicator');
+            if(isPB) {
+                pbInd.innerHTML = `<div class="pb-new">🏆 NEW PERSONAL BEST!</div>`;
+            } else {
+                const diff = Math.round(oldBest - finalWpm);
+                pbInd.innerHTML = `<div class="pb-miss">Your best: ${Math.round(oldBest)} WPM · You were ${diff} WPM away</div>`;
+            }
+
+            // Ghost Chart
+            const uBar = document.getElementById('chart-user-bar');
+            const gBar = document.getElementById('chart-ghost-bar');
+            const uVal = document.getElementById('chart-user-val');
+            const gVal = document.getElementById('chart-ghost-val');
+            
+            uBar.style.width = '0%';
+            gBar.style.width = '0%';
+            uVal.innerText = finalWpm;
+            gVal.innerText = Math.round(oldBest);
+            
+            setTimeout(() => {
+                const maxBar = Math.max(finalWpm, oldBest, 1);
+                uBar.style.width = `${(finalWpm/maxBar)*100}%`;
+                if(oldBest > 0) gBar.style.width = `${(oldBest/maxBar)*100}%`;
+            }, 500);
+
+            // Mistakes
+            const mistList = document.getElementById('mistakes-list');
+            mistList.innerHTML = '';
+            if (state.mistakeWords.size === 0) {
+                mistList.innerHTML = `<div class="perfect-msg">Perfect — no mistakes!</div>`;
+            } else {
+                let count = 0;
+                state.mistakeWords.forEach(w => {
+                    if (count < 5 && w.length > 0) {
+                        const m = document.createElement('div');
+                        m.className = 'mistake-pill';
+                        m.innerText = w;
+                        mistList.appendChild(m);
+                        count++;
+                    }
+                });
+            }
+
+            setTimeout(() => {
+                showScreen('results');
+                document.getElementById('rank-reveal').className = 'rank-reveal show';
+                document.querySelectorAll('.stat-card').forEach((c,i) => {
+                    setTimeout(()=> c.classList.add('show'), 300 + i*100);
+                });
+            }, 1000);
+        }
+
+        function fireConfetti() {
+            const colors = ['#00aaff', '#00ff88', '#ffcc00', '#ff3333', '#ffffff'];
+            for(let i=0; i<60; i++) {
+                const conf = document.createElement('div');
+                conf.className = 'confetti';
+                conf.style.left = '50%';
+                conf.style.top = '50%';
+                conf.style.backgroundColor = colors[Math.floor(Math.random()*colors.length)];
+                document.body.appendChild(conf);
+                
+                const angle = Math.random() * Math.PI * 2;
+                const vel = Math.random() * 20 + 10;
+                const tx = Math.cos(angle) * vel * 20;
+                const ty = Math.sin(angle) * vel * 20;
+                
+                conf.animate([
+                    { transform: 'translate(-50%, -50%) scale(1)', opacity: 1 },
+                    { transform: `translate(calc(-50% + ${tx}px), calc(-50% + ${ty}px)) scale(0) rotate(${Math.random()*720}deg)`, opacity: 0 }
+                ], { duration: 1500 + Math.random()*1000, easing: 'cubic-bezier(0.25, 1, 0.5, 1)' }).onfinish = () => conf.remove();
+            }
+        }
+
+        function renderLeaderboard() {
+            const board = JSON.parse(localStorage.getItem('leaderboard') || '[]');
+            const tbody = document.getElementById('leaderboard-body');
+            tbody.innerHTML = '';
+            
+            if (board.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" class="empty-state">No races recorded yet. Time to hit the track!</td></tr>`;
+                return;
+            }
+            
+            board.forEach((b, i) => {
+                const tr = document.createElement('tr');
+                if (i === 0) tr.className = 'row-gold';
+                tr.innerHTML = `
+                    <td style="color:${getRank(b.wpm).color}">${b.rank}</td>
+                    <td>${b.wpm}</td>
+                    <td>${b.accuracy}%</td>
+                    <td><div class="quote-preview">${b.quote}</div></td>
+                    <td style="color:var(--text-dim)">${b.date}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function showScreen(id) {
+            document.querySelectorAll('.screen').forEach(s => {
+                s.classList.remove('active');
+            });
+            document.getElementById(`${id}-screen`).classList.add('active');
+            
+            if(id !== 'results') {
+                document.getElementById('rank-reveal').className = 'rank-reveal';
+                document.querySelectorAll('.stat-card').forEach(c => c.classList.remove('show'));
+            }
+        }
+
+        // Init
+        loadStartScreenData();
+    </script>
+</body>
+</html>
