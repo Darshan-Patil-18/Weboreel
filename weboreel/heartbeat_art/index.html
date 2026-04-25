@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>heartbeat_art</title>
+<style>
+  body, html { margin: 0; padding: 0; width: 100vw; height: 100vh; overflow: hidden; background: #050000; font-family: sans-serif; }
+  canvas { display: block; position: absolute; top: 0; left: 0; }
+  
+  #ui { position: absolute; bottom: 30px; left: 0; width: 100%; text-align: center; color: #fff; pointer-events: none; }
+  h1 { font-weight: 200; letter-spacing: 5px; font-size: 1.2rem; text-transform: uppercase; margin-bottom: 5px; }
+  p { font-size: 0.8rem; color: #888; letter-spacing: 2px; }
+
+  .pulse-overlay {
+    position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+    box-shadow: inset 0 0 100px rgba(255,0,0,0); transition: box-shadow 0.1s; pointer-events: none;
+  }
+</style>
+</head>
+<body>
+
+<canvas id="c"></canvas>
+<div class="pulse-overlay" id="overlay"></div>
+
+<div id="ui">
+  <h1>HEARTBEAT ART</h1>
+  <p id="bpm-display">TAP SCREEN TO SET RHYTHM</p>
+</div>
+
+<script>
+  const canvas = document.getElementById('c');
+  const ctx = canvas.getContext('2d');
+  let w = canvas.width = window.innerWidth;
+  let h = canvas.height = window.innerHeight;
+  window.onresize = () => { w = canvas.width = window.innerWidth; h = canvas.height = window.innerHeight; };
+
+  // Tap logic
+  let taps = [];
+  let bpm = 60;
+  let nextBeatTime = 0;
+  
+  // Audio
+  let actx;
+  function initAudio() { if(!actx) actx = new (window.AudioContext || window.webkitAudioContext)(); }
+
+  function playBeat() {
+    if(!actx) return;
+    const osc = actx.createOscillator(); osc.type = 'sine';
+    const g = actx.createGain();
+    osc.frequency.setValueAtTime(60, actx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(0.01, actx.currentTime + 0.3);
+    g.gain.setValueAtTime(0.8, actx.currentTime); g.gain.exponentialRampToValueAtTime(0.01, actx.currentTime + 0.3);
+    osc.connect(g); g.connect(actx.destination); osc.start(); osc.stop(actx.currentTime+0.3);
+  }
+
+  document.body.addEventListener('mousedown', () => {
+    initAudio();
+    const now = Date.now();
+    taps.push(now);
+    if(taps.length > 4) taps.shift();
+    
+    if(taps.length >= 2) {
+      let sum = 0; for(let i=1; i<taps.length; i++) sum += (taps[i] - taps[i-1]);
+      let avg = sum / (taps.length - 1);
+      bpm = Math.round(60000 / avg);
+      document.getElementById('bpm-display').innerText = bpm + " BPM";
+      nextBeatTime = performance.now() + avg;
+    }
+    triggerVisualBeat();
+    playBeat();
+  });
+
+  // Generative art state
+  let shapes = [];
+  let hueBase = 0;
+
+  function triggerVisualBeat() {
+    hueBase = (hueBase + 10) % 360;
+    shapes.push({
+      r: 10, maxR: Math.random() * 200 + 100,
+      alpha: 1, sides: Math.floor(Math.random()*5)+3,
+      rotation: Math.random()*Math.PI*2,
+      hue: hueBase
+    });
+
+    document.getElementById('overlay').style.boxShadow = `inset 0 0 100px rgba(255,0,0,0.3)`;
+    setTimeout(() => { document.getElementById('overlay').style.boxShadow = `inset 0 0 10px rgba(255,0,0,0)`; }, 100);
+  }
+
+  function loop(time) {
+    if(taps.length >= 2 && time > nextBeatTime) {
+      triggerVisualBeat();
+      playBeat();
+      nextBeatTime += (60000 / bpm);
+    }
+
+    ctx.fillStyle = 'rgba(5, 0, 0, 0.1)';
+    ctx.fillRect(0,0,w,h);
+
+    const cx = w/2, cy = h/2;
+
+    for(let i=shapes.length-1; i>=0; i--) {
+      let s = shapes[i];
+      s.r += (s.maxR - s.r) * 0.05;
+      s.alpha -= 0.01;
+      s.rotation += 0.01;
+
+      if(s.alpha <= 0) { shapes.splice(i, 1); continue; }
+
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.rotate(s.rotation);
+      ctx.beginPath();
+      
+      for(let j=0; j<=s.sides; j++) {
+        let ang = j * (Math.PI*2 / s.sides);
+        let x = Math.cos(ang) * s.r;
+        let y = Math.sin(ang) * s.r;
+        if(j===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+      }
+      
+      ctx.strokeStyle = `hsla(${s.hue}, 100%, 50%, ${s.alpha})`;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+
+</script>
+</body>
+</html>
