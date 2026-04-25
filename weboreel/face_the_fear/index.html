@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>face_the_fear</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&display=swap');
+
+  body, html {
+    margin: 0; padding: 0; width: 100vw; height: 100vh; overflow: hidden;
+    background: #000; color: #fff; font-family: 'Courier Prime', monospace;
+    display: flex; align-items: center; justify-content: center; transition: background 2s ease;
+  }
+
+  #container {
+    text-align: center; z-index: 10; position: relative; width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  }
+
+  h1 { font-weight: normal; font-size: 1rem; color: #555; letter-spacing: 5px; margin-bottom: 50px; transition: opacity 1s; }
+
+  input {
+    background: transparent; border: none; border-bottom: 1px solid #333;
+    color: #fff; font-family: 'Courier Prime', monospace; font-size: 2rem;
+    text-align: center; outline: none; width: 60%; padding: 10px; transition: all 1s;
+  }
+  input::placeholder { color: #222; }
+
+  #prompt { font-size: 0.8rem; color: #444; margin-top: 30px; opacity: 0; transition: opacity 1s; }
+
+  /* Fear Entity */
+  #fear-entity {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    width: 0; height: 0; background: radial-gradient(circle, #200 0%, #000 80%);
+    border-radius: 50%; pointer-events: none; z-index: 1; transition: width 0.1s, height 0.1s;
+    mix-blend-mode: screen; filter: blur(20px);
+  }
+
+  /* Breath Circle */
+  #breath-circle {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    width: 0px; height: 0px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 50%; pointer-events: none; z-index: 2; transition: width 0.1s, height 0.1s;
+  }
+
+  /* Final Whiteout */
+  #whiteout {
+    position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+    background: #fff; z-index: 100; opacity: 0; pointer-events: none; transition: opacity 2s ease-in;
+    display: flex; align-items: center; justify-content: center; color: #000; font-size: 2rem;
+  }
+
+</style>
+</head>
+<body>
+
+<div id="fear-entity"></div>
+<div id="breath-circle"></div>
+
+<div id="container">
+  <h1 id="title">WHAT ARE YOU AFRAID OF?</h1>
+  <input type="text" id="fearInput" autocomplete="off" spellcheck="false" placeholder="type it here...">
+  <div id="prompt">HOLD [SPACE] TO BREATHE</div>
+</div>
+
+<div id="whiteout">
+  <div id="resolution-text"></div>
+</div>
+
+<script>
+  let phase = 0; // 0: typing, 1: holding, 2: resolved
+  let fearText = '';
+  let intensity = 0; // 0 to 1
+  let breathRadius = 0;
+  let isHolding = false;
+
+  // Audio System
+  let actx, noiseOsc, droneOsc, droneGain, breathGain;
+  
+  function initAudio() {
+    if(actx) return;
+    actx = new (window.AudioContext || window.webkitAudioContext)();
+    
+    // Low rumble drone
+    droneOsc = actx.createOscillator(); droneOsc.type = 'sawtooth'; droneOsc.frequency.value = 40;
+    droneGain = actx.createGain(); droneGain.gain.value = 0;
+    let lpf = actx.createBiquadFilter(); lpf.type = 'lowpass'; lpf.frequency.value = 200;
+    droneOsc.connect(lpf); lpf.connect(droneGain); droneGain.connect(actx.destination);
+    droneOsc.start();
+
+    // Noise/Breath layer
+    let buf = actx.createBuffer(1, actx.sampleRate*2, actx.sampleRate);
+    let data = buf.getChannelData(0); for(let i=0; i<data.length; i++) data[i]=Math.random()*2-1;
+    let noise = actx.createBufferSource(); noise.buffer = buf; noise.loop = true;
+    let bpf = actx.createBiquadFilter(); bpf.type = 'bandpass'; bpf.frequency.value = 1000;
+    breathGain = actx.createGain(); breathGain.gain.value = 0;
+    noise.connect(bpf); bpf.connect(breathGain); breathGain.connect(actx.destination);
+    noise.start();
+  }
+
+  const input = document.getElementById('fearInput');
+  const title = document.getElementById('title');
+  const promptEl = document.getElementById('prompt');
+  const fearEntity = document.getElementById('fear-entity');
+  const breathCircle = document.getElementById('breath-circle');
+
+  input.addEventListener('keydown', (e) => {
+    if(phase !== 0) { e.preventDefault(); return; }
+    initAudio();
+    if(e.key === 'Enter' && input.value.trim().length > 0) {
+      fearText = input.value.trim();
+      phase = 1;
+      input.blur(); input.style.borderBottomColor = 'transparent'; input.style.color = '#ff4444';
+      input.style.textShadow = '0 0 20px #f00';
+      title.style.opacity = '0';
+      promptEl.style.opacity = '1';
+      startTension();
+    }
+  });
+
+  function startTension() {
+    // Reveal the entity
+    fearEntity.style.width = '300px'; fearEntity.style.height = '300px';
+    requestAnimationFrame(updateLoop);
+  }
+
+  window.addEventListener('keydown', (e) => {
+    if(phase === 1 && e.code === 'Space') {
+      if(!isHolding) isHolding = true;
+    }
+  });
+  window.addEventListener('keyup', (e) => {
+    if(phase === 1 && e.code === 'Space') isHolding = false;
+  });
+  
+  // Mobile support
+  window.addEventListener('touchstart', (e) => { if(phase===1) isHolding = true; });
+  window.addEventListener('touchend', (e) => { if(phase===1) isHolding = false; });
+  window.addEventListener('mousedown', (e) => { if(phase===1) isHolding = true; });
+  window.addEventListener('mouseup', (e) => { if(phase===1) isHolding = false; });
+
+  let shakeAmount = 0;
+
+  function updateLoop() {
+    if(phase === 2) return;
+
+    if(isHolding) {
+      intensity += 0.002;
+      breathRadius += 3;
+      if(droneGain && droneGain.gain.value > 0) droneGain.gain.value -= 0.01;
+      if(breathGain) breathGain.gain.value = 0.5 + Math.sin(Date.now()/500)*0.2;
+    } else {
+      intensity -= 0.005; if(intensity < 0) intensity = 0;
+      breathRadius -= 5; if(breathRadius < 0) breathRadius = 0;
+      
+      // Fear builds if not holding
+      let fearSize = 300 + Math.sin(Date.now()/200)*50 + (1-intensity)*200;
+      fearEntity.style.width = fearSize+'px'; fearEntity.style.height = fearSize+'px';
+      
+      if(droneGain) droneGain.gain.value = 0.2 + (1-intensity)*0.5;
+      if(breathGain) breathGain.gain.value = 0;
+    }
+
+    breathCircle.style.width = breathRadius + 'px';
+    breathCircle.style.height = breathRadius + 'px';
+
+    shakeAmount = (1-intensity)*5 * (isHolding?0:1);
+    document.getElementById('container').style.transform = `translate(${(Math.random()-0.5)*shakeAmount}px, ${(Math.random()-0.5)*shakeAmount}px)`;
+
+    if(breathRadius > Math.max(window.innerWidth, window.innerHeight)*1.5) {
+      resolveFear();
+    } else {
+      requestAnimationFrame(updateLoop);
+    }
+  }
+
+  function resolveFear() {
+    phase = 2;
+    // Shatter sound
+    if(actx) {
+      droneGain.gain.value = 0; breathGain.gain.value = 0;
+      let osc = actx.createOscillator(); osc.type = 'sine'; osc.frequency.value = 800;
+      let g = actx.createGain(); g.gain.setValueAtTime(1, actx.currentTime); g.gain.exponentialRampToValueAtTime(0.01, actx.currentTime+4);
+      osc.connect(g); g.connect(actx.destination); osc.start(); osc.stop(actx.currentTime+4);
+    }
+
+    document.getElementById('whiteout').style.opacity = '1';
+    document.getElementById('resolution-text').innerText = fearText + " is just a thought.";
+    
+    setTimeout(() => {
+      document.getElementById('resolution-text').style.opacity = '0';
+      document.getElementById('resolution-text').style.transition = 'opacity 3s';
+    }, 3000);
+  }
+
+</script>
+</body>
+</html>
