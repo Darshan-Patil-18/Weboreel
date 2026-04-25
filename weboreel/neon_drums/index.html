@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>neon_drums</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@500&family=Space+Mono&display=swap');
+
+  :root {
+    --kick: #ff2d2d; --snare: #ff8c00; --hhc: #ffee00; --hho: #88ff00;
+    --clap: #00ffee; --tom1: #0088ff; --tom2: #aa00ff; --cowbell: #ff00aa;
+    --bg: #050505;
+  }
+
+  * { box-sizing: border-box; user-select: none; }
+  body { margin: 0; padding: 0; background: var(--bg); font-family: 'DM Sans', sans-serif; color: white; display: flex; flex-direction: column; align-items: center; min-height: 100vh; overflow-x: hidden; }
+
+  /* Scanline Overlay */
+  body::after {
+    content: ''; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+    background: repeating-linear-gradient(0deg, rgba(255,255,255,0.02) 0px, rgba(255,255,255,0.02) 1px, transparent 1px, transparent 2px);
+    pointer-events: none; z-index: 100;
+  }
+
+  canvas { width: 100vw; height: 120px; background: rgba(0,0,0,0.5); border-bottom: 1px solid rgba(255,255,255,0.1); }
+
+  .container { max-width: 900px; width: 100%; padding: 20px; display: flex; flex-direction: column; gap: 30px; }
+
+  /* Header Controls */
+  .header { display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.02); padding: 10px 20px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05); }
+  
+  .bpm-controls { display: flex; align-items: center; gap: 15px; }
+  .bpm-display { font-family: 'Bebas Neue', cursive; font-size: 3rem; width: 60px; text-align: center; }
+  .btn-small { background: rgba(255,255,255,0.1); border: none; color: white; width: 30px; height: 30px; border-radius: 4px; cursor: pointer; font-size: 1.2rem; display: flex; align-items: center; justify-content: center; }
+  .btn-small:hover { background: rgba(255,255,255,0.2); }
+  .tap-btn { font-family: 'Bebas Neue', cursive; font-size: 1.2rem; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 4px; padding: 5px 15px; cursor: pointer; color: white; }
+
+  .mode-toggle { display: flex; border: 1px solid rgba(255,255,255,0.2); border-radius: 4px; overflow: hidden; }
+  .mode-btn { padding: 8px 20px; background: transparent; border: none; color: grey; font-family: 'Bebas Neue', cursive; font-size: 1.2rem; cursor: pointer; transition: all 0.3s; }
+  .mode-btn.active { background: white; color: black; }
+
+  /* Drum Pads */
+  .pads-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin: 0 auto; max-width: 600px; }
+  .pad {
+    aspect-ratio: 1; border-radius: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    cursor: pointer; transition: transform 0.08s, box-shadow 0.08s, background 0.08s;
+    font-family: 'Bebas Neue', cursive; font-size: 1.5rem; position: relative;
+  }
+  .pad-hint { position: absolute; top: 8px; right: 8px; font-family: 'Space Mono', monospace; font-size: 0.7rem; color: rgba(255,255,255,0.5); }
+  
+  /* Sequencer */
+  .sequencer-container { overflow-x: auto; padding-bottom: 10px; display: none; }
+  .seq-grid { display: grid; grid-template-columns: auto repeat(16, 1fr); gap: 4px; }
+  .seq-row { display: contents; }
+  .seq-label { font-family: 'Bebas Neue', cursive; font-size: 1rem; display: flex; align-items: center; padding-right: 10px; }
+  .seq-step { width: 100%; min-width: 30px; height: 24px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); border-radius: 2px; cursor: pointer; }
+  .seq-step.active { box-shadow: inset 0 0 10px currentColor; }
+  .seq-step.playing { background: white !important; box-shadow: 0 0 10px white !important; }
+
+  /* Master Controls */
+  .master-controls { display: flex; gap: 15px; justify-content: center; margin-top: 10px; }
+  .master-btn { font-family: 'Bebas Neue', cursive; font-size: 1.5rem; padding: 10px 30px; border-radius: 8px; cursor: pointer; border: none; background: rgba(255,255,255,0.1); color: white; transition: all 0.2s; }
+  .master-btn:hover { background: rgba(255,255,255,0.2); }
+  .play-btn { border: 2px solid #00ffaa; color: #00ffaa; }
+  .play-btn.playing { background: #00ffaa; color: black; box-shadow: 0 0 20px rgba(0,255,170,0.5); }
+
+</style>
+</head>
+<body>
+
+<canvas id="visualizer"></canvas>
+
+<div class="container">
+  <div class="header">
+    <div class="bpm-controls">
+      <button class="btn-small" onclick="adjBpm(-1)">-</button>
+      <div class="bpm-display" id="bpm">120</div>
+      <button class="btn-small" onclick="adjBpm(1)">+</button>
+      <button class="tap-btn" onclick="tapTempo()">TAP</button>
+    </div>
+    <div class="mode-toggle">
+      <button class="mode-btn active" id="mode-live" onclick="setMode('live')">LIVE</button>
+      <button class="mode-btn" id="mode-seq" onclick="setMode('seq')">SEQUENCER</button>
+    </div>
+  </div>
+
+  <div class="pads-grid" id="pads"></div>
+
+  <div class="sequencer-container" id="sequencer">
+    <div class="seq-grid" id="seq-grid"></div>
+  </div>
+
+  <div class="master-controls" id="seq-controls" style="display:none;">
+    <button class="master-btn play-btn" id="playBtn" onclick="togglePlay()">PLAY</button>
+    <button class="master-btn" onclick="clearSeq()">CLEAR</button>
+    <button class="master-btn" onclick="randomFill()">RANDOM</button>
+  </div>
+</div>
+
+<script>
+  const AudioContext = window.AudioContext || window.webkitAudioContext;
+  let actx, masterGain, analyser;
+  
+  function initAudio() {
+    if(actx) return;
+    actx = new AudioContext();
+    masterGain = actx.createGain(); masterGain.gain.value = 0.5;
+    analyser = actx.createAnalyser(); analyser.fftSize = 128;
+    masterGain.connect(analyser); analyser.connect(actx.destination);
+    drawVisualizer();
+  }
+
+  // Drum Sounds Synthesis
+  function p(t) { return actx.currentTime; }
+  
+  const drums = [
+    { id: 'kick', name: 'KICK', color: '#ff2d2d', key: 'A', play: () => {
+      const osc = actx.createOscillator(); const g = actx.createGain();
+      osc.frequency.setValueAtTime(150, p()); osc.frequency.exponentialRampToValueAtTime(0.01, p()+0.5);
+      g.gain.setValueAtTime(1, p()); g.gain.exponentialRampToValueAtTime(0.01, p()+0.5);
+      osc.connect(g); g.connect(masterGain); osc.start(p()); osc.stop(p()+0.5);
+    }},
+    { id: 'snare', name: 'SNARE', color: '#ff8c00', key: 'S', play: () => {
+      const buf = actx.createBuffer(1, actx.sampleRate*0.2, actx.sampleRate);
+      const data = buf.getChannelData(0); for(let i=0;i<data.length;i++) data[i]=Math.random()*2-1;
+      const noise = actx.createBufferSource(); noise.buffer = buf;
+      const filter = actx.createBiquadFilter(); filter.type = 'highpass'; filter.frequency.value = 1000;
+      const g = actx.createGain(); g.gain.setValueAtTime(0.8, p()); g.gain.exponentialRampToValueAtTime(0.01, p()+0.2);
+      noise.connect(filter); filter.connect(g); g.connect(masterGain); noise.start(p());
+    }},
+    { id: 'hhc', name: 'HI-HAT C', color: '#ffee00', key: 'D', play: () => playNoise(8000, 0.05) },
+    { id: 'hho', name: 'HI-HAT O', color: '#88ff00', key: 'F', play: () => playNoise(7000, 0.3) },
+    { id: 'clap', name: 'CLAP', color: '#00ffee', key: 'G', play: () => {
+      for(let i=0; i<3; i++) setTimeout(()=>playNoise(1000, 0.1, 'bandpass'), i*10);
+    }},
+    { id: 'tom1', name: 'TOM 1', color: '#0088ff', key: 'H', play: () => playTom(200) },
+    { id: 'tom2', name: 'TOM 2', color: '#aa00ff', key: 'J', play: () => playTom(100) },
+    { id: 'cowbell', name: 'COWBELL', color: '#ff00aa', key: 'K', play: () => {
+      [562, 845].forEach(f => {
+        const osc = actx.createOscillator(); osc.type = 'square'; const g = actx.createGain();
+        osc.frequency.value = f; g.gain.setValueAtTime(0.2, p()); g.gain.exponentialRampToValueAtTime(0.01, p()+0.3);
+        osc.connect(g); g.connect(masterGain); osc.start(p()); osc.stop(p()+0.3);
+      });
+    }}
+  ];
+
+  function playNoise(freq, decay, type='highpass') {
+    const buf = actx.createBuffer(1, actx.sampleRate*decay, actx.sampleRate);
+    const data = buf.getChannelData(0); for(let i=0;i<data.length;i++) data[i]=Math.random()*2-1;
+    const noise = actx.createBufferSource(); noise.buffer = buf;
+    const filter = actx.createBiquadFilter(); filter.type = type; filter.frequency.value = freq;
+    const g = actx.createGain(); g.gain.setValueAtTime(0.5, p()); g.gain.exponentialRampToValueAtTime(0.01, p()+decay);
+    noise.connect(filter); filter.connect(g); g.connect(masterGain); noise.start(p());
+  }
+
+  function playTom(freq) {
+    const osc = actx.createOscillator(); const g = actx.createGain();
+    osc.frequency.setValueAtTime(freq, p()); osc.frequency.exponentialRampToValueAtTime(0.01, p()+0.3);
+    g.gain.setValueAtTime(0.8, p()); g.gain.exponentialRampToValueAtTime(0.01, p()+0.3);
+    osc.connect(g); g.connect(masterGain); osc.start(p()); osc.stop(p()+0.3);
+  }
+
+  // Setup UI
+  const padsGrid = document.getElementById('pads');
+  const seqGrid = document.getElementById('seq-grid');
+  
+  const seqData = {}; // { kick: [0,0,1...16], ... }
+
+  drums.forEach((d, i) => {
+    // Pad
+    let pad = document.createElement('div'); pad.className = 'pad'; pad.id = 'pad-'+d.id;
+    pad.style.border = `2px solid rgba(${hexToRgb(d.color)}, 0.4)`;
+    pad.style.background = `rgba(${hexToRgb(d.color)}, 0.1)`;
+    pad.style.color = d.color;
+    pad.innerHTML = `${d.name}<div class="pad-hint">${d.key}</div>`;
+    
+    pad.onmousedown = () => hitPad(d.id);
+    pad.ontouchstart = (e) => { e.preventDefault(); hitPad(d.id); };
+    padsGrid.appendChild(pad);
+
+    // Sequencer Row
+    seqData[d.id] = new Array(16).fill(false);
+    let label = document.createElement('div'); label.className = 'seq-label'; label.style.color = d.color; label.innerText = d.name;
+    seqGrid.appendChild(label);
+    
+    for(let step=0; step<16; step++) {
+      let sq = document.createElement('div'); sq.className = 'seq-step'; sq.id = `seq-${d.id}-${step}`;
+      sq.onclick = () => {
+        seqData[d.id][step] = !seqData[d.id][step];
+        sq.classList.toggle('active');
+        if(seqData[d.id][step]) {
+          sq.style.backgroundColor = d.color; sq.style.color = d.color;
+        } else {
+          sq.style.backgroundColor = ''; sq.style.color = '';
+        }
+      };
+      seqGrid.appendChild(sq);
+    }
+  });
+
+  function hitPad(id) {
+    initAudio();
+    const d = drums.find(x=>x.id===id); if(!d) return;
+    d.play();
+    visualHitColor = d.color;
+    
+    const pad = document.getElementById('pad-'+id);
+    pad.style.background = `rgba(${hexToRgb(d.color)}, 0.6)`;
+    pad.style.boxShadow = `0 0 30px rgba(${hexToRgb(d.color)}, 0.8), inset 0 0 15px rgba(${hexToRgb(d.color)},0.3)`;
+    pad.style.transform = 'scale(0.95) translateY(3px)';
+    
+    setTimeout(() => {
+      pad.style.background = `rgba(${hexToRgb(d.color)}, 0.1)`;
+      pad.style.boxShadow = 'none';
+      pad.style.transform = 'none';
+    }, 100);
+  }
+
+  window.addEventListener('keydown', e => {
+    const d = drums.find(x => x.key === e.key.toUpperCase());
+    if(d) hitPad(d.id);
+  });
+
+  function hexToRgb(hex) {
+    let r = parseInt(hex.slice(1,3), 16), g = parseInt(hex.slice(3,5), 16), b = parseInt(hex.slice(5,7), 16);
+    return `${r},${g},${b}`;
+  }
+
+  // Sequencer Engine
+  let isPlaying = false;
+  let bpm = 120;
+  let currentStep = 0;
+  let nextNoteTime = 0;
+  let timerID;
+
+  function nextNote() {
+    const secondsPerBeat = 60.0 / bpm;
+    nextNoteTime += 0.25 * secondsPerBeat; // 16th note
+    currentStep++; if(currentStep === 16) currentStep = 0;
+  }
+
+  function scheduleNote(stepNumber, time) {
+    // UI Update
+    setTimeout(() => {
+      document.querySelectorAll('.seq-step').forEach(el => el.classList.remove('playing'));
+      drums.forEach(d => {
+        let el = document.getElementById(`seq-${d.id}-${stepNumber}`);
+        el.classList.add('playing');
+        if(seqData[d.id][stepNumber]) hitPad(d.id);
+      });
+    }, (time - actx.currentTime) * 1000);
+  }
+
+  function scheduler() {
+    while(nextNoteTime < actx.currentTime + 0.1) {
+      scheduleNote(currentStep, nextNoteTime);
+      nextNote();
+    }
+    timerID = window.setTimeout(scheduler, 25);
+  }
+
+  function togglePlay() {
+    initAudio();
+    isPlaying = !isPlaying;
+    const btn = document.getElementById('playBtn');
+    if(isPlaying) {
+      if(actx.state === 'suspended') actx.resume();
+      currentStep = 0; nextNoteTime = actx.currentTime + 0.05;
+      scheduler();
+      btn.innerText = 'STOP'; btn.classList.add('playing');
+    } else {
+      window.clearTimeout(timerID);
+      document.querySelectorAll('.seq-step').forEach(el => el.classList.remove('playing'));
+      btn.innerText = 'PLAY'; btn.classList.remove('playing');
+    }
+  }
+
+  function clearSeq() {
+    drums.forEach(d => {
+      for(let i=0; i<16; i++) {
+        seqData[d.id][i] = false;
+        let sq = document.getElementById(`seq-${d.id}-${i}`);
+        sq.classList.remove('active'); sq.style.backgroundColor = '';
+      }
+    });
+  }
+
+  function randomFill() {
+    clearSeq();
+    drums.forEach(d => {
+      let prob = d.id==='kick'||d.id==='snare'||d.id==='hhc' ? 0.3 : 0.1;
+      for(let i=0; i<16; i++) {
+        if(Math.random() < prob) document.getElementById(`seq-${d.id}-${i}`).click();
+      }
+    });
+  }
+
+  // Tempo controls
+  function adjBpm(val) { bpm = Math.max(60, Math.min(200, bpm + val)); document.getElementById('bpm').innerText = bpm; }
+  
+  let taps = [];
+  function tapTempo() {
+    const now = Date.now(); taps.push(now);
+    if(taps.length > 4) taps.shift();
+    if(taps.length >= 2) {
+      let avg = 0; for(let i=1; i<taps.length; i++) avg += (taps[i] - taps[i-1]);
+      avg /= (taps.length-1);
+      bpm = Math.round(60000 / avg); adjBpm(0);
+    }
+  }
+
+  // Modes
+  function setMode(mode) {
+    document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById(`mode-${mode}`).classList.add('active');
+    if(mode === 'live') {
+      document.getElementById('sequencer').style.display = 'none';
+      document.getElementById('seq-controls').style.display = 'none';
+    } else {
+      document.getElementById('sequencer').style.display = 'block';
+      document.getElementById('seq-controls').style.display = 'flex';
+    }
+  }
+
+  // Visualizer
+  const vcanvas = document.getElementById('visualizer');
+  const vctx = vcanvas.getContext('2d');
+  let visualHitColor = '#ffffff';
+
+  function drawVisualizer() {
+    vcanvas.width = window.innerWidth; vcanvas.height = 120;
+    if(!analyser) { requestAnimationFrame(drawVisualizer); return; }
+    
+    const bufferLength = analyser.frequencyBinCount;
+    const dataArray = new Uint8Array(bufferLength);
+    analyser.getByteFrequencyData(dataArray);
+
+    vctx.clearRect(0, 0, vcanvas.width, vcanvas.height);
+    const barWidth = (vcanvas.width / bufferLength) * 2.5;
+    let x = 0;
+
+    for(let i = 0; i < bufferLength; i++) {
+      let barHeight = dataArray[i] / 2;
+      let grad = vctx.createLinearGradient(0, vcanvas.height, 0, vcanvas.height - barHeight);
+      grad.addColorStop(0, 'transparent'); grad.addColorStop(1, visualHitColor);
+      
+      vctx.fillStyle = grad;
+      vctx.fillRect(x, vcanvas.height - barHeight, barWidth, barHeight);
+      x += barWidth + 1;
+    }
+    requestAnimationFrame(drawVisualizer);
+  }
+  drawVisualizer();
+
+</script>
+</body>
+</html>
