@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>gravity_sandbox</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Mono&display=swap');
+  
+  body, html { margin: 0; padding: 0; width: 100vw; height: 100vh; overflow: hidden; background: #000005; font-family: 'Space Mono', monospace; }
+  
+  canvas { position: absolute; top: 0; left: 0; display: block; }
+  #bgCanvas { z-index: 1; }
+  #mainCanvas { z-index: 2; cursor: crosshair; }
+
+  #panel {
+    position: absolute; left: 0; top: 0; width: 220px; height: 100vh;
+    background: rgba(10,10,15,0.85); backdrop-filter: blur(10px);
+    border-right: 1px solid rgba(255,255,255,0.1); z-index: 10;
+    padding: 20px; color: white; display: flex; flex-direction: column; gap: 15px;
+    transition: transform 0.3s ease; box-sizing: border-box;
+  }
+  #panel.collapsed { transform: translateX(-100%); }
+  #togglePanel {
+    position: absolute; right: -30px; top: 50vh; width: 30px; height: 60px;
+    background: rgba(10,10,15,0.85); color: white; border: 1px solid rgba(255,255,255,0.1);
+    border-left: none; cursor: pointer; display: flex; align-items: center; justify-content: center;
+  }
+
+  .btn {
+    background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);
+    color: white; padding: 8px; cursor: pointer; font-family: inherit; font-size: 12px;
+    transition: all 0.2s;
+  }
+  .btn:hover { background: rgba(255,255,255,0.2); }
+  .btn.active { background: #4a9eff; border-color: #4a9eff; color: #000; }
+
+  .type-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  
+  label { font-size: 10px; color: #aaa; display: block; margin-bottom: 5px; }
+  input[type=range] { width: 100%; cursor: pointer; }
+
+  #stats {
+    position: absolute; top: 20px; right: 20px; text-align: right; z-index: 10;
+    color: rgba(255,255,255,0.7); font-size: 12px; pointer-events: none;
+  }
+  .stat-row { margin-bottom: 5px; }
+
+</style>
+</head>
+<body>
+
+<canvas id="bgCanvas"></canvas>
+<canvas id="mainCanvas"></canvas>
+
+<div id="panel">
+  <div id="togglePanel" onclick="document.getElementById('panel').classList.toggle('collapsed')">◀</div>
+  
+  <div style="font-weight: bold; font-size: 16px; margin-bottom: 10px; color: #4a9eff;">GRAVITY SANDBOX</div>
+  
+  <div>
+    <label>BODY TYPE</label>
+    <div class="type-grid">
+      <button class="btn active" onclick="setType('planet')" id="btn-planet">🪐 PLANET</button>
+      <button class="btn" onclick="setType('star')" id="btn-star">⭐ STAR</button>
+      <button class="btn" onclick="setType('blackhole')" id="btn-blackhole">🌑 HOLE</button>
+      <button class="btn" onclick="setType('asteroid')" id="btn-asteroid">☄️ ROCK</button>
+    </div>
+  </div>
+
+  <div>
+    <label>MASS (LOG SCALE): <span id="massVal">50</span></label>
+    <input type="range" id="massSlider" min="1" max="10000" value="50" oninput="updateMass()">
+  </div>
+
+  <div>
+    <label>GRAVITY (G): <span id="gVal">0.5</span></label>
+    <input type="range" id="gSlider" min="0.1" max="2.0" step="0.1" value="0.5" oninput="G=parseFloat(this.value); document.getElementById('gVal').innerText=G; playTone(300)">
+  </div>
+
+  <div>
+    <label>SIM SPEED: <span id="speedVal">1.0x</span></label>
+    <input type="range" id="speedSlider" min="0.25" max="4.0" step="0.25" value="1.0" oninput="simSpeed=parseFloat(this.value); document.getElementById('speedVal').innerText=simSpeed+'x'">
+  </div>
+
+  <button class="btn" onclick="clearAll()">[ CLEAR ALL ]</button>
+  <button class="btn" onclick="spawnSolarSystem()">[ RANDOM SYSTEM ]</button>
+  <button class="btn" onclick="togglePause()" id="btn-pause">[ PAUSE ]</button>
+</div>
+
+<div id="stats">
+  <div class="stat-row">BODIES: <span id="st-bodies">0</span></div>
+  <div class="stat-row">TOTAL MASS: <span id="st-mass">0</span></div>
+  <div class="stat-row">COLLISIONS: <span id="st-col">0</span></div>
+  <div class="stat-row">EJECTIONS: <span id="st-eject">0</span></div>
+</div>
+
+<script>
+  const mainCanvas = document.getElementById('mainCanvas');
+  const bgCanvas = document.getElementById('bgCanvas');
+  const ctx = mainCanvas.getContext('2d');
+  const bgCtx = bgCanvas.getContext('2d');
+  
+  let w = mainCanvas.width = bgCanvas.width = window.innerWidth;
+  let h = mainCanvas.height = bgCanvas.height = window.innerHeight;
+
+  window.onresize = () => {
+    w = mainCanvas.width = bgCanvas.width = window.innerWidth;
+    h = mainCanvas.height = bgCanvas.height = window.innerHeight;
+    drawStars();
+  };
+
+  // Audio Context
+  const actx = new (window.AudioContext || window.webkitAudioContext)();
+  const masterGain = actx.createGain(); masterGain.gain.value = 0.3; masterGain.connect(actx.destination);
+  
+  function playTone(freq, duration=0.1, type='sine') {
+    if(actx.state==='suspended') actx.resume();
+    const osc = actx.createOscillator(); osc.type = type;
+    const g = actx.createGain();
+    osc.frequency.setValueAtTime(freq, actx.currentTime);
+    g.gain.setValueAtTime(0.1, actx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.01, actx.currentTime + duration);
+    osc.connect(g); g.connect(masterGain); osc.start(); osc.stop(actx.currentTime+duration);
+  }
+
+  // Physics params
+  let G = 0.5;
+  let dt = 0.016;
+  let simSpeed = 1.0;
+  let isPaused = false;
+  
+  let bodies = [];
+  let stats = { collisions: 0, ejections: 0 };
+  let currentType = 'planet';
+  let placementMass = 50;
+
+  const colors = ['#4a9eff', '#ff6b35', '#a8e063', '#c9a227', '#e84393'];
+
+  // Draw static starfield
+  function drawStars() {
+    bgCtx.fillStyle = '#000005'; bgCtx.fillRect(0,0,w,h);
+    bgCtx.fillStyle = '#fff';
+    for(let i=0; i<200; i++) {
+      bgCtx.globalAlpha = Math.random() * 0.8 + 0.2;
+      bgCtx.fillRect(Math.random()*w, Math.random()*h, Math.random()*1.5, Math.random()*1.5);
+    }
+  }
+  drawStars();
+
+  class Body {
+    constructor(x, y, mass, type, vx=0, vy=0) {
+      this.x = x; this.y = y; this.mass = mass; this.type = type;
+      this.vx = vx; this.vy = vy;
+      this.trail = [];
+      this.updateProps();
+    }
+    updateProps() {
+      if(this.type === 'planet') { this.r = Math.max(4, Math.pow(this.mass, 0.33) * 3); this.color = colors[Math.floor(Math.random()*colors.length)]; }
+      else if(this.type === 'star') { this.r = Math.max(15, Math.pow(this.mass, 0.33) * 4); this.color = '#ffaa00'; }
+      else if(this.type === 'blackhole') { this.r = 15; this.color = '#000'; }
+      else if(this.type === 'asteroid') { this.r = Math.max(2, Math.pow(this.mass, 0.33) * 2); this.color = '#888'; }
+    }
+    draw(ctx) {
+      if(this.type !== 'asteroid') {
+        ctx.beginPath();
+        if(this.trail.length > 0) {
+          ctx.moveTo(this.trail[0].x, this.trail[0].y);
+          for(let i=1; i<this.trail.length; i++) ctx.lineTo(this.trail[i].x, this.trail[i].y);
+          ctx.strokeStyle = this.color; ctx.globalAlpha = 0.5; ctx.lineWidth = 1.5; ctx.stroke();
+        }
+      }
+      
+      ctx.globalAlpha = 1.0;
+      ctx.beginPath(); ctx.arc(this.x, this.y, this.r, 0, Math.PI*2);
+      
+      if(this.type === 'star') {
+        ctx.shadowBlur = 30; ctx.shadowColor = '#ffaa00'; ctx.fillStyle = '#fff7a1';
+      } else if(this.type === 'blackhole') {
+        ctx.shadowBlur = 20; ctx.shadowColor = '#8000ff'; ctx.fillStyle = '#000';
+        ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(180,100,255,0.8)'; ctx.stroke();
+      } else {
+        ctx.shadowBlur = 0; ctx.fillStyle = this.color;
+      }
+      ctx.fill(); ctx.shadowBlur = 0;
+    }
+  }
+
+  // Input handling
+  let isDragging = false;
+  let dragStart = {x:0, y:0};
+  let dragCurrent = {x:0, y:0};
+
+  mainCanvas.addEventListener('mousedown', e => {
+    isDragging = true; dragStart = {x: e.clientX, y: e.clientY}; dragCurrent = dragStart;
+  });
+  mainCanvas.addEventListener('mousemove', e => {
+    if(isDragging) dragCurrent = {x: e.clientX, y: e.clientY};
+  });
+  mainCanvas.addEventListener('mouseup', e => {
+    if(!isDragging) return;
+    isDragging = false;
+    let vx = (dragStart.x - dragCurrent.x) * 0.05;
+    let vy = (dragStart.y - dragCurrent.y) * 0.05;
+    addBody(dragStart.x, dragStart.y, placementMass, currentType, vx, vy);
+  });
+
+  function addBody(x, y, mass, type, vx, vy) {
+    bodies.push(new Body(x, y, mass, type, vx, vy));
+    if(type==='blackhole') playTone(80, 0.5, 'sawtooth');
+    else playTone(400, 0.1);
+  }
+
+  function setType(t) {
+    currentType = t;
+    document.querySelectorAll('.type-grid .btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('btn-'+t).classList.add('active');
+    
+    let slider = document.getElementById('massSlider');
+    if(t==='planet') { slider.min=10; slider.max=1000; slider.value=50; }
+    if(t==='star') { slider.min=500; slider.max=5000; slider.value=1000; }
+    if(t==='blackhole') { slider.min=5000; slider.max=50000; slider.value=10000; }
+    if(t==='asteroid') { slider.min=1; slider.max=10; slider.value=2; }
+    updateMass();
+  }
+
+  function updateMass() {
+    placementMass = parseFloat(document.getElementById('massSlider').value);
+    document.getElementById('massVal').innerText = placementMass;
+  }
+
+  function clearAll() { bodies = []; stats.collisions=0; stats.ejections=0; }
+  function togglePause() { isPaused = !isPaused; document.getElementById('btn-pause').innerText = isPaused ? "[ PLAY ]" : "[ PAUSE ]"; }
+
+  function spawnSolarSystem() {
+    clearAll();
+    let cx = w/2, cy = h/2;
+    addBody(cx, cy, 2000, 'star', 0, 0);
+    const orbits = [100, 180, 260, 380];
+    orbits.forEach((r, i) => {
+      let angle = Math.random() * Math.PI*2;
+      let x = cx + Math.cos(angle)*r;
+      let y = cy + Math.sin(angle)*r;
+      let v = Math.sqrt(G * 2000 / r);
+      addBody(x, y, 20 + i*15, 'planet', -Math.sin(angle)*v, Math.cos(angle)*v);
+    });
+  }
+
+  function updatePhysics() {
+    if(isPaused) return;
+    let timeStep = dt * simSpeed;
+    
+    for(let i=0; i<bodies.length; i++) {
+      let b1 = bodies[i];
+      for(let j=i+1; j<bodies.length; j++) {
+        let b2 = bodies[j];
+        let dx = b2.x - b1.x; let dy = b2.y - b1.y;
+        let distSq = dx*dx + dy*dy;
+        let dist = Math.sqrt(distSq);
+        
+        // Collision
+        if(dist < b1.r + b2.r) {
+          stats.collisions++;
+          let newMass = b1.mass + b2.mass;
+          let newVx = (b1.vx*b1.mass + b2.vx*b2.mass)/newMass;
+          let newVy = (b1.vy*b1.mass + b2.vy*b2.mass)/newMass;
+          let newX = (b1.x*b1.mass + b2.x*b2.mass)/newMass;
+          let newY = (b1.y*b1.mass + b2.y*b2.mass)/newMass;
+          
+          let dominant = b1.mass > b2.mass ? b1 : b2;
+          b1.x = newX; b1.y = newY; b1.mass = newMass; b1.vx = newVx; b1.vy = newVy;
+          b1.type = dominant.type; b1.updateProps();
+          bodies.splice(j, 1);
+          j--;
+          playTone(200, 0.1, 'square');
+          continue;
+        }
+
+        distSq = Math.max(distSq, 10); // Softening
+        let force = G * b1.mass * b2.mass / distSq;
+        let ax = force * dx / dist;
+        let ay = force * dy / dist;
+        
+        b1.vx += (ax / b1.mass) * timeStep; b1.vy += (ay / b1.mass) * timeStep;
+        b2.vx -= (ax / b2.mass) * timeStep; b2.vy -= (ay / b2.mass) * timeStep;
+      }
+    }
+
+    for(let i=bodies.length-1; i>=0; i--) {
+      let b = bodies[i];
+      b.x += b.vx * timeStep; b.y += b.vy * timeStep;
+      
+      if(b.x < -w || b.x > w*2 || b.y < -h || b.y > h*2) {
+        bodies.splice(i, 1); stats.ejections++;
+        playTone(600, 0.2); // ejection sound
+      } else {
+        b.trail.push({x: b.x, y: b.y});
+        if(b.trail.length > 60) b.trail.shift();
+      }
+    }
+  }
+
+  function updateUI() {
+    document.getElementById('st-bodies').innerText = bodies.length;
+    let tm = bodies.reduce((s,b)=>s+b.mass, 0);
+    document.getElementById('st-mass').innerText = Math.floor(tm);
+    document.getElementById('st-col').innerText = stats.collisions;
+    document.getElementById('st-eject').innerText = stats.ejections;
+  }
+
+  function loop() {
+    ctx.clearRect(0,0,w,h);
+    
+    updatePhysics();
+    
+    bodies.forEach(b => b.draw(ctx));
+
+    // Draw drag vector
+    if(isDragging) {
+      ctx.beginPath(); ctx.moveTo(dragStart.x, dragStart.y); ctx.lineTo(dragCurrent.x, dragCurrent.y);
+      ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.lineWidth = 2; ctx.stroke();
+    }
+
+    updateUI();
+    requestAnimationFrame(loop);
+  }
+
+  loop();
+</script>
+</body>
+</html>
