@@ -1,0 +1,906 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HEARTBEAT EARTH</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,600;1,300;1,600&family=Space+Mono:wght@400;700&display=swap');
+        
+        body, html {
+            margin: 0;
+            padding: 0;
+            background-color: #000;
+            overflow-x: hidden;
+        }
+        body {
+            height: 1800vh;
+        }
+        canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 1;
+            pointer-events: none; /* Let scroll events pass through */
+        }
+        #mute-btn {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            color: #fff;
+            font-family: 'Space Mono', monospace;
+            font-size: 14px;
+            font-weight: 700;
+            cursor: pointer;
+            z-index: 100;
+            opacity: 0.5;
+            padding: 10px 15px;
+            border: 1px solid rgba(255,255,255,0.5);
+            border-radius: 4px;
+            letter-spacing: 2px;
+            transition: all 0.3s;
+            pointer-events: auto;
+            background: rgba(0,0,0,0.5);
+            user-select: none;
+        }
+        #mute-btn:hover {
+            opacity: 1;
+            border-color: #fff;
+        }
+    </style>
+</head>
+<body>
+    <div id="mute-btn">♥ SOUND OFF</div>
+    <canvas id="canvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const muteBtn = document.getElementById('mute-btn');
+        
+        let w, h, cx, cy;
+        let isMobile = false;
+        
+        function resize() {
+            w = window.innerWidth;
+            h = window.innerHeight;
+            isMobile = w < 768;
+            canvas.width = w * window.devicePixelRatio;
+            canvas.height = h * window.devicePixelRatio;
+            ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+            cx = w * 0.5;
+            cy = h * 0.45;
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        // Constants & Data
+        const stats = [
+            { name: "CO2", left1: "1,000 TONS", left2: "of CO2 released", rate: 1000, color: "#ff6644", rightLabel: "TONS SINCE PAGE OPEN" },
+            { name: "TREES", left1: "1 FOOTBALL FIELD", left2: "of forest destroyed", rate: 1, color: "#228B22", rightLabel: "FORESTS LOST" },
+            { name: "SPECIES", left1: "0.003 SPECIES", left2: "driven to extinction", rate: 0.003, color: "#9b59b6", rightLabel: "SPECIES LOST" },
+            { name: "PLASTIC", left1: "20,000 PLASTIC BOTTLES", left2: "produced globally", rate: 20000, color: "#3498db", rightLabel: "BOTTLES PRODUCED" },
+            { name: "OCEAN", left1: "2 TONS of plastic", left2: "enter the ocean", rate: 2, color: "#1a6b9a", rightLabel: "TONS IN OCEAN" },
+            { name: "ICE", left1: "3,800 TONS of ice", left2: "melt in Antarctica", rate: 3800, color: "#87CEEB", rightLabel: "TONS OF ICE MELTED" },
+            { name: "POPULATION", left1: "4.5 HUMANS", left2: "born into this world", rate: 4.5, color: "#f1c40f", rightLabel: "BORN SINCE YOU ARRIVED" },
+            { name: "ENERGY", left1: "178,000 MEGAJOULES", left2: "of fossil fuel burned", rate: 178000, color: "#e67e22", rightLabel: "MEGAJOULES BURNED" },
+            { name: "WATER", left1: "1,000,000 LITERS", left2: "of fresh water wasted", rate: 1000000, color: "#2980b9", rightLabel: "LITERS WASTED" },
+            { name: "ANIMALS", left1: "3 LAND ANIMALS", left2: "killed for food", rate: 3, color: "#c0392b", rightLabel: "ANIMALS KILLED" }
+        ];
+
+        // State Variables
+        let scrollProgress = 0;
+        let targetScroll = 0;
+        let elapsedSeconds = 0;
+        let startTime = performance.now();
+        let lastTime = performance.now();
+        
+        let beatTimer = 0;
+        let nextBeatInterval = 1.0;
+        let beatPhase = 0;
+        let pulseTimer = 999;
+        
+        let currentStatIndex = 0;
+        let statFade = 0;
+        
+        let flatlineActive = false;
+        let flatlineDuration = 0;
+        let noiseTimer = 0;
+        let flatlineTimer = 0;
+        let finalTimer = 0;
+
+        let ecgData = Array(300).fill(0);
+
+        // Particle Arrays
+        const atmosphere = Array.from({length: 80}, () => ({
+            angle: Math.random() * Math.PI * 2,
+            dist: Math.random() * 0.4 + 0.5,
+            speed: (Math.random() - 0.5) * 0.002
+        }));
+
+        const bloodParticles = Array.from({length: 40}, () => ({
+            t: Math.random(),
+            vessel: Math.floor(Math.random() * 4)
+        }));
+
+        function resetBgParticle(p) {
+            p.x = Math.random() * w;
+            p.y = h + Math.random() * h;
+            p.size = Math.random() * 5 + 2;
+            p.vx = (Math.random() - 0.5) * 0.5;
+            p.vy = -Math.random() * 1 - 0.5;
+            p.type = scrollProgress < 0.33 ? 'leaf' : (scrollProgress < 0.66 ? 'smoke' : 'crack');
+            if(p.type === 'crack') {
+                p.y = Math.random() * h;
+                p.vy = Math.random() * 2 + 1;
+                p.size = Math.random() * 3 + 1;
+            }
+            return p;
+        }
+        
+        let bgParticleCount = isMobile ? 75 : 150;
+        const bgParticles = Array.from({length: bgParticleCount}, () => resetBgParticle({}));
+
+        // Math Helpers
+        function clamp(val, min, max) { return Math.max(min, Math.min(val, max)); }
+        function lerp(a, b, t) { return a + (b - a) * t; }
+        
+        function hexToRgb(hex) {
+            let bigint = parseInt(hex.replace('#',''), 16);
+            return [(bigint >> 16) & 255, (bigint >> 8) & 255, bigint & 255];
+        }
+        function lerpHex(a, b, t) {
+            let ca = hexToRgb(a); let cb = hexToRgb(b);
+            let r = Math.round(ca[0] + (cb[0]-ca[0])*t);
+            let g = Math.round(ca[1] + (cb[1]-ca[1])*t);
+            let bC = Math.round(ca[2] + (cb[2]-ca[2])*t);
+            return `rgb(${r},${g},${bC})`;
+        }
+
+        // Scroll Logic
+        window.addEventListener('scroll', () => {
+            targetScroll = window.scrollY / (document.body.scrollHeight - window.innerHeight);
+            targetScroll = clamp(targetScroll, 0, 1);
+        });
+
+        // Audio System
+        let audioCtx;
+        let masterGain, natureOsc, natureGain, natureFilter, natureLFO, natureLFOGain;
+        let harmonyOscs = [], harmonyGains = [];
+        let dissOscs = [], dissGains = [];
+        let indOsc, indGain;
+        let soundEnabled = false;
+        let audioInitDone = false;
+
+        function initAudio() {
+            if(audioCtx) return;
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            masterGain = audioCtx.createGain();
+            masterGain.gain.value = 1;
+            masterGain.connect(audioCtx.destination);
+            
+            // Ambient Nature
+            natureOsc = audioCtx.createOscillator();
+            natureOsc.frequency.value = 174;
+            natureGain = audioCtx.createGain();
+            natureGain.gain.value = 0.015;
+            
+            natureFilter = audioCtx.createBiquadFilter();
+            natureFilter.type = 'lowpass';
+            natureFilter.frequency.value = 2000;
+            
+            natureLFO = audioCtx.createOscillator();
+            natureLFO.frequency.value = 0.1;
+            natureLFOGain = audioCtx.createGain();
+            natureLFOGain.gain.value = 0.015;
+            
+            natureLFO.connect(natureLFOGain);
+            natureLFOGain.connect(natureGain.gain);
+            
+            natureOsc.connect(natureFilter).connect(natureGain).connect(masterGain);
+            natureOsc.start();
+            natureLFO.start();
+            
+            // Harmony
+            [261, 329, 392].forEach(freq => {
+                let osc = audioCtx.createOscillator();
+                osc.frequency.value = freq;
+                let gain = audioCtx.createGain();
+                gain.gain.value = 0.02;
+                osc.connect(gain).connect(masterGain);
+                osc.start();
+                harmonyOscs.push(osc);
+                harmonyGains.push(gain);
+            });
+            
+            // Dissonance
+            [200, 207].forEach(freq => {
+                let osc = audioCtx.createOscillator();
+                osc.frequency.value = freq;
+                let gain = audioCtx.createGain();
+                gain.gain.value = 0;
+                osc.connect(gain).connect(masterGain);
+                osc.start();
+                dissOscs.push(osc);
+                dissGains.push(gain);
+            });
+            
+            // Industrial Rumble
+            indOsc = audioCtx.createOscillator();
+            indOsc.type = 'sawtooth';
+            indOsc.frequency.value = 40;
+            indGain = audioCtx.createGain();
+            indGain.gain.value = 0;
+            indOsc.connect(indGain).connect(masterGain);
+            indOsc.start();
+        }
+
+        function userInteracted() {
+            if(audioInitDone) return;
+            audioInitDone = true;
+            soundEnabled = true;
+            muteBtn.innerText = '♥ SOUND ON';
+            muteBtn.style.opacity = '1';
+            initAudio();
+            if(audioCtx.state === 'suspended') audioCtx.resume();
+        }
+
+        window.addEventListener('scroll', userInteracted, {once:true});
+        window.addEventListener('click', userInteracted, {once:true});
+        window.addEventListener('touchstart', userInteracted, {once:true});
+
+        muteBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if(!audioInitDone) userInteracted();
+            else {
+                soundEnabled = !soundEnabled;
+                muteBtn.innerText = soundEnabled ? '♥ SOUND ON' : '♥ SOUND OFF';
+                muteBtn.style.opacity = soundEnabled ? '1' : '0.5';
+                if(soundEnabled && audioCtx.state === 'suspended') audioCtx.resume();
+            }
+        });
+
+        function playHeartbeatAudio() {
+            if(!soundEnabled || !audioCtx) return;
+            let t = audioCtx.currentTime;
+            let targetGain = scrollProgress < 0.33 ? 0.12 : (scrollProgress < 0.66 ? 0.18 : 0.22);
+            
+            let osc1 = audioCtx.createOscillator();
+            let g1 = audioCtx.createGain();
+            osc1.frequency.value = 60;
+            g1.gain.setValueAtTime(0, t);
+            g1.gain.linearRampToValueAtTime(targetGain, t + 0.02);
+            g1.gain.exponentialRampToValueAtTime(0.001, t + 0.07);
+            osc1.connect(g1).connect(masterGain);
+            osc1.start(t); osc1.stop(t + 0.1);
+            
+            let osc2 = audioCtx.createOscillator();
+            let g2 = audioCtx.createGain();
+            osc2.frequency.value = 55;
+            g2.gain.setValueAtTime(0, t + 0.15);
+            g2.gain.linearRampToValueAtTime(targetGain * 0.66, t + 0.17);
+            g2.gain.exponentialRampToValueAtTime(0.001, t + 0.22);
+            osc2.connect(g2).connect(masterGain);
+            osc2.start(t + 0.15); osc2.stop(t + 0.25);
+        }
+
+        function playNoiseBurst() {
+            if(!audioCtx) return;
+            let t = audioCtx.currentTime;
+            let bSize = audioCtx.sampleRate * 0.1;
+            let buffer = audioCtx.createBuffer(1, bSize, audioCtx.sampleRate);
+            let data = buffer.getChannelData(0);
+            for(let i=0; i<bSize; i++) data[i] = Math.random()*2 - 1;
+            
+            let noiseSrc = audioCtx.createBufferSource();
+            noiseSrc.buffer = buffer;
+            let filter = audioCtx.createBiquadFilter();
+            filter.type = 'highpass'; filter.frequency.value = 3000;
+            let gain = audioCtx.createGain();
+            gain.gain.setValueAtTime(0.04, t);
+            gain.gain.exponentialRampToValueAtTime(0.001, t + 0.1);
+            
+            noiseSrc.connect(filter).connect(gain).connect(masterGain);
+            noiseSrc.start(t);
+        }
+
+        function playFlatline() {
+            if(!audioCtx) return;
+            let t = audioCtx.currentTime;
+            let osc = audioCtx.createOscillator();
+            osc.frequency.value = 440;
+            let gain = audioCtx.createGain();
+            gain.gain.setValueAtTime(0, t);
+            gain.gain.linearRampToValueAtTime(0.06, t + 0.05);
+            gain.gain.setValueAtTime(0.06, t + 0.25);
+            gain.gain.linearRampToValueAtTime(0, t + 0.3);
+            
+            osc.connect(gain).connect(masterGain);
+            osc.start(t); osc.stop(t + 0.3);
+        }
+
+        function updateAudio(sp) {
+            if(!soundEnabled || !audioCtx) return;
+            let t = audioCtx.currentTime;
+            
+            if(sp < 0.33) {
+                natureFilter.frequency.setTargetAtTime(2000, t, 0.1);
+                dissGains.forEach(g => g.gain.setTargetAtTime(0, t, 0.1));
+                indGain.gain.setTargetAtTime(0, t, 0.1);
+                harmonyOscs[1].frequency.setTargetAtTime(329, t, 0.1); // C major
+                harmonyGains.forEach(g => g.gain.setTargetAtTime(0.02, t, 0.1));
+            } else if(sp < 0.66) {
+                let p = (sp - 0.33) / 0.33;
+                natureFilter.frequency.setTargetAtTime(lerp(2000, 300, p), t, 0.1);
+                dissGains.forEach(g => g.gain.setTargetAtTime(lerp(0, 0.04, p), t, 0.1));
+                indGain.gain.setTargetAtTime(lerp(0, 0.03, p), t, 0.1);
+                harmonyOscs[1].frequency.setTargetAtTime(329, t, 0.1);
+                harmonyGains.forEach(g => g.gain.setTargetAtTime(0.02, t, 0.1));
+            } else {
+                let p = (sp - 0.66) / 0.34;
+                natureFilter.frequency.setTargetAtTime(300, t, 0.1);
+                dissGains.forEach(g => g.gain.setTargetAtTime(0.04, t, 0.1));
+                indGain.gain.setTargetAtTime(lerp(0.03, 0.08, p), t, 0.1);
+                harmonyOscs[1].frequency.setTargetAtTime(311, t, 0.1); // C minor
+                harmonyGains.forEach(g => g.gain.setTargetAtTime(0.04, t, 0.1));
+                
+                if(sp > 0.9) {
+                    masterGain.gain.setTargetAtTime(lerp(1, 0, (sp - 0.9)/0.1), t, 0.1);
+                } else {
+                    masterGain.gain.setTargetAtTime(1, t, 0.1);
+                }
+            }
+        }
+
+        // Logic & Rendering Update
+        function onBeat() {
+            playHeartbeatAudio();
+            statFade = 0;
+            currentStatIndex = (currentStatIndex + 1) % stats.length;
+            pulseTimer = 0;
+        }
+
+        function getEcgValue(bp, sp) {
+            let stElev = (sp > 0.33 && sp < 0.66) ? -0.1 : 0;
+            
+            if(bp > 0.6 && bp < 0.65) {
+                return -Math.sin(((bp - 0.6) / 0.05) * Math.PI) * 0.15;
+            }
+            if(bp > 0.69 && bp < 0.75) {
+                let t = (bp - 0.69) / 0.06;
+                if(t < 0.2) return lerp(0, 0.2, t/0.2); 
+                if(t < 0.5) return lerp(0.2, -1.0, (t-0.2)/0.3); 
+                if(t < 0.8) return lerp(-1.0, 0.3, (t-0.5)/0.3); 
+                return lerp(0.3, stElev, (t-0.8)/0.2);
+            }
+            if(bp >= 0.75 && bp <= 0.85) return stElev;
+            if(bp > 0.85 && bp < 0.95) {
+                return stElev + -Math.sin(((bp - 0.85) / 0.1) * Math.PI) * 0.2; 
+            }
+            if(bp >= 0.95) return lerp(stElev, 0, (bp - 0.95) / 0.05);
+            return 0; 
+        }
+
+        function updateLogic(dt, sp) {
+            if(sp > 0.66 && sp < 0.9) {
+                noiseTimer += dt;
+                if(noiseTimer > 0.3) { noiseTimer = 0; playNoiseBurst(); }
+                
+                flatlineTimer += dt;
+                if(flatlineTimer > 8.0) {
+                    flatlineTimer = 0;
+                    flatlineActive = true;
+                    flatlineDuration = 0.3;
+                    playFlatline(); 
+                }
+            }
+
+            if(flatlineActive) {
+                flatlineDuration -= dt;
+                if(flatlineDuration <= 0) flatlineActive = false;
+                ecgData.push(0);
+                // Pulse timer frozen during flatline
+            } else {
+                pulseTimer += dt;
+                statFade += dt * 3;
+                if(statFade > 1) statFade = 1;
+
+                if(sp < 0.33) targetBeatInterval = 1.0;
+                else if(sp < 0.66) targetBeatInterval = lerp(1.0, 0.75, (sp-0.33)/0.33);
+                else if(sp < 0.9) targetBeatInterval = nextBeatInterval; 
+                else targetBeatInterval = lerp(1.0, 1.5, (sp-0.9)/0.1);
+                
+                if(sp < 0.66 || sp >= 0.9) nextBeatInterval = targetBeatInterval;
+
+                beatTimer += dt;
+                if(beatTimer >= nextBeatInterval) {
+                    beatTimer -= nextBeatInterval;
+                    if(sp >= 0.66 && sp < 0.9) nextBeatInterval = Math.random() * 0.4 + 0.5;
+                    onBeat();
+                }
+                
+                beatPhase = beatTimer / nextBeatInterval;
+                
+                let baseVal = getEcgValue(beatPhase, sp);
+                let noise = 0;
+                if(sp > 0.66) {
+                    noise = (Math.random()-0.5)*0.1;
+                    if(Math.random()<0.02) baseVal += (Math.random()-0.5)*0.5;
+                }
+                if(sp > 0.9 && beatPhase > 0.1 && beatPhase < 0.9) baseVal = 0;
+                
+                ecgData.push(baseVal + noise);
+            }
+            
+            if(ecgData.length > 300) ecgData.shift();
+
+            bloodParticles.forEach(bp => {
+                bp.t += dt * (1/nextBeatInterval);
+                if(bp.t > 1) bp.t -= 1;
+            });
+        }
+
+        function calculateScale(bp) {
+            if(bp < 0.6) return 1.0;
+            if(bp < 0.7) return lerp(1.0, 1.05, (bp-0.6)/0.1);
+            if(bp < 0.85) return lerp(1.05, 1.15, (bp-0.7)/0.15);
+            return lerp(1.15, 1.0, (bp-0.85)/0.15);
+        }
+
+        function drawHeart(sp) {
+            let hs = calculateScale(beatPhase);
+            let size = Math.min(w, h) * (isMobile ? 0.28 : 0.35);
+            
+            let fill, glow, arteryColor;
+            if(sp < 0.33) {
+                fill = '#cc2244'; glow = 'rgba(255,50,80,0.4)'; arteryColor = '#dd3355';
+            } else if(sp < 0.66) {
+                let p = (sp - 0.33) / 0.33;
+                fill = lerpHex('#cc2244', '#cc6622', p);
+                glow = `rgba(255,${lerp(50,120,p)},${lerp(80,50,p)},${lerp(0.4,0.5,p)})`;
+                arteryColor = lerpHex('#dd3355', '#dd6644', p);
+            } else {
+                let p = (sp - 0.66) / 0.34;
+                fill = lerpHex('#cc6622', '#882222', p);
+                glow = `rgba(${lerp(255,200,p)},${lerp(120,30,p)},${lerp(50,30,p)},${lerp(0.5,0.6,p)})`;
+                arteryColor = lerpHex('#dd6644', '#661111', p);
+            }
+
+            ctx.save();
+            ctx.translate(cx, cy);
+            ctx.scale(hs, hs);
+            ctx.shadowColor = glow;
+            ctx.shadowBlur = 30;
+            
+            // Arteries
+            ctx.lineCap = 'round';
+            ctx.strokeStyle = arteryColor;
+            ctx.lineWidth = 18;
+            ctx.beginPath();
+            ctx.moveTo(0, -size*0.1);
+            ctx.quadraticCurveTo(-size*0.4, -size*0.6, -size*0.2, -size*0.8);
+            ctx.stroke();
+            
+            ctx.beginPath();
+            ctx.moveTo(0, -size*0.1);
+            ctx.quadraticCurveTo(size*0.4, -size*0.5, size*0.3, -size*0.7);
+            ctx.stroke();
+
+            // Veins
+            ctx.strokeStyle = '#662233';
+            ctx.lineWidth = 12;
+            ctx.beginPath();
+            ctx.moveTo(-size*0.4, 0); ctx.lineTo(-size*0.7, -size*0.2);
+            ctx.moveTo(size*0.4, 0); ctx.lineTo(size*0.6, -size*0.2);
+            ctx.stroke();
+
+            // Blood Flow
+            ctx.shadowBlur = 0;
+            bloodParticles.forEach(bp => {
+                let p0, p1, p2, color;
+                if(bp.vessel === 0) {
+                    p0 = {x: 0, y: -size*0.1}; p1 = {x: -size*0.4, y: -size*0.6}; p2 = {x: -size*0.2, y: -size*0.8}; color = '#ff4466';
+                } else if(bp.vessel === 1) {
+                    p0 = {x: 0, y: -size*0.1}; p1 = {x: size*0.4, y: -size*0.5}; p2 = {x: size*0.3, y: -size*0.7}; color = '#ff4466';
+                } else if(bp.vessel === 2) {
+                    p0 = {x: -size*0.7, y: -size*0.2}; p1 = {x: -size*0.55, y: -size*0.1}; p2 = {x: -size*0.4, y: 0}; color = '#880022';
+                } else {
+                    p0 = {x: size*0.6, y: -size*0.2}; p1 = {x: size*0.5, y: -size*0.1}; p2 = {x: size*0.4, y: 0}; color = '#880022';
+                }
+                let t = bp.t; let omt = 1 - t;
+                let bx = omt*omt*p0.x + 2*omt*t*p1.x + t*t*p2.x;
+                let by = omt*omt*p0.y + 2*omt*t*p1.y + t*t*p2.y;
+                
+                ctx.fillStyle = color;
+                ctx.beginPath();
+                ctx.arc(bx, by, bp.vessel < 2 ? 3 : 2, 0, Math.PI*2);
+                ctx.fill();
+            });
+
+            // Main Body
+            ctx.shadowBlur = 30;
+            ctx.fillStyle = fill;
+            ctx.beginPath();
+            ctx.moveTo(0, -size*0.1);
+            ctx.bezierCurveTo(size*0.5, -size*0.5, size*0.6, size*0.2, 0, size*0.6);
+            ctx.bezierCurveTo(-size*0.6, size*0.2, -size*0.5, -size*0.5, 0, -size*0.1);
+            ctx.fill();
+
+            // Necrosis
+            if(sp > 0.66) {
+                let p = (sp - 0.66) / 0.34;
+                ctx.shadowBlur = 0;
+                ctx.fillStyle = '#110000';
+                let numSpots = Math.floor(p * 30);
+                for(let i=0; i<numSpots; i++) {
+                    let ang = i * 2.4;
+                    let rad = (i/30) * size * 0.4;
+                    let sx = Math.cos(ang) * rad;
+                    let sy = Math.sin(ang) * rad + size*0.1;
+                    ctx.beginPath();
+                    ctx.ellipse(sx, sy, 4+(i%3), 6+(i%4), ang, 0, Math.PI*2);
+                    ctx.fill();
+                }
+            }
+
+            // Electrical Pulse
+            if(pulseTimer < 0.05) {
+                ctx.save();
+                ctx.beginPath();
+                ctx.moveTo(0, -size*0.1);
+                ctx.bezierCurveTo(size*0.5, -size*0.5, size*0.6, size*0.2, 0, size*0.6);
+                ctx.bezierCurveTo(-size*0.6, size*0.2, -size*0.5, -size*0.5, 0, -size*0.1);
+                ctx.clip();
+
+                let pt = pulseTimer / 0.05;
+                let py = -size + (size*2) * pt;
+                ctx.strokeStyle = 'rgba(255,255,200,0.8)';
+                ctx.lineWidth = 6;
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = '#fff';
+                ctx.beginPath();
+                ctx.moveTo(-size, py); ctx.lineTo(size, py);
+                ctx.stroke();
+                ctx.restore();
+            }
+            ctx.restore();
+        }
+
+        function drawEnvParticles(dt, sp) {
+            ctx.save();
+            let bgFill = '#020a04';
+            if(sp > 0.33 && sp <= 0.66) bgFill = lerpHex('#020a04', '#0a0602', (sp-0.33)/0.33);
+            else if(sp > 0.66) bgFill = lerpHex('#0a0602', '#080202', (sp-0.66)/0.34);
+            
+            ctx.fillStyle = bgFill;
+            ctx.fillRect(0,0,w,h);
+            
+            // Grid
+            if(sp > 0.33) {
+                let p = clamp((sp-0.33)/0.33, 0, 1);
+                ctx.strokeStyle = `rgba(255,255,255,${p * 0.02})`;
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                for(let x=0; x<w; x+=50) { ctx.moveTo(x, 0); ctx.lineTo(x, h); }
+                for(let y=0; y<h; y+=50) { ctx.moveTo(0, y); ctx.lineTo(w, y); }
+                ctx.stroke();
+            }
+            
+            // Cracks
+            if(sp > 0.66) {
+                let p = (sp - 0.66)/0.34;
+                ctx.strokeStyle = `rgba(180,0,0,${p * 0.1})`;
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                for(let c=0; c<5; c++) {
+                    let cxStart = (c/5)*w;
+                    ctx.moveTo(cxStart, h);
+                    for(let steps=0; steps<5; steps++) {
+                        ctx.lineTo(cxStart + Math.sin(c+steps)*100, h - (steps*100) - 50);
+                    }
+                }
+                ctx.stroke();
+            }
+            
+            // Atmosphere
+            atmosphere.forEach(p => {
+                p.angle += p.speed;
+                let px = cx + Math.cos(p.angle) * p.dist * w;
+                let py = cy + Math.sin(p.angle) * p.dist * h;
+                let c = 'rgba(50,255,100,0.15)';
+                if(sp > 0.33 && sp <= 0.66) c = 'rgba(255,200,50,0.12)';
+                else if(sp > 0.66) c = 'rgba(255,80,50,0.1)';
+                ctx.fillStyle = c;
+                ctx.beginPath(); ctx.arc(px, py, 2, 0, Math.PI*2); ctx.fill();
+            });
+            
+            // Dynamic BG
+            bgParticles.forEach(p => {
+                p.x += p.vx; p.y += p.vy;
+                if(sp < 0.33) { 
+                    p.type = 'leaf'; p.vy = -Math.abs(p.vy); ctx.fillStyle = 'rgba(80,200,50,0.08)';
+                } else if(sp < 0.66) {
+                    if(p.type === 'leaf') { p.vy = Math.abs(p.vy); ctx.fillStyle = 'rgba(150,100,50,0.08)'; }
+                    else { p.type = 'smoke'; p.vy = -Math.abs(p.vy) * 0.5; p.size += 0.05; ctx.fillStyle = 'rgba(150,150,150,0.06)'; }
+                } else {
+                    if(p.type === 'leaf') p.type = 'crack';
+                    if(p.type === 'smoke') { ctx.fillStyle = 'rgba(100,80,80,0.08)'; p.size += 0.1; p.vy = -Math.abs(p.vy) * 1.2; }
+                    else { ctx.fillStyle = 'rgba(180,120,80,0.15)'; p.vy = Math.abs(p.vy) * 2; p.size = 2; }
+                }
+                if(p.y < -50 || p.y > h + 50 || p.x < -50 || p.x > w + 50) resetBgParticle(p);
+                ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI*2); ctx.fill();
+            });
+            
+            if(sp < 0.33) {
+                ctx.fillStyle = `rgba(50,255,100,${(0.33-sp)*3 * 0.2})`;
+                ctx.font = '16px "Space Mono"';
+                ctx.fillText("O₂", cx + w*0.15, cy - h*0.1);
+                ctx.fillText("O₂", cx - w*0.15, cy + h*0.1);
+            }
+            ctx.restore();
+        }
+
+        function drawBackgroundText(sp) {
+            ctx.font = clamp(12, w*0.015, 18) + 'px "Space Mono"';
+            ctx.textAlign = 'center';
+            if(sp < 0.33) {
+                ctx.fillStyle = 'rgba(255,255,255,0.06)';
+                ctx.fillText("1970 — Earth Overshoot Day: December 31", w/2, h*0.2);
+                ctx.fillText("Humanity used less than Earth could regenerate", w/2, h*0.25);
+            } else if(sp < 0.66) {
+                ctx.fillStyle = 'rgba(255,255,255,0.06)';
+                ctx.fillText("1987 — Earth Overshoot Day: October 23", w/2, h*0.2);
+            } else {
+                ctx.fillStyle = 'rgba(255,50,50,0.08)';
+                ctx.fillText("2023 — Earth Overshoot Day: August 2", w/2, h*0.2);
+                ctx.fillText("We needed 1.7 Earths this year", w/2, h*0.25);
+            }
+        }
+
+        function drawEcg(sp) {
+            let ecgH = h * (isMobile ? 0.12 : 0.2);
+            let ecgY = h * (isMobile ? 0.88 : 0.8);
+            
+            ctx.fillStyle = 'rgba(0,255,136,0.05)';
+            ctx.fillRect(0, ecgY - ecgH/2, w, ecgH);
+            
+            ctx.strokeStyle = 'rgba(0,255,136,0.1)';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            for(let y = ecgY - ecgH/2; y < ecgY + ecgH/2; y+= 20) { ctx.moveTo(0, y); ctx.lineTo(w, y); }
+            for(let x = 0; x < w; x+= 20) { ctx.moveTo(x, ecgY - ecgH/2); ctx.lineTo(x, ecgY + ecgH/2); }
+            ctx.stroke();
+            
+            let color = sp < 0.33 ? '#00ff88' : (sp < 0.66 ? '#ffbe0b' : '#ff4444');
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 2;
+            ctx.shadowBlur = 5;
+            ctx.shadowColor = color;
+            
+            ctx.beginPath();
+            let stepX = w / 300;
+            for(let i=0; i<ecgData.length; i++) {
+                let x = w - (ecgData.length - i - 1) * stepX;
+                let y = ecgY + ecgData[i] * ecgH * 0.4;
+                if(i===0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+        }
+
+        function drawTimeline(sp) {
+            let ty = h * 0.94;
+            if(isMobile) ty = h * 0.96;
+            ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(w*0.1, ty); ctx.lineTo(w*0.9, ty);
+            ctx.stroke();
+            
+            let years = [1970, 1980, 1990, 2000, 2010, 2023];
+            ctx.fillStyle = 'rgba(255,255,255,0.4)';
+            ctx.font = '10px "Space Mono"';
+            ctx.textAlign = 'center';
+            years.forEach((yr, i) => {
+                let x = w*0.1 + (w*0.8) * (i / (years.length-1));
+                ctx.fillText(yr, x, ty + 15);
+                ctx.beginPath(); ctx.arc(x, ty, 2, 0, Math.PI*2); ctx.fill();
+            });
+            
+            let dotX = w*0.1 + (w*0.8) * sp;
+            let dotColor = sp < 0.33 ? '#00ff88' : (sp < 0.66 ? '#ffbe0b' : '#ff4444');
+            ctx.fillStyle = dotColor;
+            ctx.shadowBlur = 10; ctx.shadowColor = dotColor;
+            ctx.beginPath(); ctx.arc(dotX, ty, 6, 0, Math.PI*2); ctx.fill();
+            ctx.shadowBlur = 0;
+            
+            let dy = Math.floor(lerp(365, 214, sp));
+            let dateStr = "";
+            if(dy <= 243) dateStr = "Aug " + (dy - 212);
+            else if(dy <= 273) dateStr = "Sep " + (dy - 243);
+            else if(dy <= 304) dateStr = "Oct " + (dy - 273);
+            else if(dy <= 334) dateStr = "Nov " + (dy - 304);
+            else dateStr = "Dec " + (dy - 334);
+            if(sp <= 0) dateStr = "Dec 31";
+            if(sp >= 1) dateStr = "Aug 2";
+            
+            ctx.fillText(`2023: ${dateStr}`, dotX, ty - 15);
+        }
+
+        function drawStats(sp) {
+            let stat = stats[currentStatIndex];
+            ctx.save();
+            ctx.globalAlpha = statFade;
+            
+            let val = elapsedSeconds * stat.rate;
+            let valStr = stat.rate < 1 ? val.toFixed(3) : Math.floor(val).toLocaleString();
+
+            if(isMobile) {
+                let panelH = h * 0.28;
+                let panelY = h - panelH;
+                ctx.fillStyle = 'rgba(0,0,0,0.85)';
+                ctx.fillRect(0, panelY, w, panelH);
+                
+                ctx.fillStyle = stat.color;
+                ctx.font = 'bold ' + clamp(20, w*0.06, 30) + 'px "Space Mono"';
+                ctx.textAlign = 'center';
+                ctx.fillText(stat.left1, w/2, panelY + 50);
+                
+                ctx.fillStyle = 'rgba(255,255,255,0.5)';
+                ctx.font = clamp(10, w*0.03, 14) + 'px "Space Mono"';
+                ctx.fillText("THIS SECOND", w/2, panelY + 25);
+                ctx.fillText(stat.left2, w/2, panelY + 75);
+                
+                ctx.textAlign = 'left';
+                ctx.fillStyle = stat.color;
+                ctx.font = 'bold ' + clamp(20, w*0.06, 30) + 'px "Space Mono"';
+                ctx.fillText(valStr, 20, 80);
+                ctx.fillStyle = 'rgba(255,255,255,0.5)';
+                ctx.font = clamp(10, w*0.025, 12) + 'px "Space Mono"';
+                ctx.fillText(stat.rightLabel, 20, 100);
+            } else {
+                let panelW = w * 0.27;
+                let panelX = w * 0.03;
+                let panelY = cy - 60;
+                
+                ctx.fillStyle = 'rgba(0,0,0,0.7)';
+                ctx.beginPath(); ctx.roundRect(panelX, panelY, panelW, 120, 20); ctx.fill();
+                
+                ctx.lineWidth = 1; ctx.strokeStyle = stat.color;
+                ctx.globalAlpha = statFade * clamp((1 - beatPhase*2), 0, 1); 
+                ctx.stroke();
+                ctx.globalAlpha = statFade; 
+                
+                ctx.textAlign = 'left';
+                ctx.fillStyle = stat.color;
+                ctx.font = 'bold ' + clamp(18, w*0.025, 30) + 'px "Space Mono"';
+                ctx.fillText(stat.left1, panelX + 20, panelY + 50);
+                
+                ctx.fillStyle = 'rgba(255,255,255,0.5)';
+                ctx.font = clamp(10, w*0.01, 14) + 'px "Space Mono"';
+                ctx.fillText("THIS SECOND", panelX + 20, panelY + 25);
+                ctx.fillText(stat.left2, panelX + 20, panelY + 80);
+                
+                let rx = w * 0.7;
+                let ry = cy - 60;
+                ctx.fillStyle = stat.color;
+                ctx.font = 'bold ' + clamp(24, w*0.035, 45) + 'px "Space Mono"';
+                ctx.fillText(valStr, rx, ry + 50);
+                
+                ctx.fillStyle = 'rgba(255,255,255,0.5)';
+                ctx.font = clamp(10, w*0.01, 14) + 'px "Space Mono"';
+                ctx.fillText(stat.rightLabel, rx, ry + 80);
+            }
+            ctx.restore();
+        }
+
+        function drawProgressLine(sp) {
+            ctx.fillStyle = 'rgba(255,255,255,0.05)';
+            ctx.fillRect(0, 0, 4, h);
+            let color = sp < 0.33 ? '#00ff88' : (sp < 0.66 ? '#ffbe0b' : '#ff4444');
+            ctx.fillStyle = color;
+            ctx.fillRect(0, 0, 4, h * sp);
+            
+            ctx.fillStyle = 'rgba(255,255,255,0.2)';
+            ctx.font = '8px "Space Mono"';
+            ctx.textAlign = 'left';
+            ctx.fillText("HEALTHY", 10, h*0.16);
+            ctx.fillText("STRESSED", 10, h*0.50);
+            ctx.fillText("CRITICAL", 10, h*0.83);
+        }
+
+        function drawFinalMessage(dt, sp) {
+            if(sp < 0.99) { finalTimer = 0; return; }
+            finalTimer += dt;
+            
+            let alpha = clamp(finalTimer * 0.5, 0, 0.85);
+            ctx.fillStyle = `rgba(0,0,0,${alpha})`;
+            ctx.fillRect(0,0,w,h);
+            
+            ctx.textAlign = 'center';
+            let fontBase = clamp(18, w*0.03, 35);
+            let ty = h * (isMobile ? 0.15 : 0.2);
+            let spacing = isMobile ? 30 : 45;
+            
+            // Block 1
+            ctx.fillStyle = `rgba(255,255,255,${clamp(finalTimer - 2, 0, 1) * 0.7})`;
+            ctx.font = `italic ${fontBase}px "Cormorant Garamond"`;
+            ctx.fillText("In the time you spent on this page", w/2, ty);
+            let m = Math.floor(elapsedSeconds / 60);
+            let s = Math.floor(elapsedSeconds % 60);
+            ctx.font = `bold ${fontBase*0.8}px "Space Mono"`;
+            ctx.fillText(`${m}:${s < 10 ? '0'+s : s}`, w/2, ty + spacing);
+            
+            // Block 2
+            ty += spacing * 2.5;
+            ctx.fillStyle = `rgba(255,255,255,${clamp(finalTimer - 4, 0, 1) * 0.7})`;
+            ctx.font = `italic ${fontBase}px "Cormorant Garamond"`;
+            ctx.fillText("The Earth lost:", w/2, ty);
+            ctx.font = `bold ${fontBase*0.6}px "Space Mono"`;
+            ctx.fillText(`${Math.floor(elapsedSeconds * stats[1].rate).toLocaleString()} football fields of forest`, w/2, ty + spacing*1.2);
+            ctx.fillText(`${Math.floor(elapsedSeconds * stats[4].rate).toLocaleString()} tons of plastic entered oceans`, w/2, ty + spacing*2.4);
+            ctx.fillText(`${Math.floor(elapsedSeconds * stats[0].rate).toLocaleString()} tons of CO2 were released`, w/2, ty + spacing*3.6);
+            ctx.fillText(`${Math.floor(elapsedSeconds * stats[5].rate).toLocaleString()} tons of Antarctic ice melted`, w/2, ty + spacing*4.8);
+            
+            // Block 3
+            ty += spacing * 6.5;
+            ctx.fillStyle = `rgba(255,255,255,${clamp(finalTimer - 7, 0, 1) * 0.7})`;
+            ctx.font = `italic ${fontBase}px "Cormorant Garamond"`;
+            ctx.fillText("The Earth's heart has beaten", w/2, ty);
+            ctx.fillText("for 4.5 billion years", w/2, ty + spacing);
+            
+            // Block 4
+            ty += spacing * 2.5;
+            ctx.fillStyle = `rgba(255,255,255,${clamp(finalTimer - 10, 0, 1) * 0.7})`;
+            ctx.fillText("It is still beating", w/2, ty);
+            
+            // Block 5
+            ty += spacing * 2.5;
+            ctx.fillStyle = `rgba(255,255,255,${clamp(finalTimer - 13, 0, 1) * 0.7})`;
+            ctx.fillText("That is the most important", w/2, ty);
+            ctx.fillText("fact on this page", w/2, ty + spacing);
+            
+            // Final
+            ty += spacing * 3;
+            ctx.fillStyle = `rgba(255,255,255,${clamp(finalTimer - 16, 0, 1) * 0.9})`;
+            ctx.fillText("What happens next", w/2, ty);
+            ctx.fillText("is the only statistic", w/2, ty + spacing);
+            ctx.fillText("that isn't written yet", w/2, ty + spacing*2);
+        }
+
+        // Main Loop
+        function loop(time) {
+            let dt = (time - lastTime) / 1000;
+            lastTime = time;
+            if(dt > 0.1) dt = 0.1;
+            
+            elapsedSeconds += dt;
+            scrollProgress = lerp(scrollProgress, targetScroll, 0.04);
+            
+            updateAudio(scrollProgress);
+            updateLogic(dt, scrollProgress);
+            
+            ctx.clearRect(0, 0, w, h);
+            
+            drawEnvParticles(dt, scrollProgress);
+            drawBackgroundText(scrollProgress);
+            
+            drawHeart(scrollProgress);
+            drawEcg(scrollProgress);
+            drawTimeline(scrollProgress);
+            
+            if(scrollProgress < 0.95) drawStats(scrollProgress);
+            
+            drawProgressLine(scrollProgress);
+            drawFinalMessage(dt, scrollProgress);
+            
+            requestAnimationFrame(loop);
+        }
+
+        requestAnimationFrame(loop);
+    </script>
+</body>
+</html>
