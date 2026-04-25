@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>human_piano</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@200;400&display=swap');
+
+  body, html {
+    margin: 0; padding: 0; width: 100vw; height: 100vh; overflow: hidden;
+    background: #000; color: #fff; font-family: 'Montserrat', sans-serif;
+    cursor: crosshair;
+  }
+
+  canvas { position: absolute; top: 0; left: 0; z-index: 1; }
+
+  #ui {
+    position: absolute; top: 20px; left: 20px; z-index: 10; pointer-events: none;
+    text-shadow: 0 0 10px rgba(255,255,255,0.5);
+  }
+
+  h1 { font-weight: 200; font-size: 1.5rem; letter-spacing: 5px; margin: 0 0 5px 0; }
+  p { font-size: 0.8rem; letter-spacing: 2px; margin: 0; opacity: 0.7; }
+
+  #controls {
+    position: absolute; bottom: 20px; left: 20px; z-index: 10;
+    display: flex; gap: 10px;
+  }
+  
+  .btn {
+    background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.3);
+    color: white; padding: 8px 15px; border-radius: 20px; cursor: pointer;
+    font-family: inherit; font-size: 0.8rem; letter-spacing: 1px; transition: all 0.2s;
+  }
+  .btn:hover, .btn.active { background: white; color: black; }
+
+</style>
+</head>
+<body>
+
+<div id="ui">
+  <h1>HUMAN PIANO</h1>
+  <p>MOVE MOUSE TO PLAY · CLICK FOR CHORDS</p>
+</div>
+
+<div id="controls">
+  <button class="btn active" onclick="setScale('pentatonic', this)">PENTATONIC</button>
+  <button class="btn" onclick="setScale('minor', this)">MINOR</button>
+  <button class="btn" onclick="setScale('major', this)">MAJOR</button>
+</div>
+
+<canvas id="canvas"></canvas>
+
+<script>
+  const canvas = document.getElementById('canvas');
+  const ctx = canvas.getContext('2d');
+  let w = canvas.width = window.innerWidth;
+  let h = canvas.height = window.innerHeight;
+
+  window.addEventListener('resize', () => { w = canvas.width = window.innerWidth; h = canvas.height = window.innerHeight; });
+
+  // Audio System
+  let actx, masterGain, filter;
+  let isAudioInit = false;
+
+  const scales = {
+    pentatonic: [261.63, 293.66, 329.63, 392.00, 440.00, 523.25, 587.33, 659.25, 783.99, 880.00, 1046.50, 1174.66, 1318.51],
+    minor: [261.63, 293.66, 311.13, 349.23, 392.00, 415.30, 466.16, 523.25, 587.33, 622.25, 698.46, 783.99, 830.61],
+    major: [261.63, 293.66, 329.63, 349.23, 392.00, 440.00, 493.88, 523.25, 587.33, 659.25, 698.46, 783.99, 880.00]
+  };
+  let currentScale = scales.pentatonic;
+
+  window.setScale = function(scaleName, btn) {
+    currentScale = scales[scaleName];
+    document.querySelectorAll('.btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+  };
+
+  function initAudio() {
+    if(isAudioInit) return;
+    actx = new (window.AudioContext || window.webkitAudioContext)();
+    masterGain = actx.createGain(); masterGain.gain.value = 0.3;
+    
+    filter = actx.createBiquadFilter(); filter.type = 'lowpass'; filter.frequency.value = 2000;
+    
+    masterGain.connect(filter); filter.connect(actx.destination);
+    
+    // Background drone
+    const drone = actx.createOscillator(); drone.type = 'sine'; drone.frequency.value = 65.41; // C2
+    const g = actx.createGain(); g.gain.value = 0.1;
+    drone.connect(g); g.connect(masterGain); drone.start();
+    
+    isAudioInit = true;
+  }
+
+  function playNote(freq, x, y, isChord=false) {
+    if(!actx) return;
+    const osc = actx.createOscillator(); osc.type = 'sine';
+    const g = actx.createGain();
+    
+    osc.frequency.setValueAtTime(freq, actx.currentTime);
+    
+    // Attack and release
+    g.gain.setValueAtTime(0, actx.currentTime);
+    g.gain.linearRampToValueAtTime(isChord ? 0.2 : 0.4, actx.currentTime + 0.05);
+    g.gain.exponentialRampToValueAtTime(0.001, actx.currentTime + (isChord ? 3 : 1));
+    
+    osc.connect(g); g.connect(masterGain);
+    osc.start(); osc.stop(actx.currentTime + (isChord ? 3 : 1));
+
+    // Visuals
+    spawnRipple(x, y, freq, isChord);
+  }
+
+  // Visuals
+  const ripples = [];
+  function spawnRipple(x, y, freq, isChord) {
+    // Hue based on freq
+    let hue = (Math.log2(freq/261.63) * 360) % 360;
+    ripples.push({
+      x: x, y: y, r: 0,
+      maxR: isChord ? 500 : 200,
+      alpha: isChord ? 0.8 : 0.5,
+      hue: hue,
+      width: isChord ? 4 : 2
+    });
+  }
+
+  let mouseX = 0, mouseY = 0;
+  let lastNoteIndex = -1;
+
+  window.addEventListener('mousemove', (e) => {
+    initAudio();
+    mouseX = e.clientX; mouseY = e.clientY;
+    
+    if(filter) {
+      filter.frequency.value = 200 + (1 - (mouseY/h)) * 5000;
+    }
+
+    let noteIndex = Math.floor((mouseX / w) * currentScale.length);
+    noteIndex = Math.max(0, Math.min(currentScale.length-1, noteIndex));
+    
+    if(noteIndex !== lastNoteIndex) {
+      playNote(currentScale[noteIndex], mouseX, mouseY, false);
+      lastNoteIndex = noteIndex;
+    }
+  });
+
+  window.addEventListener('mousedown', (e) => {
+    initAudio();
+    let rootIdx = Math.floor((e.clientX / w) * currentScale.length);
+    // Play a chord (root, third, fifth approx)
+    [0, 2, 4].forEach(offset => {
+      let idx = rootIdx + offset;
+      if(idx < currentScale.length) playNote(currentScale[idx], e.clientX, e.clientY, true);
+    });
+  });
+
+  function loop() {
+    ctx.fillStyle = 'rgba(0,0,0,0.1)';
+    ctx.fillRect(0,0,w,h);
+
+    for(let i=ripples.length-1; i>=0; i--) {
+      let r = ripples[i];
+      r.r += (r.maxR - r.r) * 0.05;
+      r.alpha -= 0.01;
+
+      if(r.alpha <= 0) { ripples.splice(i, 1); continue; }
+
+      ctx.beginPath(); ctx.arc(r.x, r.y, r.r, 0, Math.PI*2);
+      ctx.strokeStyle = `hsla(${r.hue}, 100%, 60%, ${r.alpha})`;
+      ctx.lineWidth = r.width;
+      ctx.stroke();
+    }
+    requestAnimationFrame(loop);
+  }
+  loop();
+
+</script>
+</body>
+</html>
