@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>skill_tree</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Lato&display=swap');
+
+  body, html {
+    margin: 0; padding: 0; width: 100vw; height: 100vh; overflow: hidden; background: #0f172a; color: #fff;
+    font-family: 'Lato', sans-serif;
+  }
+
+  canvas { position: absolute; top: 0; left: 0; z-index: 1; }
+
+  #ui {
+    position: absolute; top: 20px; left: 20px; z-index: 10; pointer-events: none;
+  }
+  h1 { font-family: 'Cinzel', serif; font-size: 2rem; color: #fbbf24; margin: 0 0 5px 0; text-shadow: 0 0 10px rgba(251,191,36,0.5); }
+  p { margin: 0; color: #94a3b8; font-size: 0.9rem; }
+
+  #toolbar {
+    position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 10;
+    display: flex; gap: 10px; background: rgba(30,41,59,0.8); padding: 10px; border-radius: 8px; border: 1px solid #334155;
+  }
+
+  .btn {
+    background: #334155; border: 1px solid #475569; color: white; padding: 8px 15px; border-radius: 4px; cursor: pointer;
+    font-family: inherit; transition: all 0.2s;
+  }
+  .btn:hover { background: #475569; }
+  .btn.active { background: #fbbf24; color: #000; border-color: #f59e0b; }
+
+</style>
+</head>
+<body>
+
+<div id="ui">
+  <h1>SKILL TREE BUILDER</h1>
+  <p>Map your progression. Nodes represent skills.</p>
+</div>
+
+<div id="toolbar">
+  <button class="btn active" id="btn-add" onclick="setMode('add')">ADD NODE</button>
+  <button class="btn" id="btn-link" onclick="setMode('link')">LINK NODES</button>
+</div>
+
+<canvas id="c"></canvas>
+
+<script>
+  const canvas = document.getElementById('c');
+  const ctx = canvas.getContext('2d');
+  let w = canvas.width = window.innerWidth;
+  let h = canvas.height = window.innerHeight;
+  window.onresize = () => { w = canvas.width = window.innerWidth; h = canvas.height = window.innerHeight; };
+
+  let actx;
+  function initAudio() { if(!actx) actx = new (window.AudioContext || window.webkitAudioContext)(); }
+  
+  function playClick(high=false) {
+    if(!actx) return;
+    const osc = actx.createOscillator(); osc.type = 'triangle';
+    const g = actx.createGain();
+    osc.frequency.setValueAtTime(high ? 600 : 300, actx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(0.01, actx.currentTime+0.1);
+    g.gain.setValueAtTime(0.2, actx.currentTime); g.gain.exponentialRampToValueAtTime(0.001, actx.currentTime+0.1);
+    osc.connect(g); g.connect(actx.destination); osc.start(); osc.stop(actx.currentTime+0.1);
+  }
+
+  let nodes = [];
+  let links = [];
+  
+  let mode = 'add'; // 'add', 'link'
+  let selectedNode = null;
+
+  window.setMode = function(m) {
+    mode = m; selectedNode = null;
+    document.querySelectorAll('.btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('btn-'+m).classList.add('active');
+  };
+
+  // Add root node
+  nodes.push({ id: 0, x: w/2, y: h-100, label: 'CORE', level: 0 });
+
+  function draw() {
+    ctx.clearRect(0,0,w,h);
+    
+    // Draw links
+    ctx.lineWidth = 2;
+    links.forEach(l => {
+      let n1 = nodes.find(n => n.id === l.from);
+      let n2 = nodes.find(n => n.id === l.to);
+      if(n1 && n2) {
+        ctx.beginPath(); ctx.moveTo(n1.x, n1.y); ctx.lineTo(n2.x, n2.y);
+        ctx.strokeStyle = '#475569'; ctx.stroke();
+      }
+    });
+
+    // Draw active link line
+    if(mode === 'link' && selectedNode && mouseX > 0) {
+      ctx.beginPath(); ctx.moveTo(selectedNode.x, selectedNode.y); ctx.lineTo(mouseX, mouseY);
+      ctx.strokeStyle = '#fbbf24'; ctx.stroke();
+    }
+
+    // Draw nodes
+    nodes.forEach(n => {
+      ctx.beginPath(); ctx.arc(n.x, n.y, 20, 0, Math.PI*2);
+      ctx.fillStyle = (selectedNode === n) ? '#f59e0b' : '#1e293b';
+      ctx.fill();
+      ctx.lineWidth = 3; ctx.strokeStyle = (selectedNode === n) ? '#fff' : '#fbbf24'; ctx.stroke();
+      
+      ctx.fillStyle = '#fff'; ctx.font = '12px Lato'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(n.label, n.x, n.y + 35);
+    });
+
+    requestAnimationFrame(draw);
+  }
+
+  let mouseX = -100, mouseY = -100;
+  window.addEventListener('mousemove', e => { mouseX = e.clientX; mouseY = e.clientY; });
+
+  canvas.addEventListener('mousedown', e => {
+    initAudio();
+    let clickedNode = nodes.find(n => Math.hypot(n.x - e.clientX, n.y - e.clientY) < 20);
+
+    if(mode === 'add') {
+      if(!clickedNode) {
+        let label = prompt("Enter Skill Name:");
+        if(label) {
+          nodes.push({ id: Date.now(), x: e.clientX, y: e.clientY, label: label.toUpperCase(), level: 1 });
+          playClick(true);
+        }
+      }
+    } else if(mode === 'link') {
+      if(clickedNode) {
+        if(!selectedNode) {
+          selectedNode = clickedNode; playClick();
+        } else {
+          if(selectedNode.id !== clickedNode.id) {
+            // Check if link exists
+            if(!links.find(l => (l.from===selectedNode.id && l.to===clickedNode.id) || (l.to===selectedNode.id && l.from===clickedNode.id))) {
+              links.push({ from: selectedNode.id, to: clickedNode.id });
+              playClick(true);
+            }
+          }
+          selectedNode = null;
+        }
+      } else {
+        selectedNode = null;
+      }
+    }
+  });
+
+  draw();
+
+</script>
+</body>
+</html>
