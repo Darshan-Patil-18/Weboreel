@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Gravity Graffiti</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --well-c1: #00f3ff;
+            --well-c2: #ff0099;
+        }
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #050510;
+            font-family: 'Outfit', sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: none; /* Prevent scroll on mobile */
+        }
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+        }
+        .ui-container {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            padding: 20px 30px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+            color: white;
+            z-index: 10;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            pointer-events: auto;
+        }
+        h1 {
+            margin: 0;
+            font-size: 1.5rem;
+            font-weight: 800;
+            letter-spacing: 2px;
+            background: linear-gradient(90deg, #00f3ff, #ff0099);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 0 20px rgba(0, 243, 255, 0.3);
+        }
+        .button-group {
+            display: flex;
+            gap: 10px;
+        }
+        button {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 10px;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        button:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+        button:active {
+            transform: translateY(1px);
+        }
+        .instruction {
+            margin: 0;
+            font-size: 0.8rem;
+            opacity: 0.7;
+            text-align: center;
+            max-width: 300px;
+        }
+
+        #gravity-well {
+            position: absolute;
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: grab;
+            z-index: 5;
+            touch-action: none;
+        }
+        #gravity-well:active {
+            cursor: grabbing;
+        }
+        .core {
+            width: 24px;
+            height: 24px;
+            background: white;
+            border-radius: 50%;
+            box-shadow: 0 0 20px #fff, 0 0 40px var(--well-c1), 0 0 60px var(--well-c1);
+            animation: pulse 2s infinite alternate;
+            pointer-events: none; /* Let the wrapper handle events */
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); box-shadow: 0 0 20px #fff, 0 0 40px var(--well-c1), 0 0 60px var(--well-c1); }
+            100% { transform: scale(1.2); box-shadow: 0 0 30px #fff, 0 0 60px var(--well-c2), 0 0 90px var(--well-c2); }
+        }
+
+        @media (max-width: 600px) {
+            .ui-container {
+                width: 85%;
+                padding: 15px;
+                bottom: 15px;
+            }
+            .button-group {
+                flex-wrap: wrap;
+                justify-content: center;
+            }
+            button {
+                flex: 1 1 40%;
+                font-size: 0.9rem;
+                padding: 8px 10px;
+            }
+            h1 {
+                font-size: 1.2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+    
+    <div id="gravity-well">
+        <div class="core"></div>
+    </div>
+
+    <div class="ui-container">
+        <h1>GRAVITY GRAFFITI</h1>
+        <div class="button-group">
+            <button id="btn-clear">Clear</button>
+            <button id="btn-invert">Invert Gravity</button>
+            <button id="btn-palette">Palette</button>
+        </div>
+        <p class="instruction">Drag to spawn neon paint. Double-tap to invert gravity. Drag the core to tilt gravity.</p>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d', { alpha: false });
+        let width = window.innerWidth;
+        let height = window.innerHeight;
+
+        let particles = [];
+        const MAX_PARTICLES = 400;
+        const NUM_SUBSTEPS = 4;
+        let gravityMode = 1; // 1 = down, -1 = up
+        let baseGravity = 0.15;
+
+        // Palettes
+        const palettes = [
+            ['#00f3ff', '#00ff66', '#ff0099', '#fcee0a'], // Cyberpunk
+            ['#390099', '#9e0059', '#ff0054', '#ff5400', '#ffbd00'], // Sunset Neon
+            ['#711c91', '#ea00d9', '#0abdc6', '#133e7c', '#091833'], // Vaporwave
+            ['#00ffcc', '#00ccff', '#cc00ff', '#ff00cc', '#ffffff'] // Ice & Fire
+        ];
+        let currentPaletteIdx = 0;
+
+        function getRandomColor() {
+            const p = palettes[currentPaletteIdx];
+            return p[Math.floor(Math.random() * p.length)];
+        }
+
+        // Gravity Well state
+        const well = document.getElementById('gravity-well');
+        let isDraggingWell = false;
+        let wellX = width / 2;
+        let wellY = height / 2;
+        well.style.left = wellX + 'px';
+        well.style.top = wellY + 'px';
+
+        // Resize
+        function resize() {
+            width = window.innerWidth;
+            height = window.innerHeight;
+            canvas.width = width;
+            canvas.height = height;
+            ctx.fillStyle = '#050510';
+            ctx.fillRect(0, 0, width, height);
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        // Audio System
+        let audioCtx;
+        let masterGain;
+        let droneOsc;
+        let droneFilter;
+        let droneGain;
+        let lastChimeTime = 0;
+
+        function initAudio() {
+            if (audioCtx) {
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+                return;
+            }
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            if (!AudioContext) return; // Browser doesn't support
+            
+            audioCtx = new AudioContext();
+            masterGain = audioCtx.createGain();
+            masterGain.gain.value = 0.6;
+            masterGain.connect(audioCtx.destination);
+            
+            // Ambient drone based on particle count
+            droneOsc = audioCtx.createOscillator();
+            droneOsc.type = 'sawtooth';
+            droneOsc.frequency.value = 65; // C2
+            
+            droneFilter = audioCtx.createBiquadFilter();
+            droneFilter.type = 'lowpass';
+            droneFilter.frequency.value = 100;
+            droneFilter.Q.value = 4;
+            
+            droneGain = audioCtx.createGain();
+            droneGain.gain.value = 0;
+            
+            droneOsc.connect(droneFilter);
+            droneFilter.connect(droneGain);
+            droneGain.connect(masterGain);
+            
+            droneOsc.start();
+        }
+
+        function playChime(impact, size) {
+            if (!audioCtx || audioCtx.state !== 'running') return;
+            const nowReal = performance.now();
+            if (nowReal - lastChimeTime < 80) return; // limit to ~12 sounds/sec to prevent audio glitching
+            lastChimeTime = nowReal;
+            
+            const now = audioCtx.currentTime;
+            const osc = audioCtx.createOscillator();
+            osc.type = 'sine';
+            
+            const baseFreq = 300;
+            const freq = baseFreq + (15 - size) * 40; 
+            osc.frequency.setValueAtTime(freq, now);
+            
+            const gain = audioCtx.createGain();
+            const volume = Math.min(impact * 0.05, 0.15); 
+            
+            gain.gain.setValueAtTime(0, now);
+            gain.gain.linearRampToValueAtTime(volume, now + 0.01);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+            
+            osc.connect(gain);
+            gain.connect(masterGain);
+            
+            osc.start(now);
+            osc.stop(now + 0.5);
+        }
+
+        function updateAudioDrone() {
+            if (!audioCtx || !droneGain) return;
+            const now = audioCtx.currentTime;
+            const count = particles.length;
+            
+            const targetGain = Math.min(count * 0.0015, 0.25);
+            const targetFreq = 100 + count * 2.5; 
+            
+            droneGain.gain.setTargetAtTime(targetGain, now, 0.5);
+            droneFilter.frequency.setTargetAtTime(targetFreq, now, 0.5);
+        }
+
+        // Particle Spawning
+        function spawnParticle(x, y) {
+            if (particles.length >= MAX_PARTICLES) {
+                particles.shift(); 
+            }
+            const r = Math.random() * 8 + 4; // radius 4 to 12
+            particles.push({
+                x: x,
+                y: y,
+                oldX: x - (Math.random() - 0.5) * 6, // Random initial velocity
+                oldY: y - (Math.random() - 0.5) * 6,
+                radius: r,
+                color: getRandomColor()
+            });
+        }
+
+        // Input Handling
+        let isPointerDown = false;
+        let lastPointer = {x: 0, y: 0};
+        let lastTap = 0;
+
+        canvas.addEventListener('pointerdown', (e) => {
+            initAudio();
+            isPointerDown = true;
+            lastPointer.x = e.clientX;
+            lastPointer.y = e.clientY;
+            spawnParticle(e.clientX, e.clientY);
+            
+            // Double tap detection
+            let now = performance.now();
+            if (now - lastTap < 300) {
+                gravityMode *= -1; // Invert gravity
+            }
+            lastTap = now;
+        });
+
+        canvas.addEventListener('pointermove', (e) => {
+            if (!isPointerDown) return;
+            
+            let dx = e.clientX - lastPointer.x;
+            let dy = e.clientY - lastPointer.y;
+            let dist = Math.sqrt(dx*dx + dy*dy);
+            
+            // Interpolate points to create smooth stream
+            let steps = Math.min(Math.floor(dist / 4), 15); 
+            if (steps > 0) {
+                for (let i = 1; i <= steps; i++) {
+                    let px = lastPointer.x + dx * (i / steps);
+                    let py = lastPointer.y + dy * (i / steps);
+                    spawnParticle(px, py);
+                }
+                lastPointer.x = e.clientX;
+                lastPointer.y = e.clientY;
+            }
+        });
+
+        window.addEventListener('pointerup', () => isPointerDown = false);
+        window.addEventListener('pointercancel', () => isPointerDown = false);
+
+        // Gravity Well Dragging
+        well.addEventListener('pointerdown', (e) => {
+            initAudio();
+            isDraggingWell = true;
+            well.setPointerCapture(e.pointerId);
+            e.stopPropagation(); 
+        });
+        
+        well.addEventListener('pointermove', (e) => {
+            if (isDraggingWell) {
+                wellX = Math.max(40, Math.min(width - 40, e.clientX));
+                wellY = Math.max(40, Math.min(height - 40, e.clientY));
+                well.style.left = wellX + 'px';
+                well.style.top = wellY + 'px';
+            }
+        });
+        
+        well.addEventListener('pointerup', (e) => {
+            isDraggingWell = false;
+            well.releasePointerCapture(e.pointerId);
+        });
+
+        // UI Buttons
+        document.getElementById('btn-clear').addEventListener('click', () => {
+            particles = [];
+            gravityMode = 1;
+            ctx.globalCompositeOperation = 'source-over';
+            ctx.fillStyle = '#050510';
+            ctx.fillRect(0, 0, width, height);
+        });
+
+        document.getElementById('btn-invert').addEventListener('click', () => {
+            gravityMode *= -1;
+        });
+
+        document.getElementById('btn-palette').addEventListener('click', () => {
+            currentPaletteIdx = (currentPaletteIdx + 1) % palettes.length;
+            const p = palettes[currentPaletteIdx];
+            document.documentElement.style.setProperty('--well-c1', p[0]);
+            document.documentElement.style.setProperty('--well-c2', p[Math.min(2, p.length-1)]);
+            
+            // Change color of existing particles
+            for (let part of particles) {
+                part.color = getRandomColor();
+            }
+        });
+
+        // Physics Engine (Verlet)
+        function updatePhysics() {
+            for (let p of particles) {
+                let vx = (p.x - p.oldX);
+                let vy = (p.y - p.oldY);
+                
+                // Cap velocity to prevent phasing
+                let speed = Math.sqrt(vx*vx + vy*vy);
+                if (speed > 15) { 
+                    vx = (vx / speed) * 15;
+                    vy = (vy / speed) * 15;
+                }
+                
+                p.oldX = p.x;
+                p.oldY = p.y;
+                
+                let gx = 0;
+                let gy = baseGravity * gravityMode;
+                
+                // Well attraction force
+                let dx = wellX - p.x;
+                let dy = wellY - p.y;
+                let distSq = dx*dx + dy*dy;
+                if (distSq > 900) { // Only pull if outside core radius
+                    let dist = Math.sqrt(distSq);
+                    let force = 250 / distSq; 
+                    force = Math.min(force, 1); 
+                    gx += (dx / dist) * force;
+                    gy += (dy / dist) * force;
+                }
+                
+                // 0.999 is air friction
+                p.x += vx * 0.999 + gx;
+                p.y += vy * 0.999 + gy;
+            }
+        }
+
+        function solveCollisions() {
+            // Nested loop for O(N^2) collision detection
+            for (let i=0; i<particles.length; i++) {
+                for (let j=i+1; j<particles.length; j++) {
+                    let p1 = particles[i];
+                    let p2 = particles[j];
+                    let dx = p1.x - p2.x;
+                    let dy = p1.y - p2.y;
+                    let distSq = dx*dx + dy*dy;
+                    let minDist = p1.radius + p2.radius;
+                    
+                    if (distSq < minDist*minDist) {
+                        let dist = Math.sqrt(distSq);
+                        if (dist === 0) continue; // avoid division by zero
+                        
+                        let overlap = minDist - dist;
+                        let nx = dx / dist;
+                        let ny = dy / dist;
+                        
+                        // Mass proportional to radius
+                        let totalM = p1.radius + p2.radius;
+                        let ratio1 = p2.radius / totalM;
+                        let ratio2 = p1.radius / totalM;
+                        
+                        // Separate particles
+                        p1.x += nx * overlap * ratio1;
+                        p1.y += ny * overlap * ratio1;
+                        p2.x -= nx * overlap * ratio2;
+                        p2.y -= ny * overlap * ratio2;
+                        
+                        let impact = Math.abs(overlap);
+                        if (impact > 0.3) {
+                            playChime(impact, minDist / 2);
+                        }
+                    }
+                }
+            }
+        }
+
+        function constrain() {
+            let bounce = 0.7; // energy loss on wall bounce
+            for (let p of particles) {
+                let vx = (p.x - p.oldX);
+                let vy = (p.y - p.oldY);
+                
+                if (p.x < p.radius) {
+                    p.x = p.radius;
+                    p.oldX = p.x + vx * bounce;
+                } else if (p.x > width - p.radius) {
+                    p.x = width - p.radius;
+                    p.oldX = p.x + vx * bounce;
+                }
+                
+                if (p.y < p.radius) {
+                    p.y = p.radius;
+                    p.oldY = p.y + vy * bounce;
+                } else if (p.y > height - p.radius) {
+                    p.y = height - p.radius;
+                    p.oldY = p.y + vy * bounce;
+                }
+            }
+        }
+
+        // Render Loop
+        function draw() {
+            // Motion blur effect by drawing semi-transparent background
+            ctx.globalCompositeOperation = 'source-over';
+            ctx.fillStyle = 'rgba(5, 5, 16, 0.25)';
+            ctx.fillRect(0, 0, width, height);
+            
+            // Draw glowing particles
+            ctx.globalCompositeOperation = 'lighter';
+            for (let p of particles) {
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+                ctx.fillStyle = p.color;
+                ctx.shadowBlur = p.radius * 2.5;
+                ctx.shadowColor = p.color;
+                ctx.fill();
+            }
+            ctx.shadowBlur = 0; // reset for next frame
+        }
+
+        function loop() {
+            updateAudioDrone();
+
+            for (let s = 0; s < NUM_SUBSTEPS; s++) {
+                updatePhysics();
+                solveCollisions();
+                constrain();
+            }
+            
+            draw();
+            requestAnimationFrame(loop);
+        }
+
+        // Start animation loop
+        requestAnimationFrame(loop);
+    </script>
+</body>
+</html>
