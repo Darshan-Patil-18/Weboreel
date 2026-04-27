@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Interview Day</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Caveat:wght@600&family=DM+Sans:wght@400;500&family=DM+Serif+Display&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-white: #fafafa;
+      --text-black: #111;
+      --text-thought: #555;
+    }
+    
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body, html {
+      width: 100%; height: 100%; overflow: hidden;
+      background: var(--bg-white); color: var(--text-black);
+      font-family: 'DM Sans', sans-serif;
+      overscroll-behavior: none;
+    }
+
+    #scroll-container {
+      position: absolute; top: 0; left: 0; width: 100%;
+      will-change: transform;
+    }
+
+    .scene {
+      width: 100%; height: 120vh; position: relative;
+      display: flex; flex-direction: column; justify-content: center;
+      transition: background 1.5s ease; border-bottom: 1px dashed #ccc;
+    }
+
+    /* Dual Typography */
+    .dual-container {
+      display: flex; width: 100%; max-width: 1200px; margin: 0 auto;
+      padding: 0 5%;
+    }
+    .thought-col, .said-col { flex: 1; padding: 2rem; position: relative; }
+    
+    .said {
+      font-family: 'DM Serif Display', serif; font-size: clamp(2rem, 4vw, 3.5rem);
+      opacity: 0; transform: translateY(20px); transition: opacity 0.8s, transform 0.8s;
+    }
+    .thought {
+      font-family: 'Caveat', cursive; font-size: clamp(1.5rem, 3vw, 2.5rem);
+      color: var(--text-thought); opacity: 0; transform: translateY(20px) rotate(-1deg);
+      transition: opacity 0.8s, transform 0.8s; transition-delay: 0.5s; /* Reveals after said */
+    }
+    .reveal { opacity: 1; transform: translateY(0) rotate(0); }
+    .reveal.thought { transform: translateY(0) rotate(-1deg); } /* Keep tilt */
+
+    .timestamp {
+      position: absolute; top: 20px; left: 5%; font-family: 'Bebas Neue', cursive;
+      font-size: 2rem; letter-spacing: 2px; color: #999;
+    }
+
+    /* Stick Figures */
+    .stick-figure { position: absolute; }
+    .head { width: 30px; height: 40px; border: 3px solid #111; border-radius: 50%; }
+    .body-line { width: 3px; height: 50px; background: #111; margin: 0 auto; }
+    .arms { width: 40px; height: 3px; background: #111; position: absolute; top: 55px; left: -5px; }
+    .legs { display: flex; justify-content: center; gap: 10px; position: absolute; top: 90px; left: -5px; }
+    .leg { width: 3px; height: 40px; background: #111; transform-origin: top; }
+    .leg.left { transform: rotate(20deg); }
+    .leg.right { transform: rotate(-20deg); }
+
+    /* S1 */
+    .bed { position: absolute; bottom: 20%; left: 20%; width: 200px; height: 50px; border-top: 5px solid #111; }
+    .alarm { position: absolute; bottom: calc(20% + 50px); left: 15%; width: 20px; height: 30px; border: 2px solid #111; }
+    @keyframes shake { 0%, 100% { transform: rotate(0); } 25% { transform: rotate(10deg); } 75% { transform: rotate(-10deg); } }
+    .shaking { animation: shake 0.1s infinite; }
+    
+    .s1-jump { transform: translateY(0); transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+    .scene.active .s1-jump { transform: translateY(-40px); }
+
+    /* S2 */
+    .clothes { display: flex; gap: 20px; position: absolute; bottom: 20%; left: 10%; }
+    .outfit { width: 40px; height: 60px; border: 2px solid #111; position: relative; }
+    .x-mark { position: absolute; width: 100%; height: 100%; display: none; }
+    .x-mark::before, .x-mark::after { content: ''; position: absolute; width: 100%; height: 4px; background: red; top: 50%; }
+    .x-mark::before { transform: rotate(45deg); } .x-mark::after { transform: rotate(-45deg); }
+    .scene.active .x-mark { display: block; }
+    .outfit.chosen .x-mark { display: none; }
+    .outfit.chosen { background: #111; } /* navy suit */
+
+    /* S3 */
+    @keyframes walk { 0% { transform: rotate(20deg); } 50% { transform: rotate(-20deg); } 100% { transform: rotate(20deg); } }
+    .walking .leg.left { animation: walk 1s infinite; }
+    .walking .leg.right { animation: walk 1s infinite; animation-delay: 0.5s; }
+    .commute-figure { position: absolute; bottom: 20%; left: 0; transition: left 3s linear; }
+    .scene.active .commute-figure { left: 50%; }
+
+    /* S4 */
+    .reception { position: absolute; bottom: 20%; left: 50%; width: 200px; height: 80px; border: 4px solid #111; border-bottom: none; }
+    .clock { position: absolute; top: 100px; right: 20%; font-family: 'Space Mono', monospace; font-size: 2rem; }
+
+    /* S5 */
+    .table { position: absolute; bottom: 20%; left: 25%; width: 50%; height: 10px; background: #111; }
+    .qa-pair { margin-bottom: 2rem; }
+
+    /* S6 */
+    .s6-silence { background: #fff; height: 150vh; justify-content: flex-end; padding-bottom: 20vh; }
+    .sweat { position: absolute; top: 10px; right: -10px; width: 10px; height: 15px; background: #00aaff; border-radius: 50% 50% 50% 50%; opacity: 0; transition: opacity 2s; }
+    .scene.active .sweat { opacity: 1; }
+
+    /* S7 */
+    .handshake { display: flex; position: absolute; bottom: 20%; left: 40%; gap: 10px; }
+    .hand1, .hand2 { width: 40px; height: 4px; background: #111; transform-origin: right; }
+    .hand2 { transform-origin: left; }
+    @keyframes shakeHands { 0%, 100% { transform: rotate(0) translateY(0); } 50% { transform: rotate(5deg) translateY(-5px); } }
+    .scene.active .hand1, .scene.active .hand2 { animation: shakeHands 0.5s infinite; }
+
+    /* S8 */
+    .s8-sunset { background: linear-gradient(180deg, #ff8c69, #ff4500); color: #fff; }
+    .slumped .head { transform: translate(10px, 10px); }
+    .slumped .body-line { transform: rotate(15deg); }
+
+    /* Mute */
+    .mute-btn { position: fixed; bottom: 20px; right: 20px; font-size: 1.5rem; z-index: 100; cursor: pointer; opacity: 0.5; }
+    .start-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #111; color: #fff; display: flex; justify-content: center; align-items: center; z-index: 1000; cursor: pointer; font-size: 1.5rem; }
+    
+    @media(max-width: 768px) {
+      .dual-container { flex-direction: column; }
+      .said, .thought { font-size: 1.5rem; }
+      .said-col, .thought-col { padding: 1rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="start-screen" id="start-btn">Start the Day</div>
+  <div class="mute-btn" id="mute-btn">💼</div>
+
+  <div id="scroll-container">
+    
+    <!-- S1 -->
+    <div class="scene" id="s1">
+      <div class="timestamp">7:00 AM</div>
+      <div class="dual-container">
+        <div class="thought-col"><div class="thought">I should have prepared more.<br>I should have slept more.<br>I should have chosen a different career.</div></div>
+        <div class="said-col"><div class="said">(alarm goes off)</div></div>
+      </div>
+      <div class="bed"></div>
+      <div class="alarm shaking"></div>
+      <div class="stick-figure s1-jump" style="bottom: 20%; left: 25%">
+        <div class="head"></div>
+        <div class="body-line"></div>
+        <div class="arms" style="transform: rotate(-30deg);"></div>
+        <div class="legs"><div class="leg left"></div><div class="leg right"></div></div>
+      </div>
+    </div>
+
+    <!-- S2 -->
+    <div class="scene" id="s2">
+      <div class="timestamp">8:30 AM</div>
+      <div class="dual-container">
+        <div class="thought-col"><div class="thought">Is this too formal? Not formal enough?<br>Do I look like I'm trying too hard? YES.<br>Do I look like I'm not trying? ALSO YES.</div></div>
+        <div class="said-col"><div class="said">I'll wear the navy suit.</div></div>
+      </div>
+      <div class="clothes">
+        <div class="outfit"><div class="x-mark"></div></div>
+        <div class="outfit chosen"></div>
+        <div class="outfit"><div class="x-mark"></div></div>
+      </div>
+    </div>
+
+    <!-- S3 -->
+    <div class="scene" id="s3">
+      <div class="timestamp">9:15 AM</div>
+      <div class="dual-container">
+        <div class="thought-col">
+          <div class="thought">What if there's traffic? What if I get on the wrong train? What if the office doesn't exist?</div>
+          <div class="thought" style="margin-top: 50px; font-size: 3rem; color: #d32f2f;">It's fine. I'm fine. EVERYTHING IS FINE.</div>
+        </div>
+        <div class="said-col"><div class="said">I'll arrive 10 minutes early.</div></div>
+      </div>
+      <div class="stick-figure walking commute-figure">
+        <div class="head"></div>
+        <div class="body-line"></div>
+        <div class="arms"></div>
+        <div class="legs"><div class="leg left"></div><div class="leg right"></div></div>
+      </div>
+    </div>
+
+    <!-- S4 -->
+    <div class="scene" id="s4">
+      <div class="timestamp">9:58 AM</div>
+      <div class="clock" id="clock-display">09:58:00</div>
+      <div class="dual-container">
+        <div class="thought-col">
+          <div class="thought">Why is my voice so weird? Is that my voice? I don't sound like that. Do I?</div>
+          <div class="thought" style="margin-top: 30px;">9:59. I'm EARLY. This is good.</div>
+        </div>
+        <div class="said-col"><div class="said">Hi, I have a 10am interview.</div></div>
+      </div>
+      <div class="reception"></div>
+      <div class="stick-figure" style="bottom: 20%; left: 30%;">
+        <div class="head"></div><div class="body-line"></div><div class="arms"></div><div class="legs"><div class="leg left"></div><div class="leg right"></div></div>
+      </div>
+    </div>
+
+    <!-- S5 -->
+    <div class="scene" style="height: 200vh;" id="s5">
+      <div class="timestamp">10:05 AM</div>
+      <div class="dual-container" style="flex-direction: column;">
+        <div class="qa-pair">
+          <div class="said" style="font-size: 1.5rem; color: #555;">Q: "Tell me about yourself."</div>
+          <div style="display:flex;">
+            <div class="thought-col"><div class="thought">I've practiced this 40 times why can't I remember it</div></div>
+            <div class="said-col"><div class="said">I'm a passionate, results-driven...</div></div>
+          </div>
+        </div>
+        <div class="qa-pair">
+          <div class="said" style="font-size: 1.5rem; color: #555;">Q: "What's your biggest weakness?"</div>
+          <div style="display:flex;">
+            <div class="thought-col"><div class="thought">I am literally lying to their face right now</div></div>
+            <div class="said-col"><div class="said">I tend to be a perfectionist...</div></div>
+          </div>
+        </div>
+      </div>
+      <div class="table"></div>
+    </div>
+
+    <!-- S6 -->
+    <div class="scene s6-silence" id="s6">
+      <div class="dual-container">
+        <div class="thought-col">
+          <div class="thought" style="font-size: 5rem; color: red;">SAY SOMETHING.</div>
+        </div>
+        <div class="said-col">
+          <div class="said" style="color: #999; font-size: 1.2rem;">The interviewer paused...<br><br>2 seconds.<br>4 seconds.<br>7 seconds.</div>
+        </div>
+      </div>
+      <div class="stick-figure" style="bottom: 10%; left: 50%;">
+        <div class="head"><div class="sweat"></div></div><div class="body-line"></div>
+      </div>
+    </div>
+
+    <!-- S7 -->
+    <div class="scene" id="s7">
+      <div class="timestamp">11:00 AM</div>
+      <div class="dual-container">
+        <div class="thought-col"><div class="thought">Did I shake their hand too hard? Too soft? I should have practiced handshakes.</div></div>
+        <div class="said-col"><div class="said">Thank you so much for your time.</div></div>
+      </div>
+      <div class="handshake">
+        <div class="hand1"></div><div class="hand2"></div>
+      </div>
+    </div>
+
+    <!-- S8 -->
+    <div class="scene s8-sunset" id="s8">
+      <div class="timestamp" style="color: rgba(255,255,255,0.7)">11:15 AM</div>
+      <div class="dual-container" style="margin-bottom: 200px;">
+        <div class="thought-col">
+          <div class="thought" style="color: #fff">...<br><br>I have no idea.</div>
+        </div>
+        <div class="said-col">
+          <div class="said" style="color: #fff">I think it went well.</div>
+        </div>
+      </div>
+      <div style="text-align: center; width: 100%;">
+        <div class="thought" style="color: #fff; font-size: 2.5rem;">But I showed up. That counts.</div>
+      </div>
+      <div class="stick-figure slumped walking" style="bottom: 10%; right: 20%; border-color: #fff">
+        <div class="head" style="border-color: #fff"></div><div class="body-line" style="background: #fff"></div><div class="arms" style="background: #fff"></div>
+        <div class="legs"><div class="leg left" style="background: #fff"></div><div class="leg right" style="background: #fff"></div></div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    let currentY = 0; let targetY = 0; let maxScroll = 0; const ease = 0.085; let isStarted = false;
+    function resize() { maxScroll = document.getElementById('scroll-container').offsetHeight - window.innerHeight; }
+    window.addEventListener('resize', resize);
+    window.addEventListener('wheel', e => { if(!isStarted) return; e.preventDefault(); targetY += e.deltaY; targetY = Math.max(0, Math.min(targetY, maxScroll)); }, {passive: false});
+    let touchY = 0;
+    window.addEventListener('touchstart', e => touchY = e.touches[0].clientY);
+    window.addEventListener('touchmove', e => { if(!isStarted) return; e.preventDefault(); targetY += (touchY - e.touches[0].clientY) * 1.5; targetY = Math.max(0, Math.min(targetY, maxScroll)); touchY = e.touches[0].clientY; }, {passive: false});
+
+    let audioCtx, masterGain;
+    function initAudio() {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      audioCtx = new AudioContext();
+      masterGain = audioCtx.createGain(); masterGain.gain.value = 0.1; masterGain.connect(audioCtx.destination);
+      
+      // Alarm
+      const t = audioCtx.currentTime;
+      for(let i=0; i<3; i++) {
+        const osc = audioCtx.createOscillator(); osc.type = 'square'; osc.frequency.value = 800;
+        const g = audioCtx.createGain(); g.gain.setValueAtTime(0, t + i*0.2); g.gain.setValueAtTime(0.5, t + i*0.2 + 0.01); g.gain.setValueAtTime(0, t + i*0.2 + 0.05);
+        osc.connect(g).connect(masterGain); osc.start(t); osc.stop(t + i*0.2 + 0.1);
+      }
+      // Calm pad
+      const pad = audioCtx.createOscillator(); pad.frequency.value = 220;
+      const pg = audioCtx.createGain(); pg.gain.value = 0.02; pad.connect(pg).connect(masterGain); pad.start(t + 1);
+    }
+
+    function checkVisibility() {
+      const vh = window.innerHeight;
+      document.querySelectorAll('.scene').forEach(sc => {
+        const rect = sc.getBoundingClientRect();
+        if(rect.top < vh * 0.7 && rect.bottom > vh * 0.3) sc.classList.add('active');
+        else sc.classList.remove('active');
+        
+        sc.querySelectorAll('.said, .thought').forEach(t => {
+          if(t.getBoundingClientRect().top < vh * 0.8) t.classList.add('reveal');
+        });
+      });
+
+      // Clock
+      const s4Rect = document.getElementById('s4').getBoundingClientRect();
+      if(s4Rect.top < vh && s4Rect.bottom > 0) {
+        const p = 1 - (s4Rect.bottom / (vh + s4Rect.height));
+        const sec = Math.floor(p * 60);
+        document.getElementById('clock-display').innerText = `09:58:${sec < 10 ? '0'+sec : sec}`;
+      }
+    }
+
+    function loop() {
+      if(isStarted) {
+        // Bounce effect
+        currentY += (targetY - currentY) * ease;
+        document.getElementById('scroll-container').style.transform = `translateY(${-currentY}px)`;
+        checkVisibility();
+      }
+      requestAnimationFrame(loop);
+    }
+
+    document.getElementById('start-btn').addEventListener('click', function() {
+      initAudio(); this.style.display = 'none'; isStarted = true; resize(); loop();
+    });
+
+    let isMuted = false;
+    document.getElementById('mute-btn').addEventListener('click', function() {
+      if(!audioCtx) return; isMuted = !isMuted;
+      masterGain.gain.linearRampToValueAtTime(isMuted ? 0 : 0.1, audioCtx.currentTime + 0.3);
+      this.style.opacity = isMuted ? 0.3 : 1;
+    });
+    window.onload = resize;
+  </script>
+</body>
+</html>
