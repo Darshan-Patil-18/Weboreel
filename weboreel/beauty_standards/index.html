@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Beauty Standards Evolution</title>
+  <link href="https://fonts.googleapis.com/css2?family=Abril+Fatface&family=Inter:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body, html {
+      width: 100%; height: 100%; overflow: hidden;
+      background: #e8e6e1; color: #111; font-family: 'Inter', sans-serif;
+      overscroll-behavior: none; transition: background 1s, filter 1s;
+    }
+
+    #scroll-container {
+      position: absolute; top: 0; left: 0; width: 100%; height: 5000px;
+      opacity: 0; pointer-events: none;
+    }
+
+    /* Cinematic grain overlay for vintage feel */
+    .grain {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      background-image: url('data:image/svg+xml;utf8,%3Csvg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"%3E%3Cfilter id="noiseFilter"%3E%3CfeTurbulence type="fractalNoise" baseFrequency="0.65" numOctaves="3" stitchTiles="stitch"/%3E%3C/filter%3E%3Crect width="100%25" height="100%25" filter="url(%23noiseFilter)"/%3E%3C/svg%3E');
+      opacity: 0.1; pointer-events: none; z-index: 50; transition: opacity 1s;
+    }
+
+    /* Silhouette */
+    .figure {
+      position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      width: 120px; height: 400px; z-index: 10;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+    }
+
+    .head { width: 50px; height: 60px; background: #222; border-radius: 30px; margin-bottom: 5px; }
+    
+    .torso {
+      width: 80px; height: 150px; background: #222;
+      border-radius: 20px; transition: all 1s ease-in-out;
+    }
+    
+    .legs {
+      width: 80px; height: 150px; background: #222;
+      border-radius: 10px; margin-top: -10px; transition: all 1s ease-in-out;
+      clip-path: polygon(0 0, 100% 0, 80% 100%, 20% 100%);
+    }
+
+    /* UI Overlay */
+    .decade {
+      position: fixed; top: 20%; left: 10%; font-family: 'Abril Fatface', serif; font-size: 8rem;
+      z-index: 5; opacity: 0.2; letter-spacing: -2px; transition: all 1s; color: #222;
+    }
+    
+    .desc {
+      position: fixed; top: 50%; right: 10%; transform: translateY(-50%);
+      max-width: 250px; font-size: 1.2rem; line-height: 1.5; font-style: italic;
+      z-index: 20; opacity: 0; transition: opacity 0.5s; text-align: right; color: #555;
+    }
+
+    .hud { position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%); font-family: monospace; letter-spacing: 2px; z-index: 100; mix-blend-mode: difference; color: #fff; }
+
+    .mute-btn { position: fixed; bottom: 20px; right: 20px; font-size: 1.5rem; z-index: 100; cursor: pointer; opacity: 0.5; mix-blend-mode: difference; color: #fff; }
+    .start-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #e8e6e1; color: #111; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 1000; cursor: pointer; font-size: 2rem; letter-spacing: 3px; font-family: 'Abril Fatface', serif; }
+  </style>
+</head>
+<body>
+  <div class="start-screen" id="start-btn">BEAUTY THROUGH TIME</div>
+  <div class="mute-btn" id="mute-btn">⏳</div>
+
+  <div class="grain" id="grain"></div>
+
+  <div class="decade" id="decade">1920s</div>
+  <div class="desc" id="desc">The Flapper.<br>Straight, boyish figure. Bound chests, dropped waists.</div>
+  
+  <div class="hud">SCROLL TO ADVANCE</div>
+
+  <div class="figure">
+    <div class="head"></div>
+    <div class="torso" id="torso"></div>
+    <div class="legs" id="legs"></div>
+  </div>
+
+  <div id="scroll-container"></div>
+
+  <script>
+    let currentY = 0; let targetY = 0; let maxScroll = 4000; let isStarted = false; const ease = 0.05;
+    
+    window.addEventListener('wheel', e => { if(!isStarted) return; e.preventDefault(); targetY += e.deltaY; targetY = Math.max(0, Math.min(targetY, maxScroll)); }, {passive: false});
+    let touchY = 0;
+    window.addEventListener('touchstart', e => touchY = e.touches[0].clientY);
+    window.addEventListener('touchmove', e => { if(!isStarted) return; e.preventDefault(); targetY += (touchY - e.touches[0].clientY) * 1.5; targetY = Math.max(0, Math.min(targetY, maxScroll)); touchY = e.touches[0].clientY; }, {passive: false});
+
+    // Audio
+    let audioCtx, masterGain;
+    let b20s, b50s, b90s, b20s_new;
+    
+    function initAudio() {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      audioCtx = new AudioContext(); masterGain = audioCtx.createGain(); masterGain.gain.value = 0.5; masterGain.connect(audioCtx.destination);
+      
+      // 1920s (Jazz Crackle + High Piano Sine)
+      b20s = audioCtx.createGain(); b20s.gain.value = 1;
+      const crackle = audioCtx.createBufferSource(); const cBuf = audioCtx.createBuffer(1, audioCtx.sampleRate, audioCtx.sampleRate);
+      for(let i=0; i<audioCtx.sampleRate; i++) cBuf.getChannelData(0)[i] = (Math.random()*2-1) * (Math.random()>0.95?1:0.05);
+      crackle.buffer = cBuf; crackle.loop = true;
+      const cFilt = audioCtx.createBiquadFilter(); cFilt.type = 'highpass'; cFilt.frequency.value = 3000;
+      crackle.connect(cFilt).connect(b20s); crackle.start();
+      
+      setInterval(() => {
+        if(isStarted && audioCtx && b20s.gain.value > 0.1) {
+          const o = audioCtx.createOscillator(); o.type = 'sine'; o.frequency.value = [523.25, 659.25, 783.99][Math.floor(Math.random()*3)];
+          const g = audioCtx.createGain(); g.gain.setValueAtTime(0.3, audioCtx.currentTime); g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime+0.2);
+          o.connect(g).connect(b20s); o.start(); o.stop(audioCtx.currentTime+0.2);
+        }
+      }, 300);
+      b20s.connect(masterGain);
+
+      // 1950s (Doo-wop walking bass - Triangle)
+      b50s = audioCtx.createGain(); b50s.gain.value = 0;
+      let notes50 = [65.41, 82.41, 98.00, 130.81]; let nIdx = 0;
+      setInterval(() => {
+        if(isStarted && audioCtx && b50s.gain.value > 0.1) {
+          const o = audioCtx.createOscillator(); o.type = 'triangle'; o.frequency.value = notes50[nIdx];
+          nIdx = (nIdx + 1) % notes50.length;
+          const g = audioCtx.createGain(); g.gain.setValueAtTime(0.5, audioCtx.currentTime); g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime+0.4);
+          o.connect(g).connect(b50s); o.start(); o.stop(audioCtx.currentTime+0.4);
+        }
+      }, 400);
+      b50s.connect(masterGain);
+
+      // 1990s (Grunge low distorted guitar - Sawtooth)
+      b90s = audioCtx.createGain(); b90s.gain.value = 0;
+      setInterval(() => {
+        if(isStarted && audioCtx && b90s.gain.value > 0.1) {
+          const o = audioCtx.createOscillator(); o.type = 'sawtooth'; o.frequency.value = 82.41; // E2
+          const g = audioCtx.createGain(); g.gain.setValueAtTime(0.3, audioCtx.currentTime); g.gain.linearRampToValueAtTime(0, audioCtx.currentTime+0.8);
+          o.connect(g).connect(b90s); o.start(); o.stop(audioCtx.currentTime+0.8);
+        }
+      }, 1000);
+      b90s.connect(masterGain);
+
+      // 2020s (Trap 808 bass + Hihats)
+      b20s_new = audioCtx.createGain(); b20s_new.gain.value = 0;
+      const o808 = audioCtx.createOscillator(); o808.type = 'sine'; o808.frequency.value = 50;
+      o808.connect(b20s_new); o808.start();
+      
+      setInterval(() => {
+        if(isStarted && audioCtx && b20s_new.gain.value > 0.1) {
+          // Hihat noise
+          const n = audioCtx.createBufferSource(); n.buffer = cBuf; // Reuse crackle buffer for noise
+          const f = audioCtx.createBiquadFilter(); f.type = 'highpass'; f.frequency.value = 8000;
+          const g = audioCtx.createGain(); g.gain.setValueAtTime(0.5, audioCtx.currentTime); g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime+0.1);
+          n.connect(f).connect(g).connect(b20s_new); n.start();
+        }
+      }, 150);
+      b20s_new.connect(masterGain);
+    }
+
+    let lastStage = -1;
+
+    function loop() {
+      if(isStarted) {
+        currentY += (targetY - currentY) * ease;
+        const progress = currentY / maxScroll; // 0 to 1
+
+        let stage = 0;
+        if(progress > 0.25 && progress < 0.5) stage = 1;
+        else if(progress >= 0.5 && progress < 0.75) stage = 2;
+        else if(progress >= 0.75) stage = 3;
+
+        if(stage !== lastStage) {
+          lastStage = stage;
+          
+          const decade = document.getElementById('decade');
+          const desc = document.getElementById('desc');
+          const torso = document.getElementById('torso');
+          const legs = document.getElementById('legs');
+          const grain = document.getElementById('grain');
+
+          // Trigger text animation
+          desc.style.opacity = 0;
+          setTimeout(() => { desc.style.opacity = 1; }, 500);
+
+          if(stage === 0) {
+            document.body.style.background = '#e8e6e1'; document.body.style.filter = 'sepia(0.5) contrast(0.9)';
+            decade.innerText = "1920s"; grain.style.opacity = 0.2;
+            desc.innerHTML = "The Flapper.<br>Straight, boyish figure. Bound chests, dropped waists.";
+            // Straight tube
+            torso.style.width = '80px'; torso.style.borderRadius = '20px'; torso.style.clipPath = 'none';
+            legs.style.width = '80px'; legs.style.clipPath = 'polygon(0 0, 100% 0, 80% 100%, 20% 100%)';
+            if(audioCtx) { b20s.gain.setTargetAtTime(1, audioCtx.currentTime, 0.5); b50s.gain.setTargetAtTime(0, audioCtx.currentTime, 0.5); b90s.gain.setTargetAtTime(0, audioCtx.currentTime, 0.5); b20s_new.gain.setTargetAtTime(0, audioCtx.currentTime, 0.5); }
+          } else if(stage === 1) {
+            document.body.style.background = '#fef0e6'; document.body.style.filter = 'contrast(1.1) saturate(1.2)';
+            decade.innerText = "1950s"; grain.style.opacity = 0.05;
+            desc.innerHTML = "The Hourglass.<br>Voluptuous curves, cinched waists. The pin-up ideal.";
+            // Hourglass
+            torso.style.width = '100px'; torso.style.clipPath = 'polygon(0 0, 100% 0, 80% 50%, 100% 100%, 0 100%, 20% 50%)';
+            legs.style.width = '100px'; legs.style.clipPath = 'polygon(0 0, 100% 0, 80% 100%, 20% 100%)';
+            if(audioCtx) { b20s.gain.setTargetAtTime(0, audioCtx.currentTime, 0.5); b50s.gain.setTargetAtTime(1, audioCtx.currentTime, 0.5); b90s.gain.setTargetAtTime(0, audioCtx.currentTime, 0.5); b20s_new.gain.setTargetAtTime(0, audioCtx.currentTime, 0.5); }
+          } else if(stage === 2) {
+            document.body.style.background = '#d1d5db'; document.body.style.filter = 'grayscale(0.5) contrast(1.2)';
+            decade.innerText = "1990s"; grain.style.opacity = 0.1;
+            desc.innerHTML = "Heroin Chic.<br>Ultra-thin, pale, and waif-like. Anti-supermodel era.";
+            // Very thin
+            torso.style.width = '50px'; torso.style.clipPath = 'none'; torso.style.borderRadius = '10px';
+            legs.style.width = '50px'; legs.style.clipPath = 'polygon(20% 0, 80% 0, 60% 100%, 40% 100%)';
+            if(audioCtx) { b20s.gain.setTargetAtTime(0, audioCtx.currentTime, 0.5); b50s.gain.setTargetAtTime(0, audioCtx.currentTime, 0.5); b90s.gain.setTargetAtTime(1, audioCtx.currentTime, 0.5); b20s_new.gain.setTargetAtTime(0, audioCtx.currentTime, 0.5); }
+          } else {
+            document.body.style.background = '#fafafa'; document.body.style.filter = 'none';
+            decade.innerText = "2020s"; grain.style.opacity = 0;
+            desc.innerHTML = "Athleisure & Curves.<br>Wide hips, slim waists, toned bodies. Influencer aesthetic.";
+            // Wide hips, thin waist
+            torso.style.width = '100px'; torso.style.clipPath = 'polygon(20% 0, 80% 0, 60% 50%, 100% 100%, 0 100%, 40% 50%)';
+            legs.style.width = '120px'; legs.style.clipPath = 'polygon(0 0, 100% 0, 90% 100%, 10% 100%)';
+            if(audioCtx) { b20s.gain.setTargetAtTime(0, audioCtx.currentTime, 0.5); b50s.gain.setTargetAtTime(0, audioCtx.currentTime, 0.5); b90s.gain.setTargetAtTime(0, audioCtx.currentTime, 0.5); b20s_new.gain.setTargetAtTime(1, audioCtx.currentTime, 0.5); }
+          }
+        }
+      }
+      requestAnimationFrame(loop);
+    }
+
+    document.getElementById('start-btn').addEventListener('click', function() {
+      initAudio(); this.style.display = 'none'; isStarted = true; loop();
+    });
+
+    let isMuted = false;
+    document.getElementById('mute-btn').addEventListener('click', function() {
+      if(!audioCtx) return; isMuted = !isMuted;
+      masterGain.gain.linearRampToValueAtTime(isMuted ? 0 : 0.5, audioCtx.currentTime + 0.3);
+    });
+  </script>
+</body>
+</html>
