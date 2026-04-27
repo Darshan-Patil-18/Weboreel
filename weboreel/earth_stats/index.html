@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Earth Stats</title>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body, html {
+      width: 100%; height: 100%; overflow: hidden;
+      background: #000; color: #fff; font-family: 'Press Start 2P', monospace;
+      overscroll-behavior: none; text-transform: uppercase;
+    }
+
+    #scroll-container {
+      position: absolute; top: 0; left: 0; width: 100%; height: 5000px;
+      opacity: 0; pointer-events: none;
+    }
+
+    .ui-layer {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none;
+      display: flex; justify-content: center; align-items: center; padding: 20px;
+    }
+
+    /* Earth Sprite */
+    .earth-container { position: relative; width: 200px; height: 200px; }
+    .earth {
+      width: 100%; height: 100%; border-radius: 50%;
+      background: radial-gradient(circle at 30% 30%, #3b82f6, #1e3a8a);
+      box-shadow: inset -20px -20px 40px rgba(0,0,0,0.5), 0 0 50px rgba(59, 130, 246, 0.5);
+      position: relative; overflow: hidden; transition: all 0.5s;
+    }
+    .land {
+      position: absolute; background: #22c55e; border-radius: 20px;
+      transition: all 0.5s; filter: blur(2px);
+    }
+    .l1 { width: 80px; height: 60px; top: 30px; left: 20px; }
+    .l2 { width: 100px; height: 50px; bottom: 40px; right: 10px; }
+    .l3 { width: 50px; height: 80px; top: 50px; left: 120px; }
+
+    /* Clouds */
+    .clouds { position: absolute; width: 100%; height: 100%; border-radius: 50%; background: radial-gradient(circle at 50% 50%, rgba(255,255,255,0.8), transparent 60%); opacity: 0.5; animation: spin 20s infinite linear; }
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+    /* Damage effects */
+    .fire { position: absolute; width: 20px; height: 20px; background: #f00; border-radius: 50%; filter: blur(5px); opacity: 0; transition: opacity 0.5s; }
+    
+    /* HUD Elements */
+    .hud-box { position: absolute; border: 4px solid #fff; background: #000; padding: 15px; }
+    .hud-tl { top: 20px; left: 20px; }
+    .hud-tr { top: 20px; right: 20px; }
+    .hud-bl { bottom: 20px; left: 20px; }
+    .hud-br { bottom: 20px; right: 20px; }
+
+    .stat-bar-bg { width: 200px; height: 20px; border: 2px solid #fff; margin-top: 10px; position: relative; }
+    .stat-bar-fill { height: 100%; background: #22c55e; transition: width 0.1s, background 0.5s; }
+    .pol-fill { background: #888; width: 0%; }
+    .temp-fill { background: #f00; width: 10%; }
+
+    .dmg-text { position: absolute; top: -50px; color: #f00; font-size: 2rem; opacity: 0; text-shadow: 0 0 10px #f00; }
+    @keyframes floatUp { 0% { opacity: 1; transform: translateY(0); } 100% { opacity: 0; transform: translateY(-50px); } }
+
+    .critical-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,0,0,0.2); pointer-events: none; opacity: 0; z-index: 50; }
+    .critical .critical-overlay { opacity: 1; animation: flash 1s infinite alternate; }
+    @keyframes flash { 0% { opacity: 0.1; } 100% { opacity: 0.5; } }
+
+    .mute-btn { position: fixed; bottom: 80px; right: 20px; font-size: 1.5rem; z-index: 100; cursor: pointer; opacity: 0.5; color: white; font-family: sans-serif; }
+    .start-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; color: #22c55e; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 1000; cursor: pointer; font-size: 1.5rem; text-align: center; line-height: 2; padding: 20px; }
+  </style>
+</head>
+<body>
+  <div class="start-screen" id="start-btn">
+    <div>EARTH RPG</div>
+    <div style="font-size: 0.8rem; color: #888; margin-top: 20px;">PRESS START TO BEGIN<br>SCROLL TO ADVANCE TIME</div>
+  </div>
+  <div class="mute-btn" id="mute-btn">🔊</div>
+
+  <div class="critical-overlay"></div>
+
+  <div class="ui-layer">
+    
+    <div class="earth-container">
+      <div class="earth" id="earth">
+        <div class="land l1" id="ld1"></div><div class="land l2" id="ld2"></div><div class="land l3" id="ld3"></div>
+        <div class="fire" id="f1" style="top:20%; left:30%;"></div>
+        <div class="fire" id="f2" style="top:60%; left:70%;"></div>
+        <div class="fire" id="f3" style="top:50%; left:20%;"></div>
+        <div class="clouds" id="clouds"></div>
+      </div>
+      <div class="dmg-text" id="dmg">-999</div>
+    </div>
+
+    <div class="hud-box hud-tl">
+      <div>LVL: <span id="year">1800</span></div>
+      <div style="margin-top:20px;">HP: <span id="hp-val">9999</span>/9999</div>
+      <div class="stat-bar-bg"><div class="stat-bar-fill" id="hp-bar" style="width:100%"></div></div>
+    </div>
+
+    <div class="hud-box hud-tr">
+      <div>POLLUTION</div>
+      <div class="stat-bar-bg"><div class="stat-bar-fill pol-fill" id="pol-bar"></div></div>
+      <div style="margin-top:20px;">TEMP ANOMALY</div>
+      <div class="stat-bar-bg"><div class="stat-bar-fill temp-fill" id="temp-bar"></div></div>
+    </div>
+
+    <div class="hud-box hud-bl" style="font-size: 0.8rem; line-height: 1.5; width: 300px;">
+      <div>> LOG</div>
+      <div id="log-text" style="color: #22c55e;">Ecosystem stable.</div>
+    </div>
+
+    <div class="hud-box hud-br" style="text-align: right;">
+      <div>STATUS</div>
+      <div id="status" style="color: #22c55e; margin-top: 10px;">HEALTHY</div>
+    </div>
+
+  </div>
+
+  <div id="scroll-container"></div>
+
+  <script>
+    let currentY = 0; let targetY = 0; let maxScroll = 5000; let isStarted = false; const ease = 0.05;
+    
+    window.addEventListener('wheel', e => { if(!isStarted) return; e.preventDefault(); targetY += e.deltaY * 2; targetY = Math.max(0, Math.min(targetY, maxScroll)); }, {passive: false});
+    let touchY = 0;
+    window.addEventListener('touchstart', e => touchY = e.touches[0].clientY);
+    window.addEventListener('touchmove', e => { if(!isStarted) return; e.preventDefault(); targetY += (touchY - e.touches[0].clientY) * 3; targetY = Math.max(0, Math.min(targetY, maxScroll)); touchY = e.touches[0].clientY; }, {passive: false});
+
+    // Audio
+    let audioCtx, masterGain, natureOsc, indOsc, alarmOsc;
+    function initAudio() {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      audioCtx = new AudioContext(); masterGain = audioCtx.createGain(); masterGain.gain.value = 0.5; masterGain.connect(audioCtx.destination);
+      
+      // Nature 8-bit pulse
+      natureOsc = audioCtx.createOscillator(); natureOsc.type = 'square'; natureOsc.frequency.value = 440;
+      const ng = audioCtx.createGain(); ng.gain.value = 0.1;
+      natureOsc.connect(ng).connect(masterGain); natureOsc.start();
+      setInterval(() => { if(isStarted && audioCtx) natureOsc.frequency.setValueAtTime(Math.random() > 0.5 ? 440 : 554.37, audioCtx.currentTime); }, 200);
+
+      // Industrial noise
+      indOsc = audioCtx.createOscillator(); indOsc.type = 'sawtooth'; indOsc.frequency.value = 60;
+      const ig = audioCtx.createGain(); ig.gain.value = 0;
+      indOsc.connect(ig).connect(masterGain); indOsc.start();
+
+      // Alarm
+      alarmOsc = audioCtx.createOscillator(); alarmOsc.type = 'square'; alarmOsc.frequency.value = 880;
+      const ag = audioCtx.createGain(); ag.gain.value = 0;
+      const lfo = audioCtx.createOscillator(); lfo.frequency.value = 2; const lg = audioCtx.createGain(); lg.gain.value = 400;
+      lfo.connect(lg).connect(alarmOsc.frequency);
+      alarmOsc.connect(ag).connect(masterGain); alarmOsc.start(); lfo.start();
+
+      return { ng, ig, ag };
+    }
+    let audioNodes;
+
+    let lastDmgY = 0;
+
+    function loop() {
+      if(isStarted) {
+        currentY += (targetY - currentY) * ease;
+        const progress = currentY / maxScroll; // 0 to 1
+
+        const year = Math.floor(1800 + (progress * 250)); // up to 2050
+        document.getElementById('year').innerText = year;
+
+        // Stats
+        const hp = Math.max(0, 9999 - (progress * 9999));
+        document.getElementById('hp-val').innerText = Math.floor(hp);
+        const hpBar = document.getElementById('hp-bar');
+        hpBar.style.width = `${(hp/9999)*100}%`;
+        
+        if(hp > 5000) hpBar.style.background = '#22c55e';
+        else if(hp > 2000) hpBar.style.background = '#fbbf24';
+        else hpBar.style.background = '#ef4444';
+
+        document.getElementById('pol-bar').style.width = `${progress * 100}%`;
+        document.getElementById('temp-bar').style.width = `${10 + (progress * 90)}%`;
+
+        // Visuals
+        const earth = document.getElementById('earth');
+        const clouds = document.getElementById('clouds');
+        
+        // Ocean turns dark/acidic
+        const r = 59 - progress*40; const g = 130 - progress*100; const b = 246 - progress*200;
+        earth.style.background = `radial-gradient(circle at 30% 30%, rgb(${r},${g},${b}), #111)`;
+        
+        // Land turns brown
+        const lr = 34 + progress*100; const lg = 197 - progress*150; const lb = 94 - progress*94;
+        document.querySelectorAll('.land').forEach(l => { l.style.background = `rgb(${lr},${lg},${lb})`; });
+
+        // Clouds turn grey
+        clouds.style.background = `radial-gradient(circle at 50% 50%, rgba(${255-progress*150},${255-progress*150},${255-progress*150},0.8), transparent 60%)`;
+
+        // Fires
+        if(progress > 0.5) document.getElementById('f1').style.opacity = 1;
+        if(progress > 0.7) document.getElementById('f2').style.opacity = 1;
+        if(progress > 0.8) document.getElementById('f3').style.opacity = 1;
+
+        // Status & Logging
+        const statEl = document.getElementById('status');
+        const logEl = document.getElementById('log-text');
+        if(progress < 0.3) {
+          statEl.innerText = 'HEALTHY'; statEl.style.color = '#22c55e'; logEl.innerText = 'Ecosystem stable.'; document.body.classList.remove('critical');
+        } else if (progress >= 0.3 && progress < 0.7) {
+          statEl.innerText = 'WARNING'; statEl.style.color = '#fbbf24'; logEl.innerText = 'Emissions rising. Biome damage detected.'; document.body.classList.remove('critical');
+        } else {
+          statEl.innerText = 'CRITICAL'; statEl.style.color = '#ef4444'; logEl.innerText = 'Runaway greenhouse effect. Mass extinction event.'; document.body.classList.add('critical');
+        }
+
+        // Damage hit effect
+        if(currentY - lastDmgY > 200 && progress > 0.2) {
+          lastDmgY = currentY;
+          const dmg = document.getElementById('dmg');
+          dmg.innerText = `-${Math.floor(Math.random()*500)}`;
+          dmg.style.animation = 'none'; void dmg.offsetWidth; dmg.style.animation = 'floatUp 1s ease-out';
+          
+          if(audioCtx) {
+            // Hit sound
+            const hit = audioCtx.createOscillator(); hit.type = 'square'; hit.frequency.setValueAtTime(100, audioCtx.currentTime); hit.frequency.exponentialRampToValueAtTime(10, audioCtx.currentTime+0.2);
+            const hg = audioCtx.createGain(); hg.gain.setValueAtTime(0.5, audioCtx.currentTime); hg.gain.linearRampToValueAtTime(0, audioCtx.currentTime+0.2);
+            hit.connect(hg).connect(masterGain); hit.start(); hit.stop(audioCtx.currentTime+0.2);
+          }
+        }
+
+        // Audio Mix
+        if(audioCtx && audioNodes) {
+          const t = audioCtx.currentTime;
+          audioNodes.ng.gain.setTargetAtTime(Math.max(0, 0.1 - progress*0.2), t, 0.1); // Nature fades
+          audioNodes.ig.gain.setTargetAtTime(progress * 0.2, t, 0.1); // Industrial rises
+          
+          if(progress > 0.8) audioNodes.ag.gain.setTargetAtTime(0.1, t, 0.5); // Alarm
+          else audioNodes.ag.gain.setTargetAtTime(0, t, 0.5);
+        }
+      }
+      requestAnimationFrame(loop);
+    }
+
+    document.getElementById('start-btn').addEventListener('click', function() {
+      audioNodes = initAudio(); this.style.display = 'none'; isStarted = true; loop();
+    });
+
+    let isMuted = false;
+    document.getElementById('mute-btn').addEventListener('click', function() {
+      if(!audioCtx) return; isMuted = !isMuted;
+      masterGain.gain.linearRampToValueAtTime(isMuted ? 0 : 0.5, audioCtx.currentTime + 0.3);
+      this.innerHTML = isMuted ? '🔇' : '🔊';
+    });
+  </script>
+</body>
+</html>

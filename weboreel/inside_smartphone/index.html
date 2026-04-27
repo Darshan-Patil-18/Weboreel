@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Inside a Smartphone</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body, html {
+      width: 100%; height: 100%; overflow: hidden;
+      background: #000; color: #fff; font-family: 'Space Mono', monospace;
+      overscroll-behavior: none;
+    }
+
+    #scroll-container {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      display: flex; justify-content: center; align-items: center;
+      perspective: 1000px;
+    }
+
+    #zoom-container {
+      position: relative; width: 100vw; height: 100vh;
+      transform-style: preserve-3d; will-change: transform;
+    }
+
+    /* HUD */
+    .hud { position: fixed; top: 20px; left: 20px; z-index: 100; pointer-events: none; color: #0ff; text-shadow: 0 0 10px #0ff; }
+    
+    .layer {
+      position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      width: 100vw; height: 100vh; display: flex; justify-content: center; align-items: center;
+      opacity: 0; pointer-events: none; transition: opacity 0.3s;
+    }
+
+    /* L1: Phone Screen */
+    #l-screen { background: #111; }
+    .phone { width: 300px; height: 600px; background: #000; border: 10px solid #333; border-radius: 40px; position: relative; overflow: hidden; display: flex; flex-direction: column; align-items: center; padding-top: 50px; gap: 20px; box-shadow: 0 0 50px rgba(255,255,255,0.1); }
+    .app { width: 60px; height: 60px; background: linear-gradient(45deg, #f0f, #0ff); border-radius: 15px; }
+
+    /* L2: Motherboard */
+    #l-board { background: #002200; }
+    .trace { position: absolute; background: #0f0; box-shadow: 0 0 5px #0f0; }
+    .t1 { width: 2px; height: 100vh; left: 30%; top: 0; }
+    .t2 { width: 100vw; height: 2px; top: 40%; left: 0; }
+    .t3 { width: 2px; height: 50vh; left: 60%; top: 50%; }
+    .chip-mount { position: absolute; width: 200px; height: 200px; background: #001100; border: 2px solid #0f0; display: flex; justify-content: center; align-items: center; }
+
+    /* L3: Silicon Chip */
+    #l-chip { background: #111; }
+    .die { width: 400px; height: 400px; background: repeating-linear-gradient(0deg, transparent, transparent 10px, #333 10px, #333 11px), repeating-linear-gradient(90deg, transparent, transparent 10px, #333 10px, #333 11px); border: 5px solid #d4af37; box-shadow: inset 0 0 50px #d4af37, 0 0 50px #d4af37; }
+
+    /* L4: Quantum */
+    #l-quantum { background: #000; }
+    .electron { position: absolute; width: 10px; height: 10px; background: #0ff; border-radius: 50%; box-shadow: 0 0 20px #0ff, 0 0 40px #0ff; animation: orbit 2s infinite linear; }
+    @keyframes orbit { 0% { transform: rotate(0deg) translateX(200px) rotate(0deg); } 100% { transform: rotate(360deg) translateX(200px) rotate(-360deg); } }
+
+    .mute-btn { position: fixed; bottom: 20px; right: 20px; font-size: 1.5rem; z-index: 100; cursor: pointer; opacity: 0.5; color: white; }
+    .start-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; color: #fff; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 1000; cursor: pointer; font-size: 2rem; letter-spacing: 5px; }
+  </style>
+</head>
+<body>
+  <div class="start-screen" id="start-btn">TEARDOWN</div>
+  <div class="mute-btn" id="mute-btn">🔍</div>
+
+  <div class="hud" id="hud">SCALE: MACRO (1X)</div>
+
+  <div id="scroll-container">
+    <div id="zoom-container">
+      
+      <div class="layer" id="l-screen" style="z-index: 4;">
+        <div class="phone">
+          <div style="display:flex; gap:20px;"><div class="app"></div><div class="app" style="background:#f00"></div><div class="app" style="background:#0f0"></div></div>
+          <div style="display:flex; gap:20px;"><div class="app" style="background:#00f"></div><div class="app" style="background:#ff0"></div><div class="app" style="background:#0ff"></div></div>
+        </div>
+      </div>
+      
+      <div class="layer" id="l-board" style="z-index: 3;">
+        <div class="trace t1"></div><div class="trace t2"></div><div class="trace t3"></div>
+        <div class="chip-mount"></div>
+      </div>
+
+      <div class="layer" id="l-chip" style="z-index: 2;">
+        <div class="die"></div>
+      </div>
+
+      <div class="layer" id="l-quantum" style="z-index: 1;">
+        <div class="electron" style="animation-duration: 1.5s;"></div>
+        <div class="electron" style="animation-duration: 2s; animation-direction: reverse;"></div>
+        <div class="electron" style="animation-duration: 2.5s; transform-origin: top;"></div>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    let currentZoom = 1; let targetZoom = 1; let isStarted = false; const ease = 0.05;
+    
+    const layers = [
+      { id: 'l-screen', min: 1, max: 5, target: 'MACRO (1X)' },
+      { id: 'l-board', min: 4, max: 20, target: 'PCB (10X)' },
+      { id: 'l-chip', min: 18, max: 80, target: 'SILICON (100X)' },
+      { id: 'l-quantum', min: 70, max: 300, target: 'QUANTUM (1000X)' }
+    ];
+
+    window.addEventListener('wheel', e => {
+      if(!isStarted) return; e.preventDefault();
+      if(e.deltaY > 0) targetZoom *= 1.1; else targetZoom /= 1.1;
+      targetZoom = Math.max(1, Math.min(targetZoom, 350));
+    }, {passive: false});
+
+    let touchY = 0;
+    window.addEventListener('touchstart', e => touchY = e.touches[0].clientY);
+    window.addEventListener('touchmove', e => {
+      if(!isStarted) return; e.preventDefault();
+      if(touchY - e.touches[0].clientY > 0) targetZoom *= 1.05; else targetZoom /= 1.05;
+      targetZoom = Math.max(1, Math.min(targetZoom, 350));
+      touchY = e.touches[0].clientY;
+    }, {passive: false});
+
+    // Audio
+    let audioCtx, masterGain, humGain, dataOsc, electronOsc;
+    function initAudio() {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      audioCtx = new AudioContext(); masterGain = audioCtx.createGain(); masterGain.gain.value = 0.5; masterGain.connect(audioCtx.destination);
+      
+      // Board Hum
+      const hum = audioCtx.createOscillator(); hum.type = 'sawtooth'; hum.frequency.value = 60;
+      humGain = audioCtx.createGain(); humGain.gain.value = 0;
+      const hf = audioCtx.createBiquadFilter(); hf.type = 'lowpass'; hf.frequency.value = 150;
+      hum.connect(hf).connect(humGain).connect(masterGain); hum.start();
+
+      // Chip Data
+      dataOsc = audioCtx.createOscillator(); dataOsc.type = 'square'; dataOsc.frequency.value = 800;
+      const dg = audioCtx.createGain(); dg.gain.value = 0;
+      const lfo = audioCtx.createOscillator(); lfo.frequency.value = 20;
+      const lg = audioCtx.createGain(); lg.gain.value = 400;
+      lfo.connect(lg).connect(dataOsc.frequency);
+      dataOsc.connect(dg).connect(masterGain); dataOsc.start(); lfo.start();
+
+      // Quantum Sine
+      electronOsc = audioCtx.createOscillator(); electronOsc.type = 'sine'; electronOsc.frequency.value = 2000;
+      const eg = audioCtx.createGain(); eg.gain.value = 0;
+      electronOsc.connect(eg).connect(masterGain); electronOsc.start();
+
+      return { humGain, dg, eg };
+    }
+    let audioNodes;
+
+    function loop() {
+      if(isStarted) {
+        currentZoom += (targetZoom - currentZoom) * ease;
+        
+        let activeTarget = "MACRO (1X)";
+
+        layers.forEach(l => {
+          const el = document.getElementById(l.id);
+          if(currentZoom >= l.min && currentZoom <= l.max * 1.5) {
+            const relativeScale = currentZoom / l.min;
+            el.style.transform = `translate(-50%, -50%) scale(${relativeScale})`;
+            
+            let op = 1;
+            if(currentZoom < l.min * 1.5) op = (currentZoom - l.min) / (l.min * 0.5);
+            if(currentZoom > l.max) op = 1 - (currentZoom - l.max) / (l.max * 0.5);
+            el.style.opacity = Math.max(0, Math.min(1, op));
+            
+            if(op > 0.5) activeTarget = l.target;
+          } else {
+            el.style.opacity = 0;
+          }
+        });
+
+        document.getElementById('hud').innerText = `SCALE: ${activeTarget}`;
+
+        if(audioCtx && audioNodes) {
+          const t = audioCtx.currentTime;
+          let hV = 0, dV = 0, eV = 0;
+          if(currentZoom > 2 && currentZoom < 30) hV = 0.2;
+          if(currentZoom > 15 && currentZoom < 100) dV = 0.1;
+          if(currentZoom > 50) eV = 0.1;
+
+          audioNodes.humGain.gain.setTargetAtTime(hV, t, 0.1);
+          audioNodes.dg.gain.setTargetAtTime(dV, t, 0.1);
+          audioNodes.eg.gain.setTargetAtTime(eV, t, 0.1);
+          
+          if(eV > 0) electronOsc.frequency.setTargetAtTime(2000 + (currentZoom*5), t, 0.1);
+        }
+      }
+      requestAnimationFrame(loop);
+    }
+
+    document.getElementById('start-btn').addEventListener('click', function() {
+      audioNodes = initAudio(); this.style.display = 'none'; isStarted = true; loop();
+    });
+
+    let isMuted = false;
+    document.getElementById('mute-btn').addEventListener('click', function() {
+      if(!audioCtx) return; isMuted = !isMuted;
+      masterGain.gain.linearRampToValueAtTime(isMuted ? 0 : 0.5, audioCtx.currentTime + 0.3);
+      this.style.opacity = isMuted ? 0.3 : 1;
+    });
+  </script>
+</body>
+</html>

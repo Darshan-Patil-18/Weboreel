@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Decision Simulator</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body, html {
+      width: 100%; height: 100%; overflow: hidden;
+      background: #000; color: #fff; font-family: 'Space Mono', monospace;
+      overscroll-behavior: none; perspective: 800px;
+    }
+
+    #scroll-container {
+      position: absolute; top: 0; left: 0; width: 100%; height: 500vh;
+      opacity: 0; /* Hidden, just used for scroll height */
+    }
+
+    /* 3D Road */
+    #world {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      transform-style: preserve-3d;
+    }
+
+    .road {
+      position: absolute; bottom: 0; left: 50%; width: 200px; height: 2000px;
+      transform: translateX(-50%) rotateX(80deg) translateY(0);
+      transform-origin: bottom center;
+      background: linear-gradient(to top, #222, #000);
+      border-left: 5px solid #555; border-right: 5px solid #555;
+      display: flex; justify-content: center;
+    }
+
+    .dash {
+      width: 10px; height: 100%;
+      background: repeating-linear-gradient(to top, transparent 0, transparent 50px, #fff 50px, #fff 100px);
+    }
+
+    /* Decision Gates */
+    .gate {
+      position: absolute; width: 1200px; height: 300px; left: 50%; transform: translateX(-50%);
+      display: flex; justify-content: space-between; align-items: flex-end;
+      transform-style: preserve-3d; border-bottom: 2px dashed rgba(255,255,255,0.2);
+    }
+    
+    .choice {
+      width: 400px; height: 200px; background: rgba(0,0,0,0.8);
+      border: 2px solid; display: flex; flex-direction: column; justify-content: center; align-items: center;
+      font-size: 2rem; font-weight: bold; text-align: center; transition: all 0.3s;
+    }
+    .choice.left { border-color: #3b82f6; color: #3b82f6; box-shadow: 0 0 20px rgba(59, 130, 246, 0.5); }
+    .choice.right { border-color: #ef4444; color: #ef4444; box-shadow: 0 0 20px rgba(239, 68, 68, 0.5); }
+    
+    .choice.active.left { background: #3b82f6; color: #fff; box-shadow: 0 0 50px #3b82f6; transform: scale(1.1); }
+    .choice.active.right { background: #ef4444; color: #fff; box-shadow: 0 0 50px #ef4444; transform: scale(1.1); }
+
+    /* Player Vehicle / Perspective marker */
+    .player {
+      position: absolute; bottom: 10%; left: 50%; width: 50px; height: 50px;
+      transform: translateX(-50%); background: #fff; border-radius: 50%;
+      box-shadow: 0 0 20px #fff; transition: left 0.1s; z-index: 100;
+    }
+
+    /* HUD */
+    .hud { position: fixed; top: 20px; left: 20px; z-index: 200; font-size: 1.2rem; pointer-events: none; }
+    .hud-stat { margin-bottom: 10px; padding: 5px 10px; border: 1px solid #fff; }
+
+    .mute-btn { position: fixed; bottom: 20px; right: 20px; font-size: 1.5rem; z-index: 200; cursor: pointer; opacity: 0.5; color: white; }
+    .start-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; color: #fff; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 1000; cursor: pointer; font-size: 2rem; }
+  </style>
+</head>
+<body>
+  <div class="start-screen" id="start-btn">
+    <div>DECISION SIMULATOR</div>
+    <div style="font-size: 1rem; color: #888; margin-top: 20px;">Scroll to move forward. Mouse X to steer.</div>
+  </div>
+  <div class="mute-btn" id="mute-btn">🎵</div>
+
+  <div class="hud">
+    <div class="hud-stat" id="stat-stb" style="border-color: #3b82f6; color: #3b82f6;">STABILITY: 50%</div>
+    <div class="hud-stat" id="stat-rsk" style="border-color: #ef4444; color: #ef4444;">RISK: 50%</div>
+  </div>
+
+  <div id="world">
+    <div class="road" id="road"><div class="dash"></div></div>
+    
+    <!-- Gates in 3D Space -->
+    <div class="gate" id="g1" style="transform: translateX(-50%) translateZ(-1000px);">
+      <div class="choice left">COLLEGE DEGREE</div>
+      <div class="choice right">STARTUP GRIND</div>
+    </div>
+    
+    <div class="gate" id="g2" style="transform: translateX(-50%) translateZ(-2000px);">
+      <div class="choice left">SAVE MONEY</div>
+      <div class="choice right">YOLO CRYPTO</div>
+    </div>
+
+    <div class="gate" id="g3" style="transform: translateX(-50%) translateZ(-3000px);">
+      <div class="choice left">SETTLE DOWN</div>
+      <div class="choice right">NOMAD LIFE</div>
+    </div>
+    
+    <div class="gate" id="g4" style="transform: translateX(-50%) translateZ(-4000px);">
+      <div class="choice left">RETIRE AT 65</div>
+      <div class="choice right">MARS COLONIST</div>
+    </div>
+  </div>
+  
+  <div class="player" id="player"></div>
+  <div id="scroll-container"></div>
+
+  <script>
+    let currentY = 0; let targetY = 0; let maxScroll = 0; let isStarted = false; const ease = 0.05;
+    let mouseX = window.innerWidth / 2;
+    let targetPlayerX = 50; let currentPlayerX = 50;
+
+    const scrollCont = document.getElementById('scroll-container');
+    const world = document.getElementById('world');
+    const road = document.getElementById('road');
+    const player = document.getElementById('player');
+    const gates = [document.getElementById('g1'), document.getElementById('g2'), document.getElementById('g3'), document.getElementById('g4')];
+    
+    function resize() { maxScroll = scrollCont.offsetHeight - window.innerHeight; }
+    window.addEventListener('resize', resize);
+    
+    window.addEventListener('wheel', e => { if(!isStarted) return; e.preventDefault(); targetY += e.deltaY * 2; targetY = Math.max(0, Math.min(targetY, maxScroll)); }, {passive: false});
+    window.addEventListener('mousemove', e => { mouseX = e.clientX; });
+
+    let touchY = 0;
+    window.addEventListener('touchstart', e => touchY = e.touches[0].clientY);
+    window.addEventListener('touchmove', e => {
+      if(!isStarted) return; e.preventDefault();
+      targetY += (touchY - e.touches[0].clientY) * 3; targetY = Math.max(0, Math.min(targetY, maxScroll)); touchY = e.touches[0].clientY;
+      mouseX = e.touches[0].clientX;
+    }, {passive: false});
+
+    // Audio
+    let audioCtx, masterGain;
+    let stabTrack, riskTrack;
+    
+    function initAudio() {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      audioCtx = new AudioContext(); masterGain = audioCtx.createGain(); masterGain.gain.value = 0.5; masterGain.connect(audioCtx.destination);
+      
+      // Stability (Calm Sine)
+      const sOsc = audioCtx.createOscillator(); sOsc.type = 'sine'; sOsc.frequency.value = 220;
+      stabTrack = audioCtx.createGain(); stabTrack.gain.value = 0.5;
+      sOsc.connect(stabTrack).connect(masterGain); sOsc.start();
+
+      // Risk (Edgy Sawtooth with LFO)
+      const rOsc = audioCtx.createOscillator(); rOsc.type = 'sawtooth'; rOsc.frequency.value = 110;
+      const lfo = audioCtx.createOscillator(); lfo.frequency.value = 10;
+      const lfoG = audioCtx.createGain(); lfoG.gain.value = 50;
+      lfo.connect(lfoG).connect(rOsc.frequency);
+      riskTrack = audioCtx.createGain(); riskTrack.gain.value = 0;
+      rOsc.connect(riskTrack).connect(masterGain); rOsc.start(); lfo.start();
+    }
+
+    let stats = { stab: 50, risk: 50 };
+    let pastGates = [false, false, false, false];
+
+    function loop() {
+      if(isStarted) {
+        currentY += (targetY - currentY) * ease;
+        
+        // Steering
+        const vw = window.innerWidth;
+        targetPlayerX = (mouseX / vw) * 100; // 0 to 100%
+        currentPlayerX += (targetPlayerX - currentPlayerX) * 0.1;
+        player.style.left = `${currentPlayerX}%`;
+
+        // The world moves towards the camera based on scroll
+        // Max scroll maps to passing all gates (e.g. Z = 5000)
+        const zPos = (currentY / maxScroll) * 5000;
+        
+        // Road animation (texture scrolling)
+        road.style.backgroundPosition = `0 ${zPos}px`;
+        
+        gates.forEach((g, i) => {
+          const gateZ = -1000 - (i * 1000);
+          const relativeZ = gateZ + zPos;
+          g.style.transform = `translateX(-50%) translateZ(${relativeZ}px)`;
+
+          // Interaction Logic: When passing the gate (relativeZ near 0)
+          if(relativeZ > -200 && relativeZ < 200) {
+            if(currentPlayerX < 50) {
+              g.children[0].classList.add('active'); g.children[1].classList.remove('active');
+            } else {
+              g.children[0].classList.remove('active'); g.children[1].classList.add('active');
+            }
+          }
+
+          // Register choice when passed
+          if(relativeZ > 200 && !pastGates[i]) {
+            pastGates[i] = true;
+            if(currentPlayerX < 50) { stats.stab += 10; stats.risk -= 10; }
+            else { stats.stab -= 10; stats.risk += 10; }
+            
+            // Trigger feedback
+            document.body.style.boxShadow = currentPlayerX < 50 ? 'inset 0 0 100px #3b82f6' : 'inset 0 0 100px #ef4444';
+            setTimeout(() => { document.body.style.boxShadow = 'none'; }, 500);
+
+            // Update HUD
+            document.getElementById('stat-stb').innerText = `STABILITY: ${stats.stab}%`;
+            document.getElementById('stat-rsk').innerText = `RISK: ${stats.risk}%`;
+
+            if(audioCtx) {
+               stabTrack.gain.setTargetAtTime(stats.stab / 100, audioCtx.currentTime, 0.5);
+               riskTrack.gain.setTargetAtTime(stats.risk / 100, audioCtx.currentTime, 0.5);
+               
+               // Decision chime
+               const chime = audioCtx.createOscillator(); chime.type = 'triangle'; chime.frequency.value = currentPlayerX < 50 ? 880 : 440;
+               const cG = audioCtx.createGain(); cG.gain.setValueAtTime(0.5, audioCtx.currentTime); cG.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime+1);
+               chime.connect(cG).connect(masterGain); chime.start(); chime.stop(audioCtx.currentTime+1);
+            }
+          }
+        });
+      }
+      requestAnimationFrame(loop);
+    }
+
+    document.getElementById('start-btn').addEventListener('click', function() {
+      initAudio(); this.style.display = 'none'; isStarted = true; resize(); loop();
+    });
+
+    let isMuted = false;
+    document.getElementById('mute-btn').addEventListener('click', function() {
+      if(!audioCtx) return; isMuted = !isMuted;
+      masterGain.gain.linearRampToValueAtTime(isMuted ? 0 : 0.5, audioCtx.currentTime + 0.3);
+      this.style.opacity = isMuted ? 0.3 : 1;
+    });
+    window.onload = resize;
+  </script>
+</body>
+</html>

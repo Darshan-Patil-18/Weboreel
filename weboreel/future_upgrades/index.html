@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Future Upgrades</title>
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body, html {
+      width: 100%; height: 100%; overflow: hidden;
+      background: #111827; color: #fff; font-family: 'Share Tech Mono', monospace;
+      overscroll-behavior: none; transition: background 1s;
+    }
+
+    #scroll-container {
+      position: absolute; top: 0; left: 0; width: 100%; height: 6000px;
+      opacity: 0; pointer-events: none;
+    }
+
+    /* The Body Silhouette */
+    .clinic { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 400px; height: 600px; }
+    
+    .body {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      background: #fca5a5; /* Flesh tone initially */
+      mask-image: url('data:image/svg+xml;utf8,<svg viewBox="0 0 200 400" xmlns="http://www.w3.org/2000/svg"><path d="M100 20 C120 20 130 40 130 60 C130 80 120 90 100 90 C80 90 70 80 70 60 C70 40 80 20 100 20 Z M60 100 L140 100 L160 180 L140 380 L110 380 L100 250 L90 380 L60 380 L40 180 Z" fill="black"/></svg>');
+      -webkit-mask-image: url('data:image/svg+xml;utf8,<svg viewBox="0 0 200 400" xmlns="http://www.w3.org/2000/svg"><path d="M100 20 C120 20 130 40 130 60 C130 80 120 90 100 90 C80 90 70 80 70 60 C70 40 80 20 100 20 Z M60 100 L140 100 L160 180 L140 380 L110 380 L100 250 L90 380 L60 380 L40 180 Z" fill="black"/></svg>');
+      mask-size: cover; -webkit-mask-size: cover;
+      transition: background 1s;
+    }
+
+    /* Cybernetics (Overlay layers, initially hidden) */
+    .cyber { position: absolute; opacity: 0; transition: opacity 0.5s; }
+    
+    /* Optics */
+    .visor { top: 75px; left: 160px; width: 80px; height: 20px; background: #f00; box-shadow: 0 0 20px #f00; border-radius: 10px; }
+    
+    /* Arms */
+    .arm-l { top: 150px; left: 40px; width: 60px; height: 300px; background: repeating-linear-gradient(90deg, #555, #999 10px, #555 20px); border-radius: 10px; transform: rotate(10deg); }
+    .arm-r { top: 150px; right: 40px; width: 60px; height: 300px; background: repeating-linear-gradient(90deg, #555, #999 10px, #555 20px); border-radius: 10px; transform: rotate(-10deg); }
+    
+    /* Core */
+    .core { top: 180px; left: 170px; width: 60px; height: 60px; border-radius: 50%; background: #0ff; box-shadow: 0 0 50px #0ff; animation: pulse 1s infinite alternate; }
+    @keyframes pulse { 0% { transform: scale(0.9); } 100% { transform: scale(1.1); } }
+
+    /* Brain */
+    .brain-dome { top: 20px; left: 130px; width: 140px; height: 100px; background: rgba(0,255,255,0.2); border: 2px solid #0ff; border-top-left-radius: 70px; border-top-right-radius: 70px; box-shadow: inset 0 0 20px #0ff; display: flex; justify-content: center; align-items: center; }
+    .chip { width: 40px; height: 40px; background: #000; border: 2px solid #0ff; box-shadow: 0 0 10px #0ff; }
+
+    /* HUD */
+    .hud { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10; }
+    .line { position: absolute; background: #0ff; height: 1px; width: 0; transition: width 0.5s; }
+    .label { position: absolute; color: #0ff; font-size: 1.5rem; opacity: 0; transition: opacity 0.5s; text-shadow: 0 0 10px #0ff; }
+    
+    .l-optics { top: 20%; left: 50%; } .ll-optics { top: 20%; left: 20%; }
+    .l-arms { top: 40%; left: 50%; } .ll-arms { top: 40%; right: 20%; }
+    .l-core { top: 60%; left: 50%; } .ll-core { top: 60%; left: 20%; }
+    .l-brain { top: 10%; left: 50%; } .ll-brain { top: 10%; right: 20%; }
+
+    .narrative { position: fixed; bottom: 10%; left: 50%; transform: translateX(-50%); font-size: 2rem; z-index: 20; text-align: center; pointer-events: none; }
+
+    .mute-btn { position: fixed; bottom: 20px; right: 20px; font-size: 1.5rem; z-index: 100; cursor: pointer; opacity: 0.5; color: inherit; pointer-events: auto; }
+    .start-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #111827; color: #0ff; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 1000; cursor: pointer; font-size: 2rem; pointer-events: auto; text-align: center; letter-spacing: 5px; }
+  </style>
+</head>
+<body>
+  <div class="start-screen" id="start-btn">
+    <div>CYBER-CLINIC v9.0</div>
+    <div style="font-size: 1rem; color: #888; margin-top: 20px; letter-spacing: 2px;">SCROLL TO UPGRADE</div>
+  </div>
+  <div class="mute-btn" id="mute-btn">🔧</div>
+
+  <div class="clinic">
+    <div class="body" id="body-silhouette"></div>
+    <div class="cyber visor" id="cy-optics"></div>
+    <div class="cyber arm-l" id="cy-armL"></div><div class="cyber arm-r" id="cy-armR"></div>
+    <div class="cyber core" id="cy-core"></div>
+    <div class="cyber brain-dome" id="cy-brain"><div class="chip"></div></div>
+  </div>
+
+  <div class="hud">
+    <div class="line l-optics" id="ln-optics" style="transform: rotate(180deg); transform-origin: left;"></div><div class="label ll-optics" id="lb-optics">> OPTICS_MK1</div>
+    <div class="line l-arms" id="ln-arms" style="transform: rotate(0deg); transform-origin: left;"></div><div class="label ll-arms" id="lb-arms">> TITANIUM_ARMS</div>
+    <div class="line l-core" id="ln-core" style="transform: rotate(180deg); transform-origin: left;"></div><div class="label ll-core" id="lb-core">> ARC_REACTOR</div>
+    <div class="line l-brain" id="ln-brain" style="transform: rotate(0deg); transform-origin: left;"></div><div class="label ll-brain" id="lb-brain">> NEURAL_LINK</div>
+  </div>
+
+  <div class="narrative" id="narrative">100% ORGANIC</div>
+  <div id="scroll-container"></div>
+
+  <script>
+    let currentY = 0; let targetY = 0; let maxScroll = 5000; let isStarted = false; const ease = 0.05;
+    
+    window.addEventListener('wheel', e => { if(!isStarted) return; e.preventDefault(); targetY += e.deltaY; targetY = Math.max(0, Math.min(targetY, maxScroll)); }, {passive: false});
+    let touchY = 0;
+    window.addEventListener('touchstart', e => touchY = e.touches[0].clientY);
+    window.addEventListener('touchmove', e => { if(!isStarted) return; e.preventDefault(); targetY += (touchY - e.touches[0].clientY) * 1.5; targetY = Math.max(0, Math.min(targetY, maxScroll)); touchY = e.touches[0].clientY; }, {passive: false});
+
+    // Audio
+    let audioCtx, masterGain;
+    let bioBeat, mechBeat, servoSynth;
+    
+    function initAudio() {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      audioCtx = new AudioContext(); masterGain = audioCtx.createGain(); masterGain.gain.value = 0.5; masterGain.connect(audioCtx.destination);
+      
+      // Bio Heartbeat (Low Sine pulse)
+      bioBeat = audioCtx.createGain(); bioBeat.gain.value = 1;
+      const bOsc = audioCtx.createOscillator(); bOsc.type = 'sine'; bOsc.frequency.value = 40;
+      const bLfo = audioCtx.createOscillator(); bLfo.type = 'square'; bLfo.frequency.value = 1; // 1 beat per second
+      const bLg = audioCtx.createGain(); bLfo.connect(bLg); bLg.connect(bOsc.frequency); bLg.gain.value = 20;
+      bOsc.connect(bioBeat).connect(masterGain); bOsc.start(); bLfo.start();
+
+      // Mech Tick (Highpass Noise)
+      mechBeat = audioCtx.createGain(); mechBeat.gain.value = 0;
+      const bSize = audioCtx.sampleRate * 2; const nBuf = audioCtx.createBuffer(1, bSize, audioCtx.sampleRate);
+      for(let i=0; i<bSize; i++) nBuf.getChannelData(0)[i] = Math.random()*2-1;
+      const nSrc = audioCtx.createBufferSource(); nSrc.buffer = nBuf; nSrc.loop = true;
+      const nFilt = audioCtx.createBiquadFilter(); nFilt.type = 'highpass'; nFilt.frequency.value = 8000;
+      
+      // Gating the noise
+      const mGate = audioCtx.createGain();
+      const mLfo = audioCtx.createOscillator(); mLfo.type = 'square'; mLfo.frequency.value = 2; // Faster, mechanical
+      mLfo.connect(mGate.gain);
+      
+      nSrc.connect(nFilt).connect(mGate).connect(mechBeat).connect(masterGain); nSrc.start(); mLfo.start();
+
+      // Servo sound (triggered on install)
+      servoSynth = function() {
+        const s = audioCtx.createOscillator(); s.type = 'sawtooth';
+        s.frequency.setValueAtTime(200, audioCtx.currentTime); s.frequency.linearRampToValueAtTime(800, audioCtx.currentTime + 0.5);
+        const g = audioCtx.createGain(); g.gain.setValueAtTime(0.5, audioCtx.currentTime); g.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.5);
+        s.connect(g).connect(masterGain); s.start(); s.stop(audioCtx.currentTime + 0.5);
+      };
+    }
+
+    let stages = [false, false, false, false];
+
+    function loop() {
+      if(isStarted) {
+        currentY += (targetY - currentY) * ease;
+        const progress = currentY / maxScroll;
+
+        const body = document.getElementById('body-silhouette');
+        const nar = document.getElementById('narrative');
+        
+        // Background and Body color shift
+        if(progress > 0) {
+          document.body.style.background = `rgb(${17 - progress*17}, ${24 - progress*24}, ${39 - progress*39})`; // Goes to black
+          const r = 252 - progress*150; const g = 165 - progress*60; const b = 165 + progress*50;
+          body.style.background = `rgb(${r},${g},${b})`; // Flesh to chrome
+        }
+
+        // Checkpoints
+        const checkInstall = (idx, idPart, idLine, idLbl) => {
+          if(!stages[idx]) {
+            stages[idx] = true;
+            if(audioCtx) servoSynth();
+            document.getElementById(idPart).style.opacity = 1;
+            document.getElementById(idLine).style.width = '300px';
+            setTimeout(() => { document.getElementById(idLbl).style.opacity = 1; }, 500);
+          }
+        };
+
+        const checkUninstall = (idx, idPart, idLine, idLbl) => {
+          if(stages[idx]) {
+            stages[idx] = false;
+            document.getElementById(idPart).style.opacity = 0;
+            document.getElementById(idLine).style.width = '0px';
+            document.getElementById(idLbl).style.opacity = 0;
+          }
+        };
+
+        if(progress > 0.2) checkInstall(0, 'cy-optics', 'ln-optics', 'lb-optics'); else checkUninstall(0, 'cy-optics', 'ln-optics', 'lb-optics');
+        if(progress > 0.4) { checkInstall(1, 'cy-armL', 'ln-arms', 'lb-arms'); document.getElementById('cy-armR').style.opacity = 1; } 
+        else { checkUninstall(1, 'cy-armL', 'ln-arms', 'lb-arms'); document.getElementById('cy-armR').style.opacity = 0; }
+        if(progress > 0.6) checkInstall(2, 'cy-core', 'ln-core', 'lb-core'); else checkUninstall(2, 'cy-core', 'ln-core', 'lb-core');
+        if(progress > 0.8) checkInstall(3, 'cy-brain', 'ln-brain', 'lb-brain'); else checkUninstall(3, 'cy-brain', 'ln-brain', 'lb-brain');
+
+        // Narrative
+        if(progress < 0.2) nar.innerText = "100% ORGANIC";
+        else if(progress >= 0.2 && progress < 0.4) nar.innerText = "80% ORGANIC - AUGMENTED VISION";
+        else if(progress >= 0.4 && progress < 0.6) nar.innerText = "50% ORGANIC - MOTOR OVERRIDE";
+        else if(progress >= 0.6 && progress < 0.8) nar.innerText = "10% ORGANIC - CORE REPLACED";
+        else nar.innerText = "0% ORGANIC - IMMORTALITY ACHIEVED";
+
+        // Audio Crossfade
+        if(audioCtx) {
+          bioBeat.gain.setTargetAtTime(1 - progress, audioCtx.currentTime, 0.1);
+          mechBeat.gain.setTargetAtTime(progress, audioCtx.currentTime, 0.1);
+        }
+      }
+      requestAnimationFrame(loop);
+    }
+
+    document.getElementById('start-btn').addEventListener('click', function() {
+      initAudio(); this.style.display = 'none'; isStarted = true; loop();
+    });
+
+    let isMuted = false;
+    document.getElementById('mute-btn').addEventListener('click', function() {
+      if(!audioCtx) return; isMuted = !isMuted;
+      masterGain.gain.linearRampToValueAtTime(isMuted ? 0 : 0.5, audioCtx.currentTime + 0.3);
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Cost of Living</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body, html {
+      width: 100%; height: 100%; overflow: hidden;
+      background: #f0fdf4; color: #166534; font-family: 'Space Mono', monospace;
+      overscroll-behavior: none; transition: background 1s, color 1s;
+    }
+
+    #scroll-container {
+      position: absolute; top: 0; left: 0; width: 100%; height: 5000px;
+      opacity: 0; pointer-events: none;
+    }
+
+    .ui-layer {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none;
+      display: flex; flex-direction: column; justify-content: space-between; padding: 40px;
+    }
+
+    .header { display: flex; justify-content: space-between; font-size: 2rem; font-weight: bold; border-bottom: 2px solid; padding-bottom: 20px; transition: border-color 1s; }
+    
+    .arena { flex-grow: 1; position: relative; display: flex; align-items: flex-end; justify-content: space-around; }
+
+    /* The Blocks */
+    .block-container { display: flex; flex-direction: column; align-items: center; width: 40%; }
+    .label { font-size: 1.5rem; margin-bottom: 10px; font-weight: bold; }
+    .val { font-size: 2.5rem; margin-bottom: 20px; }
+    
+    .block {
+      width: 100px; height: 50px; background: #22c55e; border: 2px solid #166534;
+      transition: all 0.1s; display: flex; justify-content: center; align-items: center;
+      color: #fff; font-weight: bold;
+    }
+
+    #house-block { background: #ef4444; border-color: #991b1b; }
+
+    .crush-text { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 5rem; font-weight: bold; color: #fff; text-shadow: 0 0 20px #f00; opacity: 0; z-index: 100; pointer-events: none; white-space: nowrap; }
+
+    .mute-btn { position: fixed; bottom: 20px; right: 20px; font-size: 1.5rem; z-index: 100; cursor: pointer; opacity: 0.5; color: inherit; pointer-events: auto; }
+    .start-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #f0fdf4; color: #166534; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 1000; cursor: pointer; font-size: 2rem; pointer-events: auto; text-align: center; }
+  </style>
+</head>
+<body>
+  <div class="start-screen" id="start-btn">
+    <div>AMERICAN DREAM</div>
+    <div style="font-size: 1rem; color: #888; margin-top: 20px;">Scroll to advance time.</div>
+  </div>
+  <div class="mute-btn" id="mute-btn">💵</div>
+
+  <div class="ui-layer">
+    <div class="header" id="header">
+      <div>YEAR: <span id="year">1970</span></div>
+      <div>INFLATION SIMULATOR</div>
+    </div>
+    
+    <div class="arena">
+      <div class="block-container">
+        <div class="label">AVG INCOME</div>
+        <div class="val" id="inc-val">$9,870</div>
+        <div class="block" id="inc-block"></div>
+      </div>
+      
+      <div class="block-container" style="z-index: 10;">
+        <div class="label">MEDIAN HOUSE</div>
+        <div class="val" id="house-val" style="color: #ef4444;">$23,400</div>
+        <div class="block" id="house-block"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="crush-text" id="crush">CRUSHED</div>
+  <div id="scroll-container"></div>
+
+  <script>
+    let currentY = 0; let targetY = 0; let maxScroll = 4000; let isStarted = false; const ease = 0.05;
+    
+    window.addEventListener('wheel', e => { if(!isStarted) return; e.preventDefault(); targetY += e.deltaY; targetY = Math.max(0, Math.min(targetY, maxScroll)); }, {passive: false});
+    let touchY = 0;
+    window.addEventListener('touchstart', e => touchY = e.touches[0].clientY);
+    window.addEventListener('touchmove', e => { if(!isStarted) return; e.preventDefault(); targetY += (touchY - e.touches[0].clientY) * 1.5; targetY = Math.max(0, Math.min(targetY, maxScroll)); touchY = e.touches[0].clientY; }, {passive: false});
+
+    // Data roughly mapped (1970 to 2024)
+    const startYear = 1970; const endYear = 2024;
+    const startInc = 9870; const endInc = 75000;
+    const startHouse = 23400; const endHouse = 430000;
+
+    // Audio
+    let audioCtx, masterGain, rumbleGain;
+    function initAudio() {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      audioCtx = new AudioContext(); masterGain = audioCtx.createGain(); masterGain.gain.value = 0.5; masterGain.connect(audioCtx.destination);
+      
+      // Rumble for the crush
+      const rumble = audioCtx.createOscillator(); rumble.type = 'sawtooth'; rumble.frequency.value = 30;
+      rumbleGain = audioCtx.createGain(); rumbleGain.gain.value = 0;
+      const rf = audioCtx.createBiquadFilter(); rf.type = 'lowpass'; rf.frequency.value = 100;
+      rumble.connect(rf).connect(rumbleGain).connect(masterGain); rumble.start();
+    }
+
+    function playChaChing(pitchMultiplier, distMultiplier) {
+      if(!audioCtx) return;
+      const osc = audioCtx.createOscillator(); osc.type = 'square';
+      osc.frequency.setValueAtTime(880 * pitchMultiplier, audioCtx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(10 * distMultiplier, audioCtx.currentTime + 0.3);
+      
+      const g = audioCtx.createGain(); g.gain.setValueAtTime(0.5, audioCtx.currentTime); g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+      
+      // Add distortion if multiplier is high
+      if(distMultiplier > 10) {
+        const dist = audioCtx.createWaveShaper();
+        const curve = new Float32Array(400);
+        for(let i=0; i<400; i++) { const x = i*2/400 - 1; curve[i] = (3+20)*x*20*Math.PI / (Math.PI + 20*Math.abs(x)); }
+        dist.curve = curve;
+        osc.connect(dist).connect(g).connect(masterGain);
+      } else {
+        osc.connect(g).connect(masterGain);
+      }
+      osc.start(); osc.stop(audioCtx.currentTime + 0.3);
+    }
+
+    let lastYear = 1970;
+
+    function loop() {
+      if(isStarted) {
+        currentY += (targetY - currentY) * ease;
+        const progress = currentY / maxScroll; // 0 to 1
+
+        const year = Math.floor(startYear + (progress * (endYear - startYear)));
+        document.getElementById('year').innerText = year;
+
+        // Exponential curve for house prices vs linearish for income
+        const incP = Math.pow(progress, 0.8);
+        const houseP = Math.pow(progress, 3); // Skyrockets at the end
+
+        const currentInc = Math.floor(startInc + (incP * (endInc - startInc)));
+        const currentHouse = Math.floor(startHouse + (houseP * (endHouse - startHouse)));
+
+        document.getElementById('inc-val').innerText = `$${currentInc.toLocaleString()}`;
+        document.getElementById('house-val').innerText = `$${currentHouse.toLocaleString()}`;
+
+        // Block Visuals
+        const incBlock = document.getElementById('inc-block');
+        const houseBlock = document.getElementById('house-block');
+
+        // Base height is 50px representing 1970
+        incBlock.style.height = `${50 + (incP * 150)}px`;
+        incBlock.style.width = `${100 + (incP * 50)}px`;
+
+        houseBlock.style.height = `${50 + (houseP * window.innerHeight * 1.5)}px`; // Grows larger than screen
+        houseBlock.style.width = `${100 + (houseP * window.innerWidth * 1.2)}px`;
+
+        // The Crush Effect
+        const crush = document.getElementById('crush');
+        if(progress > 0.9) {
+          document.body.style.background = '#000'; document.body.style.color = '#fff';
+          document.getElementById('header').style.borderColor = '#fff';
+          crush.style.opacity = 1;
+          if(audioCtx) rumbleGain.gain.setTargetAtTime(0.5, audioCtx.currentTime, 0.5);
+        } else {
+          document.body.style.background = '#f0fdf4'; document.body.style.color = '#166534';
+          document.getElementById('header').style.borderColor = '#166534';
+          crush.style.opacity = 0;
+          if(audioCtx) rumbleGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.5);
+        }
+
+        // Sound effect on year change
+        if(year !== lastYear) {
+          lastYear = year;
+          // Pitch drops as time goes on, distortion goes up
+          const pitch = 1 - (progress * 0.8);
+          const dist = 1 + (houseP * 50);
+          playChaChing(pitch, dist);
+        }
+      }
+      requestAnimationFrame(loop);
+    }
+
+    document.getElementById('start-btn').addEventListener('click', function() {
+      initAudio(); this.style.display = 'none'; isStarted = true; loop();
+    });
+
+    let isMuted = false;
+    document.getElementById('mute-btn').addEventListener('click', function() {
+      if(!audioCtx) return; isMuted = !isMuted;
+      masterGain.gain.linearRampToValueAtTime(isMuted ? 0 : 0.5, audioCtx.currentTime + 0.3);
+      this.style.opacity = isMuted ? 0.3 : 1;
+    });
+  </script>
+</body>
+</html>

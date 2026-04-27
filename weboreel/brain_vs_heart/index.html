@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Brain vs Heart</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;700&family=Space+Mono&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body, html {
+      width: 100%; height: 100%; overflow: hidden;
+      background: #000; color: #fff; font-family: 'DM Sans', sans-serif;
+      overscroll-behavior: none;
+    }
+
+    /* Split Screen Background */
+    .split-bg { position: fixed; top: 0; left: 0; width: 100%; height: 100%; display: flex; z-index: 1; pointer-events: none; }
+    .bg-left { height: 100%; background: linear-gradient(135deg, #0f172a, #1e40af); transition: width 0.1s; display: flex; justify-content: center; align-items: center; overflow: hidden; }
+    .bg-right { height: 100%; background: linear-gradient(225deg, #4c0519, #be123c); transition: width 0.1s; display: flex; justify-content: center; align-items: center; overflow: hidden; }
+
+    /* Left Visuals (Brain/Logic) */
+    .grid { position: absolute; width: 200%; height: 200%; background: repeating-linear-gradient(0deg, transparent, transparent 40px, rgba(0,255,255,0.1) 40px, rgba(0,255,255,0.1) 41px), repeating-linear-gradient(90deg, transparent, transparent 40px, rgba(0,255,255,0.1) 40px, rgba(0,255,255,0.1) 41px); transform: rotate(15deg); }
+    .code { font-family: 'Space Mono', monospace; color: #0ff; opacity: 0.3; font-size: 0.8rem; line-height: 1.5; white-space: pre; position: absolute; top: 10%; left: 10%; }
+
+    /* Right Visuals (Heart/Emotion) */
+    .blobs { position: absolute; width: 100%; height: 100%; filter: blur(50px); }
+    .blob { position: absolute; border-radius: 50%; background: #f43f5e; opacity: 0.5; }
+    .blob1 { width: 300px; height: 300px; top: 20%; left: 30%; animation: float 10s infinite alternate ease-in-out; }
+    .blob2 { width: 400px; height: 400px; bottom: 10%; right: 20%; background: #fbbf24; animation: float 15s infinite alternate-reverse ease-in-out; }
+    @keyframes float { 0% { transform: translate(0,0) scale(1); } 100% { transform: translate(50px, 50px) scale(1.2); } }
+
+    /* UI Overlay */
+    .hud { position: fixed; top: 40px; left: 0; width: 100%; display: flex; justify-content: space-between; padding: 0 40px; z-index: 10; font-size: 2rem; font-weight: bold; pointer-events: none; mix-blend-mode: overlay; color: #fff; }
+    
+    .path { position: fixed; top: 0; left: 50%; width: 4px; height: 100%; background: rgba(255,255,255,0.2); transform: translateX(-50%); z-index: 5; pointer-events: none; }
+    .avatar { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 20px; height: 20px; background: #fff; border-radius: 50%; box-shadow: 0 0 20px #fff; z-index: 15; transition: left 0.1s; }
+
+    #scroll-container { position: absolute; top: 0; left: 0; width: 100%; height: 3000px; opacity: 0; }
+
+    .narrative { position: fixed; bottom: 10%; left: 50%; transform: translateX(-50%); font-size: 2rem; z-index: 20; text-align: center; pointer-events: none; text-shadow: 0 2px 10px rgba(0,0,0,0.5); }
+
+    .mute-btn { position: fixed; bottom: 20px; right: 20px; font-size: 1.5rem; z-index: 100; cursor: pointer; opacity: 0.5; }
+    .start-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; color: #fff; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 1000; cursor: pointer; font-size: 2rem; }
+  </style>
+</head>
+<body>
+  <div class="start-screen" id="start-btn">
+    <div>LOGIC vs EMOTION</div>
+    <div style="font-size: 1rem; color: #888; margin-top: 20px;">Move mouse left/right to balance. Scroll to progress.</div>
+  </div>
+  <div class="mute-btn" id="mute-btn">⚖️</div>
+
+  <div class="split-bg">
+    <div class="bg-left" id="bg-L">
+      <div class="grid"></div>
+      <div class="code">
+function analyze() {
+  const variables = getEnv();
+  if (variables.risk > 0.5) return false;
+  return calculateOptimization(variables);
+}
+      </div>
+    </div>
+    <div class="bg-right" id="bg-R">
+      <div class="blobs">
+        <div class="blob blob1"></div>
+        <div class="blob blob2"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="hud">
+    <div>BRAIN</div>
+    <div>HEART</div>
+  </div>
+  <div class="path"></div>
+  <div class="avatar" id="avatar"></div>
+  
+  <div class="narrative" id="narrative">Find the balance.</div>
+
+  <div id="scroll-container"></div>
+
+  <script>
+    let currentY = 0; let targetY = 0; let maxScroll = 2000; let isStarted = false; const ease = 0.05;
+    let mouseX = window.innerWidth / 2;
+    let balance = 0.5; // 0 = Left, 1 = Right
+
+    window.addEventListener('resize', () => maxScroll = document.getElementById('scroll-container').offsetHeight - window.innerHeight);
+    window.addEventListener('wheel', e => { if(!isStarted) return; e.preventDefault(); targetY += e.deltaY; targetY = Math.max(0, Math.min(targetY, maxScroll)); }, {passive: false});
+    window.addEventListener('mousemove', e => { mouseX = e.clientX; });
+
+    let touchY = 0;
+    window.addEventListener('touchstart', e => touchY = e.touches[0].clientY);
+    window.addEventListener('touchmove', e => {
+      if(!isStarted) return; e.preventDefault();
+      targetY += (touchY - e.touches[0].clientY) * 1.5; targetY = Math.max(0, Math.min(targetY, maxScroll)); touchY = e.touches[0].clientY;
+      mouseX = e.touches[0].clientX;
+    }, {passive: false});
+
+    // Audio
+    let audioCtx, masterGain;
+    let logicTrack, emotionTrack;
+    function initAudio() {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      audioCtx = new AudioContext(); masterGain = audioCtx.createGain(); masterGain.gain.value = 0.5; masterGain.connect(audioCtx.destination);
+      
+      // Logic (Left) - Arp / Clock
+      logicTrack = audioCtx.createGain(); logicTrack.gain.value = 0.5;
+      const lOsc = audioCtx.createOscillator(); lOsc.type = 'square';
+      setInterval(() => {
+        if(isStarted && audioCtx) {
+          lOsc.frequency.setValueAtTime([220, 277.18, 329.63, 440][Math.floor(Math.random()*4)], audioCtx.currentTime);
+        }
+      }, 150);
+      lOsc.connect(logicTrack).connect(masterGain); lOsc.start();
+
+      // Emotion (Right) - Cello/Pad
+      emotionTrack = audioCtx.createGain(); emotionTrack.gain.value = 0.5;
+      const eOsc = audioCtx.createOscillator(); eOsc.type = 'sawtooth'; eOsc.frequency.value = 110;
+      const eFilt = audioCtx.createBiquadFilter(); eFilt.type = 'lowpass'; eFilt.frequency.value = 300;
+      eOsc.connect(eFilt).connect(emotionTrack).connect(masterGain); eOsc.start();
+    }
+
+    function loop() {
+      if(isStarted) {
+        currentY += (targetY - currentY) * ease;
+        const progress = currentY / maxScroll;
+
+        // Balance calculation
+        const targetBalance = mouseX / window.innerWidth;
+        balance += (targetBalance - balance) * 0.1;
+
+        // UI Updates
+        document.getElementById('bg-L').style.width = `${balance * 100}%`;
+        document.getElementById('bg-R').style.width = `${(1 - balance) * 100}%`;
+        document.getElementById('avatar').style.left = `${balance * 100}%`;
+
+        // Narrative
+        const nar = document.getElementById('narrative');
+        if(balance < 0.2) nar.innerText = "Too rigid. No joy.";
+        else if(balance > 0.8) nar.innerText = "Too chaotic. No structure.";
+        else {
+          if(progress > 0.8) nar.innerText = "Harmony achieved.";
+          else nar.innerText = "Find the balance.";
+        }
+
+        // Audio Pan/Mix
+        if(audioCtx) {
+          // Logic gets louder if balance < 0.5, Emotion gets louder if > 0.5
+          logicTrack.gain.setTargetAtTime(1 - balance, audioCtx.currentTime, 0.1);
+          emotionTrack.gain.setTargetAtTime(balance, audioCtx.currentTime, 0.1);
+        }
+      }
+      requestAnimationFrame(loop);
+    }
+
+    document.getElementById('start-btn').addEventListener('click', function() {
+      initAudio(); this.style.display = 'none'; isStarted = true; loop();
+    });
+
+    let isMuted = false;
+    document.getElementById('mute-btn').addEventListener('click', function() {
+      if(!audioCtx) return; isMuted = !isMuted;
+      masterGain.gain.linearRampToValueAtTime(isMuted ? 0 : 0.5, audioCtx.currentTime + 0.3);
+    });
+  </script>
+</body>
+</html>

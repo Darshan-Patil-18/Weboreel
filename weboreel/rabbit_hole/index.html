@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Down the Rabbit Hole</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body, html {
+      width: 100%; height: 100%; overflow: hidden;
+      background: #000; color: #fff; font-family: 'Cinzel', serif;
+      overscroll-behavior: none; perspective: 800px;
+    }
+
+    #scroll-container {
+      position: absolute; top: 0; left: 0; width: 100%; height: 8000px;
+      opacity: 0; pointer-events: none;
+    }
+
+    /* Tunnel */
+    #world {
+      position: absolute; top: 50%; left: 50%; width: 0; height: 0;
+      transform-style: preserve-3d;
+    }
+
+    .ring {
+      position: absolute; top: -500px; left: -500px; width: 1000px; height: 1000px;
+      border-radius: 50%; border: 2px dashed rgba(255, 0, 255, 0.5);
+      transform-style: preserve-3d;
+      display: flex; justify-content: center; align-items: center;
+    }
+
+    .item {
+      position: absolute; font-size: 2rem; text-shadow: 0 0 10px #f0f;
+      transform-origin: center; opacity: 0.8;
+    }
+
+    .clock {
+      position: absolute; width: 100px; height: 100px; border: 2px solid #0ff; border-radius: 50%;
+      box-shadow: 0 0 20px #0ff; opacity: 0.5;
+    }
+    .clock::after { content: ''; position: absolute; top: 10%; left: 50%; width: 2px; height: 40%; background: #0ff; transform-origin: bottom center; animation: spin 2s infinite linear; }
+    @keyframes spin { 100% { transform: rotate(360deg); } }
+
+    /* Overlay / UI */
+    .vignette { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: radial-gradient(circle, transparent 30%, #000 90%); pointer-events: none; z-index: 100; }
+    
+    .hud { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 3rem; font-weight: bold; text-align: center; pointer-events: none; z-index: 200; opacity: 0; transition: opacity 1s; color: #fff; text-shadow: 0 0 20px #fff; }
+
+    .mute-btn { position: fixed; bottom: 20px; right: 20px; font-size: 1.5rem; z-index: 300; cursor: pointer; opacity: 0.5; color: white; font-family: sans-serif; }
+    .start-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; color: #f0f; display: flex; justify-content: center; align-items: center; z-index: 1000; cursor: pointer; font-size: 2rem; letter-spacing: 5px; text-shadow: 0 0 20px #f0f; }
+  </style>
+</head>
+<body>
+  <div class="start-screen" id="start-btn">FOLLOW THE WHITE RABBIT</div>
+  <div class="mute-btn" id="mute-btn">🕳️</div>
+
+  <div class="vignette"></div>
+  <div class="hud" id="hud">WAKE UP</div>
+
+  <div id="world">
+    <!-- Generated via JS -->
+  </div>
+
+  <div id="scroll-container"></div>
+
+  <script>
+    const world = document.getElementById('world');
+    const words = ["TIME", "TRUTH", "REALITY", "0101", "WAKE UP", "FALLING", "DEEPER", "ILLUSION"];
+    const rings = [];
+
+    // Generate Tunnel
+    for(let i=0; i<50; i++) {
+      const ring = document.createElement('div');
+      ring.className = 'ring';
+      const z = -i * 500; // Deep into the screen
+      
+      // Random rotation and colors
+      const r = Math.random() * 360;
+      ring.style.transform = `translateZ(${z}px) rotateZ(${r}deg)`;
+      
+      // Add items to ring
+      for(let j=0; j<4; j++) {
+        const item = document.createElement('div');
+        if(Math.random() > 0.7) {
+          item.className = 'clock';
+          item.style.transform = `rotate(${j*90}deg) translateY(-400px) rotateX(90deg)`;
+        } else {
+          item.className = 'item';
+          item.innerText = words[Math.floor(Math.random() * words.length)];
+          item.style.transform = `rotate(${j*90}deg) translateY(-400px) rotateX(90deg)`;
+          if(Math.random() > 0.5) item.style.color = '#0ff';
+        }
+        ring.appendChild(item);
+      }
+      
+      world.appendChild(ring);
+      rings.push({ el: ring, z: z, baseR: r });
+    }
+
+    let currentY = 0; let targetY = 0; let maxScroll = 7000; let isStarted = false; const ease = 0.05;
+    
+    window.addEventListener('wheel', e => { if(!isStarted) return; e.preventDefault(); targetY += e.deltaY * 2; targetY = Math.max(0, Math.min(targetY, maxScroll)); }, {passive: false});
+    let touchY = 0;
+    window.addEventListener('touchstart', e => touchY = e.touches[0].clientY);
+    window.addEventListener('touchmove', e => { if(!isStarted) return; e.preventDefault(); targetY += (touchY - e.touches[0].clientY) * 3; targetY = Math.max(0, Math.min(targetY, maxScroll)); touchY = e.touches[0].clientY; }, {passive: false});
+
+    // Audio
+    let audioCtx, masterGain;
+    function initAudio() {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      audioCtx = new AudioContext(); masterGain = audioCtx.createGain(); masterGain.gain.value = 0.5; masterGain.connect(audioCtx.destination);
+      
+      // Trippy Delay/Drone
+      const drone = audioCtx.createOscillator(); drone.type = 'sine'; drone.frequency.value = 100;
+      const dLfo = audioCtx.createOscillator(); dLfo.frequency.value = 0.5; const dg = audioCtx.createGain(); dg.gain.value = 50;
+      dLfo.connect(dg).connect(drone.frequency);
+      
+      const delay = audioCtx.createDelay(5.0); delay.delayTime.value = 0.5;
+      const feedback = audioCtx.createGain(); feedback.gain.value = 0.7;
+      
+      drone.connect(masterGain);
+      drone.connect(delay);
+      delay.connect(feedback);
+      feedback.connect(delay);
+      delay.connect(masterGain);
+      
+      drone.start(); dLfo.start();
+
+      // Tick
+      setInterval(() => {
+        if(!isStarted || !audioCtx) return;
+        const t = audioCtx.createOscillator(); t.type = 'square'; t.frequency.value = 1000;
+        const tg = audioCtx.createGain(); tg.gain.setValueAtTime(0.1, audioCtx.currentTime); tg.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.05);
+        t.connect(tg).connect(masterGain); t.start(); t.stop(audioCtx.currentTime + 0.05);
+      }, 1000);
+    }
+
+    let globalRotation = 0;
+
+    function loop() {
+      if(isStarted) {
+        currentY += (targetY - currentY) * ease;
+        const progress = currentY / maxScroll;
+        
+        // Move camera forward through the tunnel
+        // Max z movement = 25000 (50 rings * 500)
+        const zCamera = currentY * (25000 / maxScroll);
+        
+        globalRotation += 0.1 + (progress * 0.5); // Spin faster as you go deeper
+
+        // Filter shifts
+        document.body.style.filter = `hue-rotate(${currentY * 0.1}deg) saturate(${1 + progress*2})`;
+
+        rings.forEach(r => {
+          const newZ = r.z + zCamera;
+          // Twist the tunnel
+          const twist = newZ * 0.05;
+          r.el.style.transform = `translateZ(${newZ}px) rotateZ(${r.baseR + twist + globalRotation}deg)`;
+          
+          // Fade out things behind camera
+          if(newZ > 500) r.el.style.opacity = 0;
+          else r.el.style.opacity = 1;
+        });
+
+        // Narrative
+        const hud = document.getElementById('hud');
+        if(progress > 0.9) { hud.style.opacity = 1; hud.style.transform = `translate(-50%, -50%) scale(${1 + (progress-0.9)*10})`; }
+        else { hud.style.opacity = 0; hud.style.transform = `translate(-50%, -50%) scale(1)`; }
+      }
+      requestAnimationFrame(loop);
+    }
+
+    document.getElementById('start-btn').addEventListener('click', function() {
+      initAudio(); this.style.display = 'none'; isStarted = true; loop();
+    });
+
+    let isMuted = false;
+    document.getElementById('mute-btn').addEventListener('click', function() {
+      if(!audioCtx) return; isMuted = !isMuted;
+      masterGain.gain.linearRampToValueAtTime(isMuted ? 0 : 0.5, audioCtx.currentTime + 0.3);
+    });
+  </script>
+</body>
+</html>

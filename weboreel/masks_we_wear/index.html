@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>The Masks We Wear</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body, html {
+      width: 100%; height: 100%; overflow: hidden;
+      background: #fafafa; color: #111; font-family: 'DM Sans', sans-serif;
+      overscroll-behavior: none; transition: background 1s, color 1s;
+    }
+
+    #scroll-container {
+      position: absolute; top: 0; left: 0; width: 100%; height: 5000px;
+      opacity: 0; pointer-events: none;
+    }
+
+    /* Scene Texts */
+    .scene-text {
+      position: fixed; top: 10%; left: 50%; transform: translateX(-50%);
+      font-size: 2rem; font-weight: bold; text-transform: uppercase; letter-spacing: 5px;
+      opacity: 0; transition: opacity 0.5s; text-align: center; z-index: 10;
+    }
+
+    /* The Mask (Canvas) */
+    canvas { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 5; }
+
+    .mute-btn { position: fixed; bottom: 20px; right: 20px; font-size: 1.5rem; z-index: 100; cursor: pointer; opacity: 0.5; color: inherit; }
+    .start-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #fafafa; color: #111; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 1000; cursor: pointer; font-size: 2rem; letter-spacing: 5px; }
+  </style>
+</head>
+<body>
+  <div class="start-screen" id="start-btn">WHO ARE YOU?</div>
+  <div class="mute-btn" id="mute-btn">🎭</div>
+
+  <div class="scene-text" id="t-fam">WITH FAMILY</div>
+  <div class="scene-text" id="t-fri">WITH FRIENDS</div>
+  <div class="scene-text" id="t-onl">ONLINE</div>
+  <div class="scene-text" id="t-aln">ALONE</div>
+
+  <canvas id="face-canvas"></canvas>
+  <div id="scroll-container"></div>
+
+  <script>
+    let currentY = 0; let targetY = 0; let maxScroll = 4000; let isStarted = false; const ease = 0.05;
+    
+    window.addEventListener('wheel', e => { if(!isStarted) return; e.preventDefault(); targetY += e.deltaY; targetY = Math.max(0, Math.min(targetY, maxScroll)); }, {passive: false});
+    let touchY = 0;
+    window.addEventListener('touchstart', e => touchY = e.touches[0].clientY);
+    window.addEventListener('touchmove', e => { if(!isStarted) return; e.preventDefault(); targetY += (touchY - e.touches[0].clientY) * 1.5; targetY = Math.max(0, Math.min(targetY, maxScroll)); touchY = e.touches[0].clientY; }, {passive: false});
+
+    // Face Morphing Canvas
+    const canvas = document.getElementById('face-canvas'); const ctx = canvas.getContext('2d');
+    canvas.width = 400; canvas.height = 400;
+
+    // We will define control points for the face path
+    const pFamily = [
+      {x:200,y:50},{x:300,y:100},{x:320,y:200},{x:280,y:300},{x:200,y:350},
+      {x:120,y:300},{x:80,y:200},{x:100,y:100}
+    ];
+    const pFriends = [
+      {x:200,y:30},{x:350,y:80},{x:330,y:220},{x:300,y:380},{x:200,y:330},
+      {x:100,y:380},{x:70,y:220},{x:50,y:80}
+    ];
+    const pOnline = [
+      {x:200,y:20},{x:350,y:20},{x:350,y:350},{x:200,y:380},{x:200,y:380},
+      {x:200,y:380},{x:50,y:350},{x:50,y:20} // blocky
+    ];
+    const pAlone = [
+      {x:200,y:100},{x:250,y:120},{x:260,y:250},{x:220,y:380},{x:200,y:390},
+      {x:180,y:380},{x:140,y:250},{x:150,y:120} // thin, shrinking
+    ];
+
+    let currentPoints = JSON.parse(JSON.stringify(pFamily));
+
+    function lerpPath(p1, p2, t) {
+      for(let i=0; i<8; i++) {
+        currentPoints[i].x += (p2[i].x - currentPoints[i].x) * t;
+        currentPoints[i].y += (p2[i].y - currentPoints[i].y) * t;
+      }
+    }
+
+    function drawFace(progress, state) {
+      ctx.clearRect(0,0,400,400);
+
+      // Interpolate points based on state
+      if(state === 0) lerpPath(currentPoints, pFamily, 0.1);
+      else if(state === 1) lerpPath(currentPoints, pFriends, 0.1);
+      else if(state === 2) lerpPath(currentPoints, pOnline, 0.1);
+      else lerpPath(currentPoints, pAlone, 0.1);
+
+      // Colors
+      let fillStyle, strokeStyle;
+      if(state === 0) { fillStyle = '#fef08a'; strokeStyle = '#ca8a04'; }
+      else if(state === 1) { fillStyle = '#f472b6'; strokeStyle = '#db2777'; }
+      else if(state === 2) { fillStyle = '#000'; strokeStyle = '#0ff'; }
+      else { fillStyle = '#111'; strokeStyle = '#333'; }
+
+      ctx.beginPath();
+      ctx.moveTo(currentPoints[0].x, currentPoints[0].y);
+      // Spline curve
+      for(let i=1; i<=8; i++) {
+        const p1 = currentPoints[i%8];
+        const p2 = currentPoints[(i+1)%8];
+        ctx.quadraticCurveTo(p1.x, p1.y, (p1.x+p2.x)/2, (p1.y+p2.y)/2);
+      }
+      ctx.closePath();
+      
+      if(state === 2) {
+        // Online: Glitch/Neon
+        ctx.fillStyle = fillStyle; ctx.fill();
+        ctx.lineWidth = 5; ctx.strokeStyle = strokeStyle; ctx.stroke();
+        ctx.shadowColor = '#0ff'; ctx.shadowBlur = 20;
+      } else {
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = fillStyle; ctx.fill();
+        ctx.lineWidth = 3; ctx.strokeStyle = strokeStyle; ctx.stroke();
+      }
+
+      // Eyes
+      ctx.fillStyle = strokeStyle;
+      if(state === 0) {
+        // Happy eyes
+        ctx.beginPath(); ctx.arc(150, 150, 10, 0, Math.PI, true); ctx.stroke();
+        ctx.beginPath(); ctx.arc(250, 150, 10, 0, Math.PI, true); ctx.stroke();
+      } else if(state === 1) {
+        // Big eyes
+        ctx.beginPath(); ctx.arc(150, 150, 15, 0, Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.arc(250, 150, 15, 0, Math.PI*2); ctx.fill();
+      } else if(state === 2) {
+        // Digital eyes
+        ctx.fillRect(130, 140, 40, 10); ctx.fillRect(230, 140, 40, 10);
+      } else {
+        // Empty eyes
+        ctx.beginPath(); ctx.arc(160, 180, 5, 0, Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.arc(240, 180, 5, 0, Math.PI*2); ctx.fill();
+      }
+    }
+
+    // Audio
+    let audioCtx, masterGain;
+    let famTrack, friTrack, onlTrack, alnTrack;
+    function initAudio() {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      audioCtx = new AudioContext(); masterGain = audioCtx.createGain(); masterGain.gain.value = 0.5; masterGain.connect(audioCtx.destination);
+      
+      // Family (Warm Triangle Chords)
+      famTrack = audioCtx.createGain(); famTrack.gain.value = 0.5;
+      [261.63, 329.63, 392.00].forEach(f => {
+        const osc = audioCtx.createOscillator(); osc.type = 'triangle'; osc.frequency.value = f;
+        osc.connect(famTrack); osc.start();
+      });
+      famTrack.connect(masterGain);
+
+      // Friends (Upbeat Sawtooth)
+      friTrack = audioCtx.createGain(); friTrack.gain.value = 0;
+      const fOsc = audioCtx.createOscillator(); fOsc.type = 'sawtooth'; fOsc.frequency.value = 130.81; // C3
+      const fLfo = audioCtx.createOscillator(); fLfo.frequency.value = 8; const fLg = audioCtx.createGain(); fLg.gain.value = 100;
+      fLfo.connect(fLg).connect(fOsc.frequency);
+      fOsc.connect(friTrack).connect(masterGain); fOsc.start(); fLfo.start();
+
+      // Online (Square Arp / Digital noise)
+      onlTrack = audioCtx.createGain(); onlTrack.gain.value = 0;
+      const oOsc = audioCtx.createOscillator(); oOsc.type = 'square'; oOsc.frequency.value = 880;
+      setInterval(() => { if(isStarted && audioCtx) oOsc.frequency.setValueAtTime(Math.random()*1000 + 400, audioCtx.currentTime); }, 100);
+      oOsc.connect(onlTrack).connect(masterGain); oOsc.start();
+
+      // Alone (Deep Sine Drone)
+      alnTrack = audioCtx.createGain(); alnTrack.gain.value = 0;
+      const aOsc = audioCtx.createOscillator(); aOsc.type = 'sine'; aOsc.frequency.value = 65.41; // C2
+      aOsc.connect(alnTrack).connect(masterGain); aOsc.start();
+    }
+
+    function loop() {
+      if(isStarted) {
+        currentY += (targetY - currentY) * ease;
+        const progress = currentY / maxScroll; // 0 to 1
+
+        let state = 0;
+        if(progress > 0.25 && progress < 0.5) state = 1;
+        else if(progress >= 0.5 && progress < 0.75) state = 2;
+        else if(progress >= 0.75) state = 3;
+
+        drawFace(progress, state);
+
+        // Texts
+        document.getElementById('t-fam').style.opacity = state === 0 ? 1 : 0;
+        document.getElementById('t-fri').style.opacity = state === 1 ? 1 : 0;
+        document.getElementById('t-onl').style.opacity = state === 2 ? 1 : 0;
+        document.getElementById('t-aln').style.opacity = state === 3 ? 1 : 0;
+
+        // Backgrounds
+        if(state === 0) { document.body.style.background = '#fef9c3'; document.body.style.color = '#ca8a04'; }
+        else if(state === 1) { document.body.style.background = '#fbcfe8'; document.body.style.color = '#db2777'; }
+        else if(state === 2) { document.body.style.background = '#000'; document.body.style.color = '#0ff'; }
+        else { document.body.style.background = '#0a0a0a'; document.body.style.color = '#555'; }
+
+        // Audio Crossfade
+        if(audioCtx) {
+          famTrack.gain.setTargetAtTime(state === 0 ? 0.3 : 0, audioCtx.currentTime, 0.5);
+          friTrack.gain.setTargetAtTime(state === 1 ? 0.2 : 0, audioCtx.currentTime, 0.5);
+          onlTrack.gain.setTargetAtTime(state === 2 ? 0.1 : 0, audioCtx.currentTime, 0.5);
+          alnTrack.gain.setTargetAtTime(state === 3 ? 0.5 : 0, audioCtx.currentTime, 0.5);
+        }
+      } else {
+        drawFace(0, 0); // initial render
+      }
+      requestAnimationFrame(loop);
+    }
+
+    document.getElementById('start-btn').addEventListener('click', function() {
+      initAudio(); this.style.display = 'none'; isStarted = true; loop();
+    });
+
+    let isMuted = false;
+    document.getElementById('mute-btn').addEventListener('click', function() {
+      if(!audioCtx) return; isMuted = !isMuted;
+      masterGain.gain.linearRampToValueAtTime(isMuted ? 0 : 0.5, audioCtx.currentTime + 0.3);
+      this.style.opacity = isMuted ? 0.3 : 1;
+    });
+  </script>
+</body>
+</html>

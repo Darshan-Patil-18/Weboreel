@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>One Minute Life</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@1,400;1,600&family=Space+Mono&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body, html {
+      width: 100%; height: 100%; overflow: hidden;
+      background: #e0f2fe; color: #0f172a; font-family: 'Cormorant Garamond', serif;
+      overscroll-behavior: none; transition: background 1s, color 1s;
+    }
+
+    #scroll-container {
+      position: absolute; top: 0; left: 0; width: 100%; height: 6000px;
+      opacity: 0; /* Hidden, only for scroll height */
+    }
+
+    .ui-layer {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none;
+      display: flex; flex-direction: column; justify-content: center; align-items: center;
+    }
+
+    .age-display { font-family: 'Space Mono', monospace; font-size: 8rem; font-weight: bold; opacity: 0.1; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 1; }
+    
+    .event-text {
+      font-size: 3rem; text-align: center; z-index: 10; max-width: 800px; padding: 0 20px;
+      opacity: 0; transform: translateY(20px); transition: opacity 0.5s, transform 0.5s;
+    }
+
+    /* Hourglass / Sun visualization */
+    .sun {
+      position: absolute; width: 200px; height: 200px; border-radius: 50%;
+      background: #fde047; box-shadow: 0 0 100px #fde047; z-index: 2;
+      transition: all 0.1s;
+    }
+
+    .ground {
+      position: absolute; bottom: 0; left: 0; width: 100%; height: 20%;
+      background: #15803d; transition: background 1s; z-index: 3;
+    }
+
+    /* Weather / Particles */
+    #canvas { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 5; pointer-events: none; opacity: 0; transition: opacity 2s; }
+
+    .mute-btn { position: fixed; bottom: 20px; right: 20px; font-size: 1.5rem; z-index: 100; cursor: pointer; opacity: 0.5; color: inherit; pointer-events: auto; }
+    .start-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #e0f2fe; color: #0f172a; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 1000; cursor: pointer; font-size: 2rem; pointer-events: auto; }
+  </style>
+</head>
+<body>
+  <div class="start-screen" id="start-btn">
+    <div>Breathe in.</div>
+    <div style="font-size: 1rem; color: #64748b; margin-top: 20px;">Scroll to age.</div>
+  </div>
+  <div class="mute-btn" id="mute-btn">⏱️</div>
+
+  <div class="sun" id="sun"></div>
+  <div class="ground" id="ground"></div>
+  <canvas id="canvas"></canvas>
+
+  <div class="ui-layer">
+    <div class="age-display" id="age">0</div>
+    <div class="event-text" id="event">Hello, world.</div>
+  </div>
+
+  <div id="scroll-container"></div>
+
+  <script>
+    let currentY = 0; let targetY = 0; let maxScroll = 5000; let isStarted = false; const ease = 0.05;
+    
+    window.addEventListener('wheel', e => { if(!isStarted) return; e.preventDefault(); targetY += e.deltaY; targetY = Math.max(0, Math.min(targetY, maxScroll)); }, {passive: false});
+    let touchY = 0;
+    window.addEventListener('touchstart', e => touchY = e.touches[0].clientY);
+    window.addEventListener('touchmove', e => { if(!isStarted) return; e.preventDefault(); targetY += (touchY - e.touches[0].clientY) * 1.5; targetY = Math.max(0, Math.min(targetY, maxScroll)); touchY = e.touches[0].clientY; }, {passive: false});
+
+    // Canvas Rain/Snow
+    const canvas = document.getElementById('canvas'); const ctx = canvas.getContext('2d');
+    let cw = window.innerWidth; let ch = window.innerHeight;
+    canvas.width = cw; canvas.height = ch;
+    const drops = [];
+    for(let i=0; i<100; i++) drops.push({x: Math.random()*cw, y: Math.random()*ch, v: Math.random()*5+2});
+    
+    function drawWeather() {
+      ctx.clearRect(0,0,cw,ch);
+      ctx.fillStyle = 'rgba(255,255,255,0.5)';
+      drops.forEach(d => {
+        d.y += d.v; if(d.y > ch) d.y = 0;
+        ctx.beginPath(); ctx.arc(d.x, d.y, 2, 0, Math.PI*2); ctx.fill();
+      });
+      requestAnimationFrame(drawWeather);
+    }
+    drawWeather();
+
+    // Narrative Map
+    const events = [
+      { age: 0, text: "Hello, world." },
+      { age: 5, text: "Learning to ride a bike." },
+      { age: 16, text: "First heartbreak." },
+      { age: 22, text: "Graduation. The real world begins." },
+      { age: 30, text: "Building a life. Working late." },
+      { age: 45, text: "Time starts moving faster." },
+      { age: 60, text: "Retirement. Quiet mornings." },
+      { age: 75, text: "The body slows. Memories remain." },
+      { age: 80, text: "Goodbye." }
+    ];
+
+    // Audio
+    let audioCtx, masterGain, tickOsc, pianoOsc;
+    function initAudio() {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      audioCtx = new AudioContext(); masterGain = audioCtx.createGain(); masterGain.gain.value = 0.5; masterGain.connect(audioCtx.destination);
+      
+      // Heartbeat / Tick
+      tickOsc = audioCtx.createOscillator(); tickOsc.type = 'square';
+      const tickGain = audioCtx.createGain(); tickGain.gain.value = 0;
+      tickOsc.connect(tickGain).connect(masterGain); tickOsc.start();
+      
+      // Clock tick loop
+      setInterval(() => {
+        if(!isStarted || !audioCtx) return;
+        const progress = currentY / maxScroll;
+        // Speeds up towards the end
+        const interval = 1000 - (progress * 500); 
+        
+        tickOsc.frequency.setValueAtTime(800, audioCtx.currentTime);
+        tickGain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+        tickGain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+      }, 500); // Wait, setInterval inside audio isn't perfectly synced. We'll leave it as a rough UI tick.
+
+      // Pad
+      pianoOsc = audioCtx.createOscillator(); pianoOsc.type = 'sine'; pianoOsc.frequency.value = 261.63; // C4
+      const pGain = audioCtx.createGain(); pGain.gain.value = 0.2;
+      pianoOsc.connect(pGain).connect(masterGain); pianoOsc.start();
+    }
+
+    let activeEvent = -1;
+
+    function loop() {
+      if(isStarted) {
+        currentY += (targetY - currentY) * ease;
+        const progress = currentY / maxScroll; // 0 to 1
+        const age = Math.round(progress * 80);
+
+        document.getElementById('age').innerText = age;
+
+        // Visuals based on age (Time of day)
+        const sun = document.getElementById('sun');
+        const ground = document.getElementById('ground');
+        
+        // Sun path: arc from left to right, rising then setting
+        const sunX = progress * cw - 100;
+        const sunY = ch - (Math.sin(progress * Math.PI) * (ch * 0.8)) - 100;
+        sun.style.left = `${sunX}px`; sun.style.top = `${sunY}px`;
+
+        // Colors
+        if(age < 20) {
+          // Morning
+          document.body.style.background = '#e0f2fe'; document.body.style.color = '#0f172a';
+          sun.style.background = '#fde047'; sun.style.boxShadow = '0 0 100px #fde047';
+          ground.style.background = '#15803d'; canvas.style.opacity = 0;
+        } else if(age >= 20 && age < 50) {
+          // Noon / Afternoon
+          document.body.style.background = '#38bdf8'; document.body.style.color = '#fff';
+          sun.style.background = '#fff'; sun.style.boxShadow = '0 0 100px #fff';
+          ground.style.background = '#166534'; canvas.style.opacity = 0;
+        } else if(age >= 50 && age < 70) {
+          // Sunset / Autumn
+          document.body.style.background = '#f97316'; document.body.style.color = '#fff';
+          sun.style.background = '#ea580c'; sun.style.boxShadow = '0 0 100px #ea580c';
+          ground.style.background = '#854d0e'; canvas.style.opacity = 0.5; // Starts raining/snowing
+        } else {
+          // Night / Winter
+          document.body.style.background = '#0f172a'; document.body.style.color = '#cbd5e1';
+          sun.style.background = '#cbd5e1'; sun.style.boxShadow = '0 0 50px #cbd5e1';
+          ground.style.background = '#334155'; canvas.style.opacity = 1; // Snow
+        }
+
+        // Narrative events
+        let newEvent = 0;
+        for(let i=0; i<events.length; i++) { if(age >= events[i].age) newEvent = i; }
+        
+        if(newEvent !== activeEvent) {
+          activeEvent = newEvent;
+          const evEl = document.getElementById('event');
+          evEl.style.opacity = 0; evEl.style.transform = 'translateY(20px)';
+          setTimeout(() => {
+            evEl.innerText = events[activeEvent].text;
+            evEl.style.opacity = 1; evEl.style.transform = 'translateY(0)';
+          }, 300);
+
+          if(audioCtx) {
+            // Note pitch changes with age
+            pianoOsc.frequency.setTargetAtTime(261.63 - (age*1.5), audioCtx.currentTime, 0.5);
+          }
+        }
+      }
+      requestAnimationFrame(loop);
+    }
+
+    document.getElementById('start-btn').addEventListener('click', function() {
+      initAudio(); this.style.display = 'none'; isStarted = true; loop();
+    });
+
+    let isMuted = false;
+    document.getElementById('mute-btn').addEventListener('click', function() {
+      if(!audioCtx) return; isMuted = !isMuted;
+      masterGain.gain.linearRampToValueAtTime(isMuted ? 0 : 0.5, audioCtx.currentTime + 0.3);
+      this.style.opacity = isMuted ? 0.3 : 1;
+    });
+  </script>
+</body>
+</html>

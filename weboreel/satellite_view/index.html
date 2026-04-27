@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Satellite View</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body, html {
+      width: 100%; height: 100%; overflow: hidden;
+      background: #000; color: #fff; font-family: 'DM Sans', sans-serif;
+      overscroll-behavior: none; perspective: 1000px;
+    }
+
+    #scroll-container {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      display: flex; justify-content: center; align-items: center;
+    }
+
+    #zoom-container {
+      position: relative; width: 100vw; height: 100vh;
+      transform-style: preserve-3d; will-change: transform;
+    }
+
+    .layer {
+      position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      width: 100vw; height: 100vh; display: flex; justify-content: center; align-items: center;
+      opacity: 0; pointer-events: none; transition: opacity 0.3s;
+    }
+
+    /* HUD */
+    .hud { position: fixed; top: 20px; left: 20px; z-index: 100; font-family: monospace; font-size: 1.2rem; color: #0ff; text-shadow: 0 0 5px #0ff; }
+    .crosshair { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 50px; height: 50px; border: 1px solid rgba(0,255,255,0.5); z-index: 50; pointer-events: none; }
+    .crosshair::before, .crosshair::after { content:''; position:absolute; background:rgba(0,255,255,0.5); }
+    .crosshair::before { top: 24px; left: -10px; width: 70px; height: 1px; }
+    .crosshair::after { top: -10px; left: 24px; width: 1px; height: 70px; }
+
+    /* L1: Space */
+    #l-space { background: #000; }
+    .earth { width: 300px; height: 300px; border-radius: 50%; background: radial-gradient(circle at 30% 30%, #3b82f6, #001); box-shadow: inset -20px -20px 40px rgba(0,0,0,0.8), 0 0 50px rgba(59, 130, 246, 0.3); }
+
+    /* L2: City Grid */
+    #l-city { background: #222; }
+    .grid { width: 100%; height: 100%; background: repeating-linear-gradient(0deg, transparent, transparent 40px, #333 40px, #333 42px), repeating-linear-gradient(90deg, transparent, transparent 40px, #333 40px, #333 42px); }
+    .target-block { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 80px; height: 80px; background: #444; border: 2px solid #555; }
+
+    /* L3: House Roof */
+    #l-house { background: #333; }
+    .roof { width: 400px; height: 300px; background: #833; position: relative; }
+    .roof::after { content: ''; position: absolute; top: 50%; left: 0; width: 100%; height: 2px; background: #622; }
+    .yard { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 600px; height: 500px; background: #252; z-index: -1; }
+
+    /* L4: Room Inside */
+    #l-room { background: #1a1a1a; }
+    .desk { position: absolute; top: 60%; left: 50%; transform: translate(-50%, -50%); width: 300px; height: 150px; background: #4a3b2c; }
+    .monitor-back { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 120px; height: 20px; background: #111; }
+    .monitor-screen { position: absolute; top: 45%; left: 50%; transform: translate(-50%, -50%); width: 100px; height: 60px; background: #0ff; box-shadow: 0 0 50px #0ff; }
+    .person { position: absolute; top: 80%; left: 50%; transform: translate(-50%, -50%); width: 60px; height: 60px; border-radius: 50%; background: #222; }
+
+    /* L5: The Screen (Fractal loop point) */
+    #l-screen { background: #0ff; display: flex; justify-content: center; align-items: center; }
+    .fractal-earth { width: 200px; height: 200px; border-radius: 50%; background: radial-gradient(circle at 30% 30%, #3b82f6, #001); box-shadow: 0 0 50px rgba(0,0,0,0.5); }
+
+    .mute-btn { position: fixed; bottom: 20px; right: 20px; font-size: 1.5rem; z-index: 100; cursor: pointer; opacity: 0.5; color: white; }
+    .start-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; color: #0ff; display: flex; justify-content: center; align-items: center; z-index: 1000; cursor: pointer; font-size: 2rem; letter-spacing: 5px; }
+  </style>
+</head>
+<body>
+  <div class="start-screen" id="start-btn">ENGAGE SATELLITE</div>
+  <div class="mute-btn" id="mute-btn">🛰️</div>
+
+  <div class="crosshair"></div>
+  <div class="hud">
+    <div id="alt">ALTITUDE: 400km</div>
+    <div id="tar">TARGET: ACQUIRED</div>
+  </div>
+
+  <div id="scroll-container">
+    <div id="zoom-container">
+      
+      <div class="layer" id="l-space" style="z-index: 5;">
+        <div class="earth"></div>
+      </div>
+      
+      <div class="layer" id="l-city" style="z-index: 4;">
+        <div class="grid"><div class="target-block"></div></div>
+      </div>
+
+      <div class="layer" id="l-house" style="z-index: 3;">
+        <div class="yard"></div>
+        <div class="roof"></div>
+      </div>
+
+      <div class="layer" id="l-room" style="z-index: 2;">
+        <div class="desk"></div>
+        <div class="monitor-back"></div>
+        <div class="monitor-screen"></div>
+        <div class="person"></div>
+      </div>
+
+      <div class="layer" id="l-screen" style="z-index: 1;">
+        <div class="fractal-earth"></div>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    let currentZoom = 1; let targetZoom = 1; let isStarted = false; const ease = 0.05;
+    
+    const layers = [
+      { id: 'l-space', min: 1, max: 10, alt: '400,000m' },
+      { id: 'l-city', min: 8, max: 50, alt: '5,000m' },
+      { id: 'l-house', min: 40, max: 200, alt: '50m' },
+      { id: 'l-room', min: 180, max: 800, alt: '3m' },
+      { id: 'l-screen', min: 700, max: 3000, alt: '0.1m' }
+    ];
+
+    window.addEventListener('wheel', e => {
+      if(!isStarted) return; e.preventDefault();
+      if(e.deltaY > 0) targetZoom *= 1.1; else targetZoom /= 1.1;
+      
+      // Loop back to start if zooming past screen
+      if(targetZoom > 3000) { targetZoom = 1; currentZoom = 1; }
+      targetZoom = Math.max(1, targetZoom);
+    }, {passive: false});
+
+    let touchY = 0;
+    window.addEventListener('touchstart', e => touchY = e.touches[0].clientY);
+    window.addEventListener('touchmove', e => {
+      if(!isStarted) return; e.preventDefault();
+      if(touchY - e.touches[0].clientY > 0) targetZoom *= 1.05; else targetZoom /= 1.05;
+      if(targetZoom > 3000) { targetZoom = 1; currentZoom = 1; }
+      targetZoom = Math.max(1, targetZoom);
+      touchY = e.touches[0].clientY;
+    }, {passive: false});
+
+    // Audio
+    let audioCtx, masterGain;
+    let spaceNoise, cityHum, fanNoise;
+    
+    function initAudio() {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      audioCtx = new AudioContext(); masterGain = audioCtx.createGain(); masterGain.gain.value = 0.5; masterGain.connect(audioCtx.destination);
+      
+      const bSize = audioCtx.sampleRate; const nBuf = audioCtx.createBuffer(1, bSize, audioCtx.sampleRate);
+      for(let i=0; i<bSize; i++) nBuf.getChannelData(0)[i] = Math.random()*2-1;
+      
+      // Space Wind (Lowpass noise)
+      spaceNoise = audioCtx.createBufferSource(); spaceNoise.buffer = nBuf; spaceNoise.loop = true;
+      const sFilter = audioCtx.createBiquadFilter(); sFilter.type = 'lowpass'; sFilter.frequency.value = 400;
+      const sG = audioCtx.createGain(); sG.gain.value = 0.5;
+      spaceNoise.connect(sFilter).connect(sG).connect(masterGain); spaceNoise.start();
+
+      // City Traffic (Bandpass noise)
+      cityHum = audioCtx.createBufferSource(); cityHum.buffer = nBuf; cityHum.loop = true;
+      const cFilter = audioCtx.createBiquadFilter(); cFilter.type = 'bandpass'; cFilter.frequency.value = 1000;
+      const cG = audioCtx.createGain(); cG.gain.value = 0;
+      cityHum.connect(cFilter).connect(cG).connect(masterGain); cityHum.start();
+
+      // PC Fan (Highpass noise)
+      fanNoise = audioCtx.createBufferSource(); fanNoise.buffer = nBuf; fanNoise.loop = true;
+      const fFilter = audioCtx.createBiquadFilter(); fFilter.type = 'highpass'; fFilter.frequency.value = 5000;
+      const fG = audioCtx.createGain(); fG.gain.value = 0;
+      fanNoise.connect(fFilter).connect(fG).connect(masterGain); fanNoise.start();
+
+      return { sG, cG, fG };
+    }
+    let audioNodes;
+
+    function loop() {
+      if(isStarted) {
+        currentZoom += (targetZoom - currentZoom) * ease;
+        
+        let activeAlt = "400,000m";
+
+        layers.forEach((l, i) => {
+          const el = document.getElementById(l.id);
+          if(currentZoom >= l.min && currentZoom <= l.max * 1.5) {
+            const relativeScale = currentZoom / l.min;
+            el.style.transform = `translate(-50%, -50%) scale(${relativeScale})`;
+            
+            let op = 1;
+            if(currentZoom < l.min * 1.5) op = (currentZoom - l.min) / (l.min * 0.5);
+            if(currentZoom > l.max) op = 1 - (currentZoom - l.max) / (l.max * 0.5);
+            el.style.opacity = Math.max(0, Math.min(1, op));
+            
+            if(op > 0.5) activeAlt = l.alt;
+          } else {
+            el.style.opacity = 0;
+          }
+        });
+
+        document.getElementById('alt').innerText = `ALTITUDE: ${activeAlt}`;
+
+        // Audio mixing
+        if(audioCtx && audioNodes) {
+          const t = audioCtx.currentTime;
+          let sV = 0, cV = 0, fV = 0;
+          if(currentZoom < 15) sV = 0.5;
+          if(currentZoom >= 10 && currentZoom < 100) cV = 0.2;
+          if(currentZoom >= 80) fV = 0.1;
+          
+          audioNodes.sG.gain.setTargetAtTime(sV, t, 0.1);
+          audioNodes.cG.gain.setTargetAtTime(cV, t, 0.1);
+          audioNodes.fG.gain.setTargetAtTime(fV, t, 0.1);
+        }
+      }
+      requestAnimationFrame(loop);
+    }
+
+    document.getElementById('start-btn').addEventListener('click', function() {
+      audioNodes = initAudio(); this.style.display = 'none'; isStarted = true; loop();
+    });
+
+    let isMuted = false;
+    document.getElementById('mute-btn').addEventListener('click', function() {
+      if(!audioCtx) return; isMuted = !isMuted;
+      masterGain.gain.linearRampToValueAtTime(isMuted ? 0 : 0.5, audioCtx.currentTime + 0.3);
+      this.style.opacity = isMuted ? 0.3 : 1;
+    });
+  </script>
+</body>
+</html>

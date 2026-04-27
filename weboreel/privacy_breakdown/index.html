@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Privacy Breakdown</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;700&family=Space+Mono&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body, html {
+      width: 100%; height: 100%; overflow-x: hidden;
+      background: #fff; color: #111; font-family: 'DM Sans', sans-serif;
+    }
+
+    /* Generic "Website" Content */
+    .header { padding: 20px; border-bottom: 1px solid #ddd; display: flex; justify-content: space-between; position: sticky; top: 0; background: #fff; z-index: 10; transition: background 1s, color 1s; }
+    .hero { height: 60vh; display: flex; flex-direction: column; justify-content: center; align-items: center; background: #f5f5f5; transition: background 1s; }
+    .article { padding: 50px 20px; max-width: 800px; margin: 0 auto; line-height: 1.8; font-size: 1.2rem; }
+    .article p { margin-bottom: 20px; }
+
+    /* The "Trackers" (hidden initially) */
+    .tracker-overlay {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 100;
+      opacity: 0; transition: opacity 1s;
+    }
+    .red-grid {
+      position: absolute; width: 100%; height: 100%;
+      background: repeating-linear-gradient(0deg, transparent, transparent 40px, rgba(255,0,0,0.2) 40px, rgba(255,0,0,0.2) 41px),
+                  repeating-linear-gradient(90deg, transparent, transparent 40px, rgba(255,0,0,0.2) 40px, rgba(255,0,0,0.2) 41px);
+    }
+    .data-dump {
+      position: absolute; top: 80px; right: 20px; width: 250px; background: rgba(0,0,0,0.8); color: #f00;
+      font-family: 'Space Mono', monospace; font-size: 0.8rem; padding: 10px; border: 1px solid #f00;
+    }
+
+    .eye {
+      position: fixed; width: 40px; height: 40px; background: #fff; border: 2px solid #f00; border-radius: 50%;
+      display: flex; justify-content: center; align-items: center; opacity: 0; z-index: 100; pointer-events: none;
+    }
+    .pupil { width: 10px; height: 10px; background: #f00; border-radius: 50%; transition: transform 0.1s; }
+
+    .laser {
+      position: fixed; top: 0; left: 0; width: 2px; height: 100vh; background: #f00; box-shadow: 0 0 10px #f00;
+      opacity: 0; z-index: 90; pointer-events: none;
+    }
+
+    .popup {
+      position: fixed; background: #000; color: #0f0; font-family: monospace; padding: 10px; border: 1px solid #0f0;
+      opacity: 0; pointer-events: none; z-index: 110;
+    }
+
+    .mute-btn { position: fixed; bottom: 20px; right: 20px; font-size: 1.5rem; z-index: 200; cursor: pointer; opacity: 0.5; }
+    .start-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #fff; color: #111; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 1000; cursor: pointer; font-size: 2rem; }
+  </style>
+</head>
+<body>
+  <div class="start-screen" id="start-btn">
+    <div>ACCEPT COOKIES</div>
+    <div style="font-size: 1rem; color: #888; margin-top: 20px; text-decoration: underline;">Terms of Service</div>
+  </div>
+  <div class="mute-btn" id="mute-btn">👁️</div>
+
+  <!-- Normal Site -->
+  <div class="header" id="header">
+    <div style="font-weight:bold;">NewsDaily</div>
+    <div>Login</div>
+  </div>
+  <div class="hero" id="hero">
+    <h1 style="font-size: 3rem; margin-bottom: 10px;">The Future of Tech</h1>
+    <p>Read our latest deep dive.</p>
+  </div>
+  <div class="article">
+    <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nulla accumsan, metus ultrices eleifend gravida, nulla nunc varius lectus, nec rutrum justo nibh eu lectus. Ut vulputate semper dui. Fusce erat odio, dictum vulputate erat id, elementum tempus arcu.</p>
+    <p>Suspendisse ac quam sed massa tincidunt blandit. Cras aliquam mi sit amet justo rutrum, nec iaculis purus auctor. Phasellus in varius libero. Nullam euismod, libero a aliquet laoreet, mi justo bibendum tortor, eu facilisis lorem quam ut odio.</p>
+    <p style="height: 100vh;">(Keep scrolling...)</p>
+    <p style="height: 100vh;">(Keep scrolling...)</p>
+    <p style="height: 100vh;">(Keep scrolling...)</p>
+  </div>
+
+  <!-- Trackers -->
+  <div class="tracker-overlay" id="t-overlay">
+    <div class="red-grid"></div>
+    <div class="data-dump" id="dump"></div>
+    <div class="laser" id="laserX" style="width: 100vw; height: 1px;"></div>
+    <div class="laser" id="laserY"></div>
+  </div>
+
+  <div class="eye" id="eye1" style="top: 20%; left: 10%;"><div class="pupil"></div></div>
+  <div class="eye" id="eye2" style="top: 50%; right: 10%;"><div class="pupil"></div></div>
+  <div class="eye" id="eye3" style="bottom: 10%; left: 50%;"><div class="pupil"></div></div>
+
+  <div class="popup" id="pop1" style="top: 30%; left: 20%;">> LOCATION: EXTRACTED</div>
+  <div class="popup" id="pop2" style="top: 60%; right: 30%;">> MIC: RECORDING</div>
+
+  <script>
+    let isStarted = false;
+    let mouseX = window.innerWidth/2; let mouseY = window.innerHeight/2;
+    
+    window.addEventListener('mousemove', e => {
+      mouseX = e.clientX; mouseY = e.clientY;
+    });
+
+    // Audio
+    let audioCtx, masterGain, droneGain, clickOsc;
+    function initAudio() {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      audioCtx = new AudioContext(); masterGain = audioCtx.createGain(); masterGain.gain.value = 0.5; masterGain.connect(audioCtx.destination);
+      
+      // Creepy Drone
+      const dOsc = audioCtx.createOscillator(); dOsc.type = 'sawtooth'; dOsc.frequency.value = 40;
+      droneGain = audioCtx.createGain(); droneGain.gain.value = 0;
+      dOsc.connect(droneGain).connect(masterGain); dOsc.start();
+    }
+
+    function playShutter() {
+      if(!audioCtx) return;
+      const osc = audioCtx.createOscillator(); osc.type = 'square'; osc.frequency.value = 2000;
+      const g = audioCtx.createGain(); g.gain.setValueAtTime(0.5, audioCtx.currentTime); g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+      osc.connect(g).connect(masterGain); osc.start(); osc.stop(audioCtx.currentTime + 0.1);
+    }
+
+    let pop1Triggered = false;
+    let pop2Triggered = false;
+
+    function loop() {
+      if(isStarted) {
+        const scrollY = window.scrollY;
+        const maxScroll = document.body.scrollHeight - window.innerHeight;
+        const progress = scrollY / maxScroll;
+
+        // Visual Breakdown
+        const overlay = document.getElementById('t-overlay');
+        const dump = document.getElementById('dump');
+        
+        if(progress > 0.1) {
+          overlay.style.opacity = progress * 1.5;
+          document.body.style.background = '#0a0000'; document.body.style.color = '#555';
+          document.getElementById('header').style.background = '#0a0000';
+          document.getElementById('hero').style.background = '#110000';
+
+          dump.innerHTML = `> SESSION_ID: 9X8A<br>> MOUSE_X: ${mouseX}<br>> MOUSE_Y: ${mouseY}<br>> SCROLL_DEPTH: ${Math.round(progress*100)}%<br>> IP: LOGGED`;
+        } else {
+          overlay.style.opacity = 0;
+          document.body.style.background = '#fff'; document.body.style.color = '#111';
+          document.getElementById('header').style.background = '#fff';
+          document.getElementById('hero').style.background = '#f5f5f5';
+        }
+
+        // Lasers
+        if(progress > 0.3) {
+          const lX = document.getElementById('laserX'); const lY = document.getElementById('laserY');
+          lX.style.opacity = 1; lY.style.opacity = 1;
+          lX.style.top = `${mouseY}px`; lY.style.left = `${mouseX}px`;
+        }
+
+        // Eyes
+        if(progress > 0.5) {
+          ['eye1','eye2','eye3'].forEach(id => {
+            const eye = document.getElementById(id);
+            eye.style.opacity = 1;
+            const rect = eye.getBoundingClientRect();
+            const ex = rect.left + 20; const ey = rect.top + 20;
+            const angle = Math.atan2(mouseY - ey, mouseX - ex);
+            const px = Math.cos(angle) * 10; const py = Math.sin(angle) * 10;
+            eye.children[0].style.transform = `translate(${px}px, ${py}px)`;
+          });
+        }
+
+        // Popups & Sound
+        if(progress > 0.4 && !pop1Triggered) { pop1Triggered = true; document.getElementById('pop1').style.opacity = 1; playShutter(); }
+        if(progress > 0.7 && !pop2Triggered) { pop2Triggered = true; document.getElementById('pop2').style.opacity = 1; playShutter(); }
+
+        // Audio Drone
+        if(audioCtx) {
+          droneGain.gain.setTargetAtTime(progress * 0.3, audioCtx.currentTime, 0.1);
+        }
+      }
+      requestAnimationFrame(loop);
+    }
+
+    document.getElementById('start-btn').addEventListener('click', function() {
+      initAudio(); this.style.display = 'none'; isStarted = true; loop();
+    });
+
+    let isMuted = false;
+    document.getElementById('mute-btn').addEventListener('click', function() {
+      if(!audioCtx) return; isMuted = !isMuted;
+      masterGain.gain.linearRampToValueAtTime(isMuted ? 0 : 0.5, audioCtx.currentTime + 0.3);
+    });
+  </script>
+</body>
+</html>
