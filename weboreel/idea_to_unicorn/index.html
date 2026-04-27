@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Idea to Unicorn</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body, html {
+      width: 100%; height: 100%; overflow: hidden;
+      background: #0f172a; color: #fff; font-family: 'Space Grotesk', sans-serif;
+      overscroll-behavior: none;
+    }
+
+    #scroll-container {
+      position: absolute; top: 0; left: 0; width: 100%; height: 5000px;
+      opacity: 0; pointer-events: none; z-index: 1000;
+    }
+
+    canvas {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10;
+    }
+
+    /* UI Overlay */
+    .val-display {
+      position: fixed; top: 10%; left: 50%; transform: translateX(-50%);
+      font-size: 5rem; font-weight: bold; z-index: 20; color: #10b981;
+      text-shadow: 0 0 20px rgba(16, 185, 129, 0.5); font-variant-numeric: tabular-nums;
+    }
+    
+    .stage-title {
+      position: fixed; top: 25%; left: 50%; transform: translateX(-50%);
+      font-size: 2rem; z-index: 20; color: #94a3b8; text-transform: uppercase; letter-spacing: 4px;
+    }
+
+    .hud { position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%); font-family: monospace; letter-spacing: 2px; z-index: 20; color: #64748b; }
+
+    .glow { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: radial-gradient(circle at center, rgba(16, 185, 129, 0.1) 0%, transparent 70%); pointer-events: none; z-index: 5; transition: opacity 1s; opacity: 0; }
+  </style>
+</head>
+<body>
+  <div class="val-display" id="val">$0</div>
+  <div class="stage-title" id="stage">THE IDEA</div>
+  <div class="hud">SCROLL TO BUILD</div>
+  <div class="glow" id="glow"></div>
+
+  <canvas id="cvs"></canvas>
+  <div id="scroll-container"></div>
+
+  <script>
+    const cvs = document.getElementById('cvs');
+    const ctx = cvs.getContext('2d');
+    let width, height;
+    function resize() { width = cvs.width = window.innerWidth; height = cvs.height = window.innerHeight; }
+    window.addEventListener('resize', resize); resize();
+
+    let currentY = 0; let targetY = 0; let maxScroll = 4000; const ease = 0.05;
+    
+    let audioInit = false; let audioCtx, masterGain, bSynth;
+
+    function initAudio() {
+      if(audioInit) return; audioInit = true;
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      audioCtx = new AudioContext(); masterGain = audioCtx.createGain(); masterGain.gain.value = 0.5; masterGain.connect(audioCtx.destination);
+      
+      bSynth = audioCtx.createGain(); bSynth.gain.value = 1;
+      bSynth.connect(masterGain);
+      
+      // Ambient drone
+      const drone = audioCtx.createOscillator(); drone.type = 'sine'; drone.frequency.value = 55;
+      drone.connect(bSynth); drone.start();
+    }
+
+    // Interaction triggers audio unlock
+    window.addEventListener('wheel', e => { initAudio(); e.preventDefault(); targetY += e.deltaY; targetY = Math.max(0, Math.min(targetY, maxScroll)); }, {passive: false});
+    window.addEventListener('mousedown', initAudio);
+    let touchY = 0;
+    window.addEventListener('touchstart', e => { initAudio(); touchY = e.touches[0].clientY; });
+    window.addEventListener('touchmove', e => { e.preventDefault(); targetY += (touchY - e.touches[0].clientY) * 1.5; targetY = Math.max(0, Math.min(targetY, maxScroll)); touchY = e.touches[0].clientY; }, {passive: false});
+
+    // Milestones
+    const stages = [
+      { p: 0, label: "THE IDEA", val: 0 },
+      { p: 0.25, label: "MVP LAUNCH", val: 50000 },
+      { p: 0.5, label: "SEED FUNDING", val: 2000000 },
+      { p: 0.75, label: "SERIES A", val: 15000000 },
+      { p: 1, label: "UNICORN", val: 1000000000 }
+    ];
+
+    function formatMoney(num) {
+      if(num >= 1000000000) return `$${(num/1000000000).toFixed(1)}B`;
+      if(num >= 1000000) return `$${(num/1000000).toFixed(1)}M`;
+      if(num >= 1000) return `$${(num/1000).toFixed(0)}K`;
+      return `$${num}`;
+    }
+
+    let lastStageIdx = 0;
+
+    function loop() {
+      currentY += (targetY - currentY) * ease;
+      const progress = currentY / maxScroll; // 0 to 1
+
+      ctx.clearRect(0, 0, width, height);
+
+      // Draw Grid
+      ctx.strokeStyle = '#1e293b'; ctx.lineWidth = 1;
+      for(let i=0; i<10; i++) {
+        ctx.beginPath(); ctx.moveTo(0, height - (i*(height/10))); ctx.lineTo(width, height - (i*(height/10))); ctx.stroke();
+      }
+
+      // Calculate path (Exponential curve)
+      const points = [];
+      const numPoints = 100;
+      const currentPointIdx = Math.floor(progress * numPoints);
+
+      for(let i=0; i<=numPoints; i++) {
+        const x = (i / numPoints) * width;
+        // Exponential y mapping
+        const normP = i/numPoints;
+        const mappedY = Math.pow(normP, 3); // 0 to 1
+        const y = height - (mappedY * (height * 0.8)) - 50; // Leave margin
+        points.push({x, y});
+      }
+
+      // Draw Line
+      if(currentPointIdx > 0) {
+        ctx.beginPath();
+        ctx.moveTo(points[0].x, points[0].y);
+        for(let i=1; i<=currentPointIdx; i++) ctx.lineTo(points[i].x, points[i].y);
+        ctx.strokeStyle = '#10b981'; ctx.lineWidth = 4;
+        ctx.shadowColor = '#10b981'; ctx.shadowBlur = 15;
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+
+        // Draw Fill
+        ctx.lineTo(points[currentPointIdx].x, height); ctx.lineTo(0, height);
+        const grad = ctx.createLinearGradient(0, 0, 0, height);
+        grad.addColorStop(0, 'rgba(16, 185, 129, 0.3)'); grad.addColorStop(1, 'rgba(16, 185, 129, 0)');
+        ctx.fillStyle = grad; ctx.fill();
+      }
+
+      // Draw Nodes
+      stages.forEach((s, idx) => {
+        const pIdx = Math.floor(s.p * numPoints);
+        const pt = points[pIdx];
+        if(progress >= s.p) {
+          ctx.beginPath(); ctx.arc(pt.x, pt.y, 8, 0, Math.PI*2);
+          ctx.fillStyle = '#fff'; ctx.fill();
+          ctx.lineWidth = 3; ctx.strokeStyle = '#10b981'; ctx.stroke();
+          
+          // Flash on hit
+          if(progress > s.p && progress < s.p + 0.05) {
+             ctx.beginPath(); ctx.arc(pt.x, pt.y, 20 + Math.random()*10, 0, Math.PI*2);
+             ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.fill();
+          }
+        } else {
+          ctx.beginPath(); ctx.arc(pt.x, pt.y, 5, 0, Math.PI*2);
+          ctx.fillStyle = '#334155'; ctx.fill();
+        }
+      });
+
+      // Update UI
+      let activeStage = stages[0];
+      let nextStage = stages[1];
+      for(let i=0; i<stages.length; i++) {
+        if(progress >= stages[i].p) {
+          activeStage = stages[i];
+          nextStage = stages[i+1] || stages[i];
+          if(lastStageIdx !== i) {
+            lastStageIdx = i;
+            // Play arpeggio sound on milestone hit
+            if(audioCtx && audioInit) {
+               const root = 261.63 * Math.pow(1.2, i);
+               [root, root*1.25, root*1.5].forEach((f, idx) => {
+                 setTimeout(() => {
+                   const o = audioCtx.createOscillator(); o.type = 'triangle'; o.frequency.value = f;
+                   const g = audioCtx.createGain(); g.gain.setValueAtTime(0.5, audioCtx.currentTime); g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime+0.5);
+                   o.connect(g).connect(masterGain); o.start(); o.stop(audioCtx.currentTime+0.5);
+                 }, idx * 100);
+               });
+            }
+          }
+        }
+      }
+
+      // Interpolate Value
+      let pRange = (progress - activeStage.p) / ((nextStage.p - activeStage.p) || 1);
+      pRange = Math.max(0, Math.min(1, pRange));
+      const currentVal = activeStage.val + (nextStage.val - activeStage.val) * Math.pow(pRange, 3); // Exponential money growth between stages
+
+      document.getElementById('val').innerText = formatMoney(currentVal);
+      document.getElementById('stage').innerText = activeStage.label;
+
+      if(progress > 0.95) {
+        document.getElementById('glow').style.opacity = 1;
+      } else {
+        document.getElementById('glow').style.opacity = 0;
+      }
+
+      // Audio modulation based on scroll
+      if(audioInit && audioCtx) {
+         // Modulate a synth filter based on money
+         // We will create a dynamic hum
+         if(!window.oHum) {
+           window.oHum = audioCtx.createOscillator(); window.oHum.type = 'sawtooth'; window.oHum.frequency.value = 100;
+           window.fHum = audioCtx.createBiquadFilter(); window.fHum.type = 'lowpass'; window.fHum.frequency.value = 200;
+           window.oHum.connect(window.fHum).connect(masterGain); window.oHum.start();
+         }
+         window.fHum.frequency.setTargetAtTime(200 + (progress * 4000), audioCtx.currentTime, 0.1);
+      }
+
+      requestAnimationFrame(loop);
+    }
+
+    loop();
+  </script>
+</body>
+</html>

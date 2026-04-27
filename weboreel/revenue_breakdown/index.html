@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Revenue Breakdown</title>
+  <link href="https://fonts.googleapis.com/css2?family=Teko:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body, html {
+      width: 100%; height: 100%; overflow: hidden;
+      background: #0f172a; color: #fff; font-family: 'Teko', sans-serif;
+      overscroll-behavior: none;
+    }
+
+    #scroll-container {
+      position: absolute; top: 0; left: 0; width: 100%; height: 4000px;
+      opacity: 0; pointer-events: none; z-index: 1000;
+    }
+
+    canvas {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10;
+    }
+
+    .title { position: fixed; top: 5%; left: 5%; font-size: 4rem; z-index: 20; color: #f8fafc; letter-spacing: 2px; }
+    .hud { position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%); font-family: monospace; letter-spacing: 2px; z-index: 20; color: #64748b; font-size: 1rem; }
+  </style>
+</head>
+<body>
+
+  <div class="title" id="title">GROSS REVENUE</div>
+  <div class="hud">SCROLL TO CALCULATE PROFIT</div>
+
+  <canvas id="cvs"></canvas>
+  <div id="scroll-container"></div>
+
+  <script>
+    const cvs = document.getElementById('cvs');
+    const ctx = cvs.getContext('2d');
+    let width, height;
+    function resize() { width = cvs.width = window.innerWidth; height = cvs.height = window.innerHeight; }
+    window.addEventListener('resize', resize); resize();
+
+    let currentY = 0; let targetY = 0; let maxScroll = 4000; const ease = 0.05;
+    
+    let audioInit = false; let audioCtx, masterGain;
+    
+    function initAudio() {
+      if(audioInit) return; audioInit = true;
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      audioCtx = new AudioContext(); masterGain = audioCtx.createGain(); masterGain.gain.value = 0.5; masterGain.connect(audioCtx.destination);
+    }
+
+    function playSlice() {
+      if(!audioCtx) return;
+      const o = audioCtx.createOscillator(); o.type = 'sawtooth'; o.frequency.setValueAtTime(400, audioCtx.currentTime); o.frequency.exponentialRampToValueAtTime(100, audioCtx.currentTime+0.2);
+      const g = audioCtx.createGain(); g.gain.setValueAtTime(0.5, audioCtx.currentTime); g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime+0.2);
+      o.connect(g).connect(masterGain); o.start(); o.stop(audioCtx.currentTime+0.2);
+    }
+
+    function playChaChing() {
+      if(!audioCtx) return;
+      [800, 1000, 1200].forEach((f, i) => {
+         setTimeout(() => {
+           const o = audioCtx.createOscillator(); o.type = 'sine'; o.frequency.value = f;
+           const g = audioCtx.createGain(); g.gain.setValueAtTime(0.5, audioCtx.currentTime); g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime+0.4);
+           o.connect(g).connect(masterGain); o.start(); o.stop(audioCtx.currentTime+0.4);
+         }, i*50);
+      });
+    }
+
+    window.addEventListener('wheel', e => { initAudio(); e.preventDefault(); targetY += e.deltaY; targetY = Math.max(0, Math.min(targetY, maxScroll)); }, {passive: false});
+    window.addEventListener('mousedown', initAudio);
+    let touchY = 0;
+    window.addEventListener('touchstart', e => { initAudio(); touchY = e.touches[0].clientY; });
+    window.addEventListener('touchmove', e => { e.preventDefault(); targetY += (touchY - e.touches[0].clientY) * 1.5; targetY = Math.max(0, Math.min(targetY, maxScroll)); touchY = e.touches[0].clientY; }, {passive: false});
+
+    const totalRev = 100;
+    const slices = [
+      { p: 0.2, val: 30, name: "COGS", color: "#ef4444" },
+      { p: 0.4, val: 40, name: "OPEX", color: "#f97316" },
+      { p: 0.6, val: 10, name: "TAXES", color: "#eab308" }
+    ];
+    // Remaining = 20 (Net Profit)
+
+    let lastStage = 0;
+
+    function loop() {
+      currentY += (targetY - currentY) * ease;
+      const progress = currentY / maxScroll; // 0 to 1
+
+      ctx.clearRect(0, 0, width, height);
+
+      const blockW = width * 0.4;
+      const startX = width * 0.1;
+      const startY = height * 0.2;
+      const maxH = height * 0.6;
+
+      let currentH = maxH;
+      let currentYPos = startY;
+
+      // Draw Main Block Base
+      ctx.fillStyle = '#10b981';
+      ctx.fillRect(startX, currentYPos, blockW, currentH);
+
+      let stage = 0;
+      let drawnVal = 0;
+
+      slices.forEach((s, i) => {
+        const sliceH = (s.val / totalRev) * maxH;
+        
+        // Progress within this slice's animation window (0.1 window)
+        let localP = (progress - s.p) / 0.1;
+        localP = Math.max(0, Math.min(1, localP));
+
+        if(localP > 0) {
+          // It's animating or finished
+          // Move to right
+          const xOffset = localP * (width * 0.4);
+          
+          ctx.fillStyle = s.color;
+          ctx.fillRect(startX + xOffset, currentYPos, blockW, sliceH);
+          
+          // Label
+          ctx.fillStyle = '#fff'; ctx.font = '30px Teko';
+          ctx.fillText(`-$${s.val}M ${s.name}`, startX + xOffset + blockW + 20, currentYPos + sliceH/2 + 10);
+
+          // Remove from main block visually by drawing background over it
+          ctx.fillStyle = '#0f172a';
+          ctx.fillRect(startX, currentYPos, blockW, sliceH);
+        }
+
+        if(progress > s.p) stage = i + 1;
+
+        currentYPos += sliceH;
+        drawnVal += s.val;
+      });
+
+      // Remaining Block (Net Profit)
+      if(progress > 0.8) {
+        stage = 4;
+        const profitH = ((totalRev - drawnVal) / totalRev) * maxH;
+        ctx.fillStyle = '#10b981';
+        ctx.shadowBlur = 20; ctx.shadowColor = '#10b981';
+        ctx.fillRect(startX, startY + maxH - profitH, blockW, profitH);
+        ctx.shadowBlur = 0;
+        
+        ctx.fillStyle = '#fff'; ctx.font = '50px Teko';
+        ctx.fillText(`NET PROFIT: $${totalRev - drawnVal}M`, startX + blockW + 20, startY + maxH - profitH/2 + 15);
+      } else {
+        // Draw total text if not finished
+        ctx.fillStyle = '#fff'; ctx.font = '50px Teko';
+        ctx.fillText(`$100M`, startX + 20, startY + maxH/2);
+      }
+
+      if(stage !== lastStage) {
+        if(stage > 0 && stage < 4 && stage > lastStage) playSlice();
+        if(stage === 4 && lastStage !== 4) playChaChing();
+        lastStage = stage;
+        
+        const title = document.getElementById('title');
+        if(stage === 0) title.innerText = "GROSS REVENUE";
+        if(stage === 1) title.innerText = "COST OF GOODS SOLD";
+        if(stage === 2) title.innerText = "OPERATING EXPENSES";
+        if(stage === 3) title.innerText = "TAXES";
+        if(stage === 4) { title.innerText = "THE BOTTOM LINE"; title.style.color = "#10b981"; }
+      }
+
+      requestAnimationFrame(loop);
+    }
+
+    loop();
+  </script>
+</body>
+</html>

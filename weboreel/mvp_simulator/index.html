@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>MVP Simulator</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body, html {
+      width: 100%; height: 100%; overflow: hidden;
+      background: #fff; color: #000; font-family: monospace;
+      overscroll-behavior: none; transition: background 1s;
+    }
+
+    #scroll-container {
+      position: absolute; top: 0; left: 0; width: 100%; height: 4000px;
+      opacity: 0; pointer-events: none; z-index: 1000;
+    }
+
+    .container {
+      width: 80%; max-width: 600px; margin: 100px auto;
+      border: 1px solid #000; transition: all 1s;
+    }
+
+    .header { border-bottom: 1px solid #000; padding: 10px; transition: all 1s; }
+    .hero { padding: 50px 10px; text-align: left; transition: all 1s; }
+    .btn { border: 1px solid #000; padding: 5px; display: inline-block; transition: all 1s; }
+    .features { display: block; border-top: 1px solid #000; padding: 10px; transition: all 1s; }
+    .feat { border: 1px solid #000; padding: 10px; margin-bottom: 5px; transition: all 1s; }
+
+    .hud { position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%); letter-spacing: 2px; z-index: 20; color: #888; font-family: monospace; }
+    .css-log { position: fixed; top: 20px; left: 20px; color: #00f; font-family: monospace; z-index: 20; font-size: 0.9rem; pointer-events: none; }
+  </style>
+</head>
+<body>
+
+  <div class="css-log" id="log"></div>
+
+  <div class="container" id="c-main">
+    <div class="header" id="c-head">div.header</div>
+    <div class="hero" id="c-hero">
+      <h1 id="h-title">h1</h1>
+      <p id="h-sub">p</p>
+      <div class="btn" id="c-btn">div.btn</div>
+    </div>
+    <div class="features" id="c-feats">
+      <div class="feat" id="f1">div.feat</div>
+      <div class="feat" id="f2">div.feat</div>
+      <div class="feat" id="f3">div.feat</div>
+    </div>
+  </div>
+
+  <div class="hud">SCROLL TO CODE MVP</div>
+  <div id="scroll-container"></div>
+
+  <script>
+    let currentY = 0; let targetY = 0; let maxScroll = 4000; const ease = 0.05;
+    
+    let audioInit = false; let audioCtx, masterGain;
+
+    function initAudio() {
+      if(audioInit) return; audioInit = true;
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      audioCtx = new AudioContext(); masterGain = audioCtx.createGain(); masterGain.gain.value = 0.5; masterGain.connect(audioCtx.destination);
+    }
+
+    function playRefresh() {
+       if(!audioCtx) return;
+       const o = audioCtx.createOscillator(); o.type = 'square'; o.frequency.setValueAtTime(800, audioCtx.currentTime); o.frequency.exponentialRampToValueAtTime(1200, audioCtx.currentTime+0.1);
+       const g = audioCtx.createGain(); g.gain.setValueAtTime(0.2, audioCtx.currentTime); g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime+0.1);
+       o.connect(g).connect(masterGain); o.start(); o.stop(audioCtx.currentTime+0.1);
+    }
+
+    window.addEventListener('wheel', e => { initAudio(); e.preventDefault(); targetY += e.deltaY; targetY = Math.max(0, Math.min(targetY, maxScroll)); }, {passive: false});
+    window.addEventListener('mousedown', initAudio);
+    let touchY = 0;
+    window.addEventListener('touchstart', e => { initAudio(); touchY = e.touches[0].clientY; });
+    window.addEventListener('touchmove', e => { e.preventDefault(); targetY += (touchY - e.touches[0].clientY) * 1.5; targetY = Math.max(0, Math.min(targetY, maxScroll)); touchY = e.touches[0].clientY; }, {passive: false});
+
+    let currentStage = -1;
+
+    function loop() {
+      currentY += (targetY - currentY) * ease;
+      const progress = currentY / maxScroll; // 0 to 1
+
+      let stage = 0;
+      if(progress > 0.15 && progress < 0.3) stage = 1;
+      else if(progress >= 0.3 && progress < 0.45) stage = 2;
+      else if(progress >= 0.45 && progress < 0.6) stage = 3;
+      else if(progress >= 0.6 && progress < 0.75) stage = 4;
+      else if(progress >= 0.75) stage = 5;
+
+      if(stage !== currentStage) {
+        currentStage = stage;
+        if(audioInit) playRefresh();
+
+        const main = document.getElementById('c-main');
+        const head = document.getElementById('c-head');
+        const hero = document.getElementById('c-hero');
+        const btn = document.getElementById('c-btn');
+        const feats = document.getElementById('c-feats');
+        const f1 = document.getElementById('f1');
+        const f2 = document.getElementById('f2');
+        const f3 = document.getElementById('f3');
+        const hTit = document.getElementById('h-title');
+        const hSub = document.getElementById('h-sub');
+        const log = document.getElementById('log');
+
+        if(stage === 0) {
+          // Reset
+          document.body.style.background = '#fff'; document.body.style.fontFamily = 'monospace';
+          main.style = ''; head.style = ''; hero.style = ''; btn.style = ''; feats.style = ''; f1.style = ''; f2.style = ''; f3.style = '';
+          head.innerText = 'div.header'; hTit.innerText = 'h1'; hSub.innerText = 'p'; btn.innerText = 'div.btn';
+          f1.innerText = 'div.feat'; f2.innerText = 'div.feat'; f3.innerText = 'div.feat';
+          log.innerHTML = '';
+        } else if(stage === 1) {
+          // Add Text
+          head.innerText = 'SaaSly Logo';
+          hTit.innerText = 'Grow your business 10x'; hSub.innerText = 'The best tool for the job. Sign up now.';
+          btn.innerText = 'Get Started';
+          f1.innerText = 'Analytics'; f2.innerText = 'Marketing'; f3.innerText = 'Sales';
+          log.innerHTML = '<i>// Added copywriter text</i>';
+        } else if(stage === 2) {
+          // Add Fonts & Reset borders
+          document.body.style.fontFamily = "'Poppins', sans-serif";
+          main.style.border = 'none'; head.style.borderBottom = '1px solid #eaeaea'; head.style.fontWeight = 'bold';
+          feats.style.borderTop = 'none'; f1.style.border = 'none'; f2.style.border = 'none'; f3.style.border = 'none';
+          log.innerHTML = '> font-family: "Poppins", sans-serif;<br>> border: none;';
+        } else if(stage === 3) {
+          // Layout & Flexbox
+          feats.style.display = 'flex'; feats.style.justifyContent = 'space-between';
+          f1.style.width = '30%'; f2.style.width = '30%'; f3.style.width = '30%';
+          f1.style.padding = '20px'; f2.style.padding = '20px'; f3.style.padding = '20px';
+          f1.style.background = '#f9fafb'; f2.style.background = '#f9fafb'; f3.style.background = '#f9fafb';
+          hero.style.textAlign = 'center';
+          log.innerHTML += '<br>> display: flex;<br>> justify-content: space-between;';
+        } else if(stage === 4) {
+          // Colors & Radii
+          btn.style.background = '#3b82f6'; btn.style.color = '#fff'; btn.style.padding = '10px 20px'; btn.style.borderRadius = '20px'; btn.style.border = 'none'; btn.style.marginTop = '20px';
+          f1.style.borderRadius = '12px'; f2.style.borderRadius = '12px'; f3.style.borderRadius = '12px';
+          hTit.style.fontSize = '3rem'; hTit.style.color = '#111827';
+          hSub.style.color = '#6b7280';
+          log.innerHTML += '<br>> background: #3b82f6;<br>> border-radius: 20px;';
+        } else {
+          // Final Polish
+          document.body.style.background = '#f8fafc';
+          main.style.background = '#fff'; main.style.padding = '20px'; main.style.borderRadius = '20px'; main.style.boxShadow = '0 20px 25px -5px rgba(0, 0, 0, 0.1)';
+          btn.style.boxShadow = '0 4px 6px -1px rgba(59, 130, 246, 0.5)';
+          f1.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)'; f2.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)'; f3.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)';
+          log.innerHTML += '<br>> box-shadow: 0 20px 25px rgba(0,0,0,0.1);<br><span style="color:#0f0;">// MVP READY</span>';
+        }
+      }
+
+      requestAnimationFrame(loop);
+    }
+
+    loop();
+  </script>
+</body>
+</html>

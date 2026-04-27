@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>App Lifecycle</title>
+  <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@700&family=Inter:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body, html {
+      width: 100%; height: 100%; overflow: hidden;
+      background: #f1f5f9; color: #0f172a; font-family: 'Inter', sans-serif;
+      overscroll-behavior: none; transition: background 1s;
+    }
+
+    #scroll-container {
+      position: absolute; top: 0; left: 0; width: 100%; height: 5000px;
+      opacity: 0; pointer-events: none; z-index: 1000;
+    }
+
+    /* The Phone Frame */
+    .phone {
+      position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      width: 300px; height: 600px; border: 12px solid #1e293b; border-radius: 40px;
+      background: #fff; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
+      transition: all 1s;
+    }
+
+    .notch {
+      position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+      width: 120px; height: 25px; background: #1e293b; border-radius: 0 0 15px 15px; z-index: 100;
+    }
+
+    /* Stages Container inside Phone */
+    .screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; padding: 40px 20px 20px; transition: opacity 0.5s; opacity: 0; }
+
+    /* Stage 1: Idea */
+    #s-idea { font-family: 'Caveat', cursive; font-size: 2rem; color: #334155; }
+    
+    /* Stage 2: Wireframe */
+    #s-wire .w-head { width: 100%; height: 40px; background: #e2e8f0; border-radius: 8px; margin-bottom: 20px; }
+    #s-wire .w-box { width: 100%; height: 150px; border: 2px dashed #cbd5e1; border-radius: 8px; margin-bottom: 20px; }
+    #s-wire .w-line { width: 80%; height: 20px; background: #f1f5f9; border-radius: 4px; margin-bottom: 10px; }
+
+    /* Stage 3: UI */
+    #s-ui { background: #f8fafc; }
+    #s-ui .ui-head { width: 100%; height: 60px; background: #3b82f6; border-radius: 8px; margin-bottom: 20px; color:#fff; display:flex; align-items:center; padding:10px; font-weight:bold; }
+    #s-ui .ui-card { width: 100%; height: 150px; background: #fff; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); margin-bottom: 20px; padding: 15px; }
+    #s-ui .ui-btn { width: 100%; height: 40px; background: #10b981; border-radius: 20px; color:#fff; text-align:center; line-height:40px; font-weight:bold; }
+
+    /* Stage 4: Launch */
+    #s-launch { display: flex; flex-direction: column; justify-content: center; align-items: center; background: #1e293b; color: #fff; text-align: center; }
+    .rocket { font-size: 5rem; margin-bottom: 20px; animation: float 2s infinite ease-in-out; }
+    @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-20px); } }
+
+    /* Stage 5: Updates */
+    #s-update { background: #f8fafc; }
+    .notif { width: 100%; background: #fff; border-left: 4px solid #f59e0b; padding: 15px; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); margin-bottom: 10px; opacity: 0; transform: translateX(-20px); transition: all 0.5s; }
+
+    /* UI Overlay */
+    .title { position: fixed; top: 10%; left: 10%; font-size: 3rem; font-weight: bold; z-index: 20; color: #334155; transition: color 1s; }
+    .hud { position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%); letter-spacing: 2px; z-index: 20; color: #64748b; font-size: 0.9rem; }
+  </style>
+</head>
+<body>
+
+  <div class="title" id="title">THE IDEA</div>
+  <div class="hud">SCROLL TO BUILD</div>
+
+  <div class="phone">
+    <div class="notch"></div>
+    
+    <div class="screen" id="s-idea">
+      "App that connects dog walkers with busy owners."<br><br>
+      - Needs GPS<br>
+      - Needs Payments<br>
+      - MVP in 1 month?
+    </div>
+
+    <div class="screen" id="s-wire">
+      <div class="w-head"></div>
+      <div class="w-box"></div>
+      <div class="w-line"></div><div class="w-line" style="width:60%"></div>
+      <div class="w-line" style="width:100%; height:40px; border-radius:20px; margin-top:30px;"></div>
+    </div>
+
+    <div class="screen" id="s-ui">
+      <div class="ui-head">Walkies</div>
+      <div class="ui-card">
+        <div style="width:40px; height:40px; border-radius:50%; background:#cbd5e1; float:left; margin-right:10px;"></div>
+        <b>John D.</b><br><span style="color:#64748b; font-size:0.8rem;">Available now</span>
+      </div>
+      <div class="ui-btn">Book Walk</div>
+    </div>
+
+    <div class="screen" id="s-launch">
+      <div class="rocket">🚀</div>
+      <h2>LIVE ON APP STORE</h2>
+      <p style="color:#94a3b8; margin-top:10px;">1,000 downloads</p>
+    </div>
+
+    <div class="screen" id="s-update">
+      <div class="ui-head">Dashboard</div>
+      <div class="notif" id="n1"><b>Bug Fix v1.1</b><br>Fixed GPS crash</div>
+      <div class="notif" id="n2"><b>Feature v1.2</b><br>Added Apple Pay</div>
+      <div class="notif" id="n3"><b>Milestone</b><br>10k active users!</div>
+    </div>
+
+  </div>
+
+  <div id="scroll-container"></div>
+
+  <script>
+    let currentY = 0; let targetY = 0; let maxScroll = 4000; const ease = 0.05;
+    
+    let audioInit = false; let audioCtx, masterGain;
+    let clickOsc;
+
+    function initAudio() {
+      if(audioInit) return; audioInit = true;
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      audioCtx = new AudioContext(); masterGain = audioCtx.createGain(); masterGain.gain.value = 0.5; masterGain.connect(audioCtx.destination);
+    }
+
+    function playSnap() {
+       if(!audioCtx) return;
+       const o = audioCtx.createOscillator(); o.type = 'triangle'; o.frequency.setValueAtTime(300, audioCtx.currentTime); o.frequency.exponentialRampToValueAtTime(100, audioCtx.currentTime+0.1);
+       const g = audioCtx.createGain(); g.gain.setValueAtTime(0.5, audioCtx.currentTime); g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime+0.1);
+       o.connect(g).connect(masterGain); o.start(); o.stop(audioCtx.currentTime+0.1);
+    }
+    
+    function playSuccess() {
+       if(!audioCtx) return;
+       [523.25, 659.25, 783.99].forEach((f, i) => {
+         setTimeout(() => {
+           const o = audioCtx.createOscillator(); o.type = 'sine'; o.frequency.value = f;
+           const g = audioCtx.createGain(); g.gain.setValueAtTime(0.3, audioCtx.currentTime); g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime+0.5);
+           o.connect(g).connect(masterGain); o.start(); o.stop(audioCtx.currentTime+0.5);
+         }, i*100);
+       });
+    }
+
+    window.addEventListener('wheel', e => { initAudio(); e.preventDefault(); targetY += e.deltaY; targetY = Math.max(0, Math.min(targetY, maxScroll)); }, {passive: false});
+    window.addEventListener('mousedown', initAudio);
+    let touchY = 0;
+    window.addEventListener('touchstart', e => { initAudio(); touchY = e.touches[0].clientY; });
+    window.addEventListener('touchmove', e => { e.preventDefault(); targetY += (touchY - e.touches[0].clientY) * 1.5; targetY = Math.max(0, Math.min(targetY, maxScroll)); touchY = e.touches[0].clientY; }, {passive: false});
+
+    let currentStage = -1;
+
+    function loop() {
+      currentY += (targetY - currentY) * ease;
+      const progress = currentY / maxScroll; // 0 to 1
+
+      let stage = 0;
+      if(progress > 0.2 && progress < 0.4) stage = 1;
+      else if(progress >= 0.4 && progress < 0.6) stage = 2;
+      else if(progress >= 0.6 && progress < 0.8) stage = 3;
+      else if(progress >= 0.8) stage = 4;
+
+      if(stage !== currentStage) {
+        currentStage = stage;
+        
+        ['s-idea','s-wire','s-ui','s-launch','s-update'].forEach((id, i) => {
+          document.getElementById(id).style.opacity = i === stage ? 1 : 0;
+        });
+
+        const title = document.getElementById('title');
+        title.style.opacity = 0;
+        setTimeout(() => { title.style.opacity = 1; }, 200);
+
+        if(stage === 0) { 
+          title.innerText = "THE IDEA"; document.body.style.background = '#f1f5f9'; title.style.color = '#334155';
+          if(audioInit) playSnap();
+        } else if(stage === 1) { 
+          title.innerText = "WIREFRAMING"; document.body.style.background = '#e2e8f0'; 
+          if(audioInit) playSnap();
+        } else if(stage === 2) { 
+          title.innerText = "HIGH-FIDELITY UI"; document.body.style.background = '#dbeafe'; title.style.color = '#1e40af';
+          if(audioInit) playSnap();
+        } else if(stage === 3) { 
+          title.innerText = "LAUNCH"; document.body.style.background = '#0f172a'; title.style.color = '#fff';
+          if(audioInit) playSuccess();
+        } else { 
+          title.innerText = "ITERATION"; document.body.style.background = '#fef3c7'; title.style.color = '#92400e';
+          if(audioInit) playSnap();
+        }
+      }
+
+      // Handle Notifications in stage 4 based on micro-progress
+      if(stage === 4) {
+        const micro = (progress - 0.8) / 0.2; // 0 to 1 inside stage 4
+        document.getElementById('n1').style.opacity = micro > 0.2 ? 1 : 0;
+        document.getElementById('n1').style.transform = micro > 0.2 ? 'translateX(0)' : 'translateX(-20px)';
+        document.getElementById('n2').style.opacity = micro > 0.5 ? 1 : 0;
+        document.getElementById('n2').style.transform = micro > 0.5 ? 'translateX(0)' : 'translateX(-20px)';
+        document.getElementById('n3').style.opacity = micro > 0.8 ? 1 : 0;
+        document.getElementById('n3').style.transform = micro > 0.8 ? 'translateX(0)' : 'translateX(-20px)';
+      }
+
+      requestAnimationFrame(loop);
+    }
+
+    loop();
+  </script>
+</body>
+</html>

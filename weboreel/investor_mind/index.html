@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>The Investor Mind</title>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body, html {
+      width: 100%; height: 100%; overflow: hidden;
+      background: #1e1e24; color: #fff; font-family: 'Roboto Mono', monospace;
+      overscroll-behavior: none; transition: background 0.5s;
+    }
+
+    #scroll-container {
+      position: absolute; top: 0; left: 0; width: 100%; height: 4000px;
+      opacity: 0; pointer-events: none; z-index: 1000;
+    }
+
+    canvas {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10;
+    }
+
+    .ui-container {
+      position: absolute; top: 10%; width: 100%; text-align: center; z-index: 20; pointer-events: none;
+    }
+
+    .title { font-size: 2rem; color: #888; margin-bottom: 10px; }
+    .decision { font-size: 4rem; font-weight: bold; text-transform: uppercase; letter-spacing: 5px; transition: color 0.5s; }
+
+    .labels { position: absolute; width: 100%; height: 100%; pointer-events: none; z-index: 20; }
+    .label { position: absolute; font-size: 1.2rem; font-weight: bold; transform: translate(-50%, -50%); transition: color 0.5s; }
+    
+    #l-team { top: 20%; left: 50%; }
+    #l-market { top: 50%; left: 80%; }
+    #l-product { top: 80%; left: 50%; }
+    #l-traction { top: 50%; left: 20%; }
+
+    .hud { position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%); letter-spacing: 2px; z-index: 20; color: #888; font-size: 0.9rem; }
+  </style>
+</head>
+<body>
+
+  <div class="ui-container">
+    <div class="title">INVESTMENT THESIS</div>
+    <div class="decision" id="decision">EVALUATING</div>
+  </div>
+
+  <div class="labels">
+    <div class="label" id="l-team">TEAM</div>
+    <div class="label" id="l-market">MARKET</div>
+    <div class="label" id="l-product">PRODUCT</div>
+    <div class="label" id="l-traction">TRACTION</div>
+  </div>
+
+  <canvas id="cvs"></canvas>
+  <div class="hud">SCROLL TO ANALYZE STARTUP</div>
+  <div id="scroll-container"></div>
+
+  <script>
+    const cvs = document.getElementById('cvs');
+    const ctx = cvs.getContext('2d');
+    let width, height;
+    function resize() { width = cvs.width = window.innerWidth; height = cvs.height = window.innerHeight; }
+    window.addEventListener('resize', resize); resize();
+
+    let currentY = 0; let targetY = 0; let maxScroll = 4000; const ease = 0.05;
+    
+    let audioInit = false; let audioCtx, masterGain;
+    let bHum, oPing;
+
+    function initAudio() {
+      if(audioInit) return; audioInit = true;
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      audioCtx = new AudioContext(); masterGain = audioCtx.createGain(); masterGain.gain.value = 0.5; masterGain.connect(audioCtx.destination);
+      
+      // Data Processing Hum
+      bHum = audioCtx.createGain(); bHum.gain.value = 1; bHum.connect(masterGain);
+      const hum = audioCtx.createOscillator(); hum.type = 'square'; hum.frequency.value = 50;
+      const humFilt = audioCtx.createBiquadFilter(); humFilt.type = 'lowpass'; humFilt.frequency.value = 200;
+      hum.connect(humFilt).connect(bHum); hum.start();
+
+      // Setup Ping for state changes
+      oPing = audioCtx.createOscillator(); oPing.type = 'sine';
+      oPing.start();
+    }
+
+    function playDecision(type) {
+      if(!audioCtx) return;
+      const g = audioCtx.createGain(); g.gain.setValueAtTime(0.5, audioCtx.currentTime); g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime+1);
+      oPing.disconnect(); oPing.connect(g).connect(masterGain);
+      
+      if(type === 'PASS') {
+        oPing.frequency.setValueAtTime(200, audioCtx.currentTime); oPing.frequency.exponentialRampToValueAtTime(50, audioCtx.currentTime+0.5);
+      } else if (type === 'MEETING') {
+        oPing.frequency.setValueAtTime(600, audioCtx.currentTime); oPing.frequency.setValueAtTime(800, audioCtx.currentTime+0.2);
+      } else {
+        oPing.frequency.setValueAtTime(800, audioCtx.currentTime); oPing.frequency.setValueAtTime(1000, audioCtx.currentTime+0.1); oPing.frequency.setValueAtTime(1200, audioCtx.currentTime+0.2);
+      }
+    }
+
+    window.addEventListener('wheel', e => { initAudio(); e.preventDefault(); targetY += e.deltaY; targetY = Math.max(0, Math.min(targetY, maxScroll)); }, {passive: false});
+    window.addEventListener('mousedown', initAudio);
+    let touchY = 0;
+    window.addEventListener('touchstart', e => { initAudio(); touchY = e.touches[0].clientY; });
+    window.addEventListener('touchmove', e => { e.preventDefault(); targetY += (touchY - e.touches[0].clientY) * 1.5; targetY = Math.max(0, Math.min(targetY, maxScroll)); touchY = e.touches[0].clientY; }, {passive: false});
+
+    // Radar chart values (0 to 1) based on progress
+    // [Team, Market, Product, Traction]
+    const scenarios = [
+      { p: 0, vals: [0.2, 0.2, 0.2, 0.1], dec: "EVALUATING", col: "#888", bg: "#1e1e24" },
+      { p: 0.2, vals: [0.8, 0.4, 0.3, 0.2], dec: "STRONG TEAM, NO PRODUCT", col: "#f39c12", bg: "#2c2c2c" },
+      { p: 0.4, vals: [0.8, 0.9, 0.4, 0.2], dec: "HUGE MARKET, WEAK MVP", col: "#e67e22", bg: "#2a1b12" },
+      { p: 0.6, vals: [0.8, 0.9, 0.8, 0.3], dec: "GOOD PRODUCT, NO TRACTION", col: "#e74c3c", bg: "#301515" },
+      { p: 0.8, vals: [0.9, 0.9, 0.9, 0.8], dec: "SCHEDULE MEETING", col: "#3498db", bg: "#152030" },
+      { p: 1, vals: [1.0, 1.0, 0.9, 1.0], dec: "ISSUE TERM SHEET", col: "#2ecc71", bg: "#12261b" }
+    ];
+
+    let lastDec = "EVALUATING";
+
+    function loop() {
+      currentY += (targetY - currentY) * ease;
+      const progress = currentY / maxScroll;
+
+      ctx.clearRect(0, 0, width, height);
+      const cx = width/2; const cy = height/2;
+      const maxR = Math.min(width, height) * 0.3;
+
+      // Draw Radar Grid
+      ctx.strokeStyle = 'rgba(255,255,255,0.1)'; ctx.lineWidth = 1;
+      for(let i=1; i<=4; i++) {
+        const r = maxR * (i/4);
+        ctx.beginPath();
+        ctx.moveTo(cx, cy - r);
+        ctx.lineTo(cx + r, cy);
+        ctx.lineTo(cx, cy + r);
+        ctx.lineTo(cx - r, cy);
+        ctx.closePath(); ctx.stroke();
+      }
+
+      // Draw Axes
+      ctx.beginPath(); ctx.moveTo(cx, cy-maxR); ctx.lineTo(cx, cy+maxR); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(cx-maxR, cy); ctx.lineTo(cx+maxR, cy); ctx.stroke();
+
+      // Interpolate values
+      let activeS = scenarios[0]; let nextS = scenarios[1];
+      for(let i=0; i<scenarios.length; i++) {
+        if(progress >= scenarios[i].p) {
+          activeS = scenarios[i]; nextS = scenarios[i+1] || scenarios[i];
+        }
+      }
+
+      let pRange = (progress - activeS.p) / ((nextS.p - activeS.p) || 1);
+      pRange = Math.max(0, Math.min(1, pRange));
+
+      const vals = activeS.vals.map((v, i) => v + (nextS.vals[i] - v) * pRange);
+
+      // Draw Value Polygon
+      ctx.beginPath();
+      ctx.moveTo(cx, cy - (vals[0] * maxR)); // Top (Team)
+      ctx.lineTo(cx + (vals[1] * maxR), cy); // Right (Market)
+      ctx.lineTo(cx, cy + (vals[2] * maxR)); // Bottom (Product)
+      ctx.lineTo(cx - (vals[3] * maxR), cy); // Left (Traction)
+      ctx.closePath();
+
+      ctx.fillStyle = activeS.col + '40'; // 25% opacity hex
+      ctx.fill();
+      ctx.strokeStyle = activeS.col; ctx.lineWidth = 3;
+      ctx.stroke();
+
+      // Draw Data Points
+      ctx.fillStyle = '#fff';
+      [ [cx, cy-(vals[0]*maxR)], [cx+(vals[1]*maxR), cy], [cx, cy+(vals[2]*maxR)], [cx-(vals[3]*maxR), cy] ].forEach(pt => {
+        ctx.beginPath(); ctx.arc(pt[0], pt[1], 5, 0, Math.PI*2); ctx.fill();
+      });
+
+      // Update UI
+      if(activeS.dec !== lastDec) {
+        lastDec = activeS.dec;
+        document.getElementById('decision').innerText = activeS.dec;
+        document.getElementById('decision').style.color = activeS.col;
+        document.body.style.background = activeS.bg;
+        
+        ['l-team','l-market','l-product','l-traction'].forEach(id => document.getElementById(id).style.color = activeS.col);
+        
+        if(activeS.dec === "ISSUE TERM SHEET") playDecision('TERM');
+        else if(activeS.dec === "SCHEDULE MEETING") playDecision('MEETING');
+        else if(activeS.dec.includes("NO") || activeS.dec.includes("WEAK")) playDecision('PASS');
+      }
+
+      // Audio modulation
+      if(audioInit && audioCtx) {
+         // Modify hum based on total area (risk vs reward)
+         const area = vals.reduce((a,b)=>a+b, 0);
+         // Filter sweep
+         bHum.gain.value = 1 + (area * 0.2); // gets louder
+      }
+
+      requestAnimationFrame(loop);
+    }
+
+    loop();
+  </script>
+</body>
+</html>

@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Build in Public Timeline</title>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body, html {
+      width: 100%; height: 100%; overflow: hidden;
+      background: #fafafa; color: #111; font-family: 'IBM Plex Mono', monospace;
+      overscroll-behavior: none;
+    }
+
+    #scroll-container {
+      position: absolute; top: 0; left: 0; width: 100%; height: 5000px;
+      opacity: 0; pointer-events: none; z-index: 1000;
+    }
+
+    .timeline-container {
+      position: absolute; top: 0; left: 0; width: 100vw; height: 100vh;
+      display: flex; justify-content: center; overflow: hidden;
+    }
+
+    /* The vertical line drawn via JS height */
+    .line {
+      position: absolute; top: 0; width: 4px; background: #2563eb;
+      height: 0%; z-index: 5;
+    }
+
+    /* Timeline Items */
+    .items { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+
+    .node {
+      position: absolute; left: 50%; transform: translate(-50%, -50%);
+      width: 20px; height: 20px; background: #fff; border: 4px solid #2563eb;
+      border-radius: 50%; opacity: 0; z-index: 10; transition: opacity 0.5s, transform 0.5s;
+    }
+
+    .card {
+      position: absolute; top: -50%; width: 300px; padding: 20px;
+      background: #fff; border: 1px solid #e2e8f0; border-radius: 8px;
+      box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);
+      opacity: 0; transform: translateY(20px); transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    .card.left { right: 150%; text-align: right; }
+    .card.right { left: 150%; text-align: left; }
+
+    .tag { display: inline-block; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: bold; margin-bottom: 10px; }
+    .tag.tweet { background: #e0f2fe; color: #0284c7; }
+    .tag.commit { background: #f1f5f9; color: #475569; }
+    .tag.launch { background: #dcfce7; color: #166534; }
+
+    .hud { position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%); letter-spacing: 2px; z-index: 20; color: #94a3b8; font-size: 0.9rem; }
+  </style>
+</head>
+<body>
+
+  <div class="hud">SCROLL TO BUILD IN PUBLIC</div>
+
+  <div class="timeline-container">
+    <div class="line" id="line"></div>
+    <div class="items" id="items">
+      <!-- Injected via JS -->
+    </div>
+  </div>
+
+  <div id="scroll-container"></div>
+
+  <script>
+    let currentY = 0; let targetY = 0; let maxScroll = 4000; const ease = 0.05;
+    
+    let audioInit = false; let audioCtx, masterGain;
+    
+    function initAudio() {
+      if(audioInit) return; audioInit = true;
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      audioCtx = new AudioContext(); masterGain = audioCtx.createGain(); masterGain.gain.value = 0.5; masterGain.connect(audioCtx.destination);
+    }
+
+    function playTypeSound() {
+      if(!audioCtx) return;
+      const o = audioCtx.createOscillator(); o.type = 'square'; o.frequency.value = 800 + Math.random()*400;
+      const g = audioCtx.createGain(); g.gain.setValueAtTime(0.1, audioCtx.currentTime); g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime+0.05);
+      const f = audioCtx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 2000;
+      o.connect(f).connect(g).connect(masterGain); o.start(); o.stop(audioCtx.currentTime+0.05);
+    }
+
+    function playPop() {
+      if(!audioCtx) return;
+      const o = audioCtx.createOscillator(); o.type = 'sine'; o.frequency.setValueAtTime(400, audioCtx.currentTime); o.frequency.exponentialRampToValueAtTime(800, audioCtx.currentTime+0.1);
+      const g = audioCtx.createGain(); g.gain.setValueAtTime(0.5, audioCtx.currentTime); g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime+0.2);
+      o.connect(g).connect(masterGain); o.start(); o.stop(audioCtx.currentTime+0.2);
+    }
+
+    window.addEventListener('wheel', e => { initAudio(); e.preventDefault(); targetY += e.deltaY; targetY = Math.max(0, Math.min(targetY, maxScroll)); }, {passive: false});
+    window.addEventListener('mousedown', initAudio);
+    let touchY = 0;
+    window.addEventListener('touchstart', e => { initAudio(); touchY = e.touches[0].clientY; });
+    window.addEventListener('touchmove', e => { e.preventDefault(); targetY += (touchY - e.touches[0].clientY) * 1.5; targetY = Math.max(0, Math.min(targetY, maxScroll)); touchY = e.touches[0].clientY; }, {passive: false});
+
+    const events = [
+      { p: 0.1, type: 'tweet', text: "Day 1: Quitting my job to build a new SaaS.", side: 'left' },
+      { p: 0.25, type: 'commit', text: "git push origin main - Initial commit with Next.js boilerplate", side: 'right' },
+      { p: 0.4, type: 'tweet', text: "Just hit a major bug with auth. Been stuck for 6 hours. Send coffee ☕️", side: 'left' },
+      { p: 0.55, type: 'commit', text: "Fix database schema, implement Stripe webhooks", side: 'right' },
+      { p: 0.7, type: 'tweet', text: "MVP is ready! Beta testing starts tomorrow. Who wants access?", side: 'left' },
+      { p: 0.9, type: 'launch', text: "PRODUCT HUNT LAUNCH 🚀 We are live! Reached #1 Product of the Day.", side: 'right' }
+    ];
+
+    // Inject HTML
+    const itemsContainer = document.getElementById('items');
+    events.forEach((ev, i) => {
+      // Create node
+      const node = document.createElement('div');
+      node.className = 'node';
+      node.id = `node-${i}`;
+      // Map progress to vertical screen position (20% to 80% to keep it centered)
+      const topPos = 20 + (ev.p * 60);
+      node.style.top = `${topPos}%`;
+      
+      const card = document.createElement('div');
+      card.className = `card ${ev.side}`;
+      card.innerHTML = `<span class="tag ${ev.type}">${ev.type.toUpperCase()}</span><p>${ev.text}</p>`;
+      
+      node.appendChild(card);
+      itemsContainer.appendChild(node);
+      
+      ev.topPos = topPos; // store for calculation
+      ev.active = false;
+    });
+
+    let lastProgress = 0;
+
+    function loop() {
+      currentY += (targetY - currentY) * ease;
+      const progress = currentY / maxScroll; // 0 to 1
+
+      // Typing sound while scrolling
+      if(Math.abs(targetY - currentY) > 2 && Math.random() > 0.7) playTypeSound();
+
+      // Extend line (map 0-1 progress to 0-100vh)
+      // Actually map progress to the height of the line based on the max event position
+      const lineH = progress * 100;
+      document.getElementById('line').style.height = `${lineH}%`;
+
+      events.forEach((ev, i) => {
+        const node = document.getElementById(`node-${i}`);
+        const card = node.querySelector('.card');
+        
+        // If line has passed this node's position
+        if(lineH >= ev.topPos) {
+          if(!ev.active) {
+            ev.active = true;
+            node.style.opacity = 1; node.style.transform = 'translate(-50%, -50%) scale(1)';
+            card.style.opacity = 1; card.style.transform = 'translateY(0)';
+            playPop();
+          }
+        } else {
+          if(ev.active) {
+            ev.active = false;
+            node.style.opacity = 0; node.style.transform = 'translate(-50%, -50%) scale(0.5)';
+            card.style.opacity = 0; card.style.transform = 'translateY(20px)';
+          }
+        }
+      });
+
+      lastProgress = progress;
+      requestAnimationFrame(loop);
+    }
+
+    loop();
+  </script>
+</body>
+</html>

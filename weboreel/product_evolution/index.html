@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Product Evolution</title>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body, html {
+      width: 100%; height: 100%; overflow: hidden;
+      background: #fafafa; color: #111; font-family: 'Outfit', sans-serif;
+      overscroll-behavior: none; transition: background 1s;
+    }
+
+    #scroll-container {
+      position: absolute; top: 0; left: 0; width: 100%; height: 5000px;
+      opacity: 0; pointer-events: none; z-index: 1000;
+    }
+
+    .scene {
+      position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      width: 100vw; height: 100vh; display: flex; justify-content: center; align-items: center;
+      perspective: 1000px;
+    }
+
+    .product {
+      width: 200px; height: 200px; border: 2px solid #000;
+      display: flex; justify-content: center; align-items: center;
+      font-weight: bold; font-size: 1.5rem; transition: all 1s cubic-bezier(0.25, 0.8, 0.25, 1);
+      transform-style: preserve-3d;
+    }
+
+    .title { position: fixed; top: 10%; left: 50%; transform: translateX(-50%); font-size: 4rem; font-weight: 700; z-index: 20; color: #111; transition: color 1s; }
+    .hud { position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%); letter-spacing: 2px; z-index: 20; color: #888; font-size: 0.9rem; }
+  </style>
+</head>
+<body>
+
+  <div class="title" id="title">V1.0</div>
+  <div class="hud">SCROLL TO ITERATE</div>
+
+  <div class="scene">
+    <div class="product" id="prod">MVP</div>
+  </div>
+
+  <div id="scroll-container"></div>
+
+  <script>
+    let currentY = 0; let targetY = 0; let maxScroll = 4000; const ease = 0.05;
+    
+    let audioInit = false; let audioCtx, masterGain;
+    
+    function initAudio() {
+      if(audioInit) return; audioInit = true;
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      audioCtx = new AudioContext(); masterGain = audioCtx.createGain(); masterGain.gain.value = 0.5; masterGain.connect(audioCtx.destination);
+    }
+
+    function playLevelUp(stage) {
+      if(!audioCtx) return;
+      const t = audioCtx.currentTime;
+      const baseFreq = 400 + (stage * 50); // Gets higher pitched
+      
+      [baseFreq, baseFreq*1.25, baseFreq*1.5].forEach((f, i) => {
+        setTimeout(() => {
+          const o = audioCtx.createOscillator(); o.type = stage === 4 ? 'sine' : 'square'; o.frequency.value = f;
+          const g = audioCtx.createGain(); g.gain.setValueAtTime(0.3, audioCtx.currentTime); g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime+0.3);
+          o.connect(g).connect(masterGain); o.start(); o.stop(audioCtx.currentTime+0.3);
+        }, i*100);
+      });
+    }
+
+    window.addEventListener('wheel', e => { initAudio(); e.preventDefault(); targetY += e.deltaY; targetY = Math.max(0, Math.min(targetY, maxScroll)); }, {passive: false});
+    window.addEventListener('mousedown', initAudio);
+    let touchY = 0;
+    window.addEventListener('touchstart', e => { initAudio(); touchY = e.touches[0].clientY; });
+    window.addEventListener('touchmove', e => { e.preventDefault(); targetY += (touchY - e.touches[0].clientY) * 1.5; targetY = Math.max(0, Math.min(targetY, maxScroll)); touchY = e.touches[0].clientY; }, {passive: false});
+
+    let currentStage = -1;
+
+    function loop() {
+      currentY += (targetY - currentY) * ease;
+      const progress = currentY / maxScroll; // 0 to 1
+
+      let stage = 0;
+      if(progress > 0.2 && progress < 0.4) stage = 1;
+      else if(progress >= 0.4 && progress < 0.6) stage = 2;
+      else if(progress >= 0.6 && progress < 0.8) stage = 3;
+      else if(progress >= 0.8) stage = 4;
+
+      const prod = document.getElementById('prod');
+
+      if(stage !== currentStage) {
+        currentStage = stage;
+        if(audioInit) playLevelUp(stage);
+        
+        const title = document.getElementById('title');
+        
+        if(stage === 0) {
+          title.innerText = "V1.0"; title.style.color = '#111'; document.body.style.background = '#fafafa';
+          prod.innerText = "MVP";
+          prod.style.background = 'transparent'; prod.style.border = '2px solid #000'; prod.style.borderRadius = '0';
+          prod.style.boxShadow = 'none'; prod.style.color = '#000'; prod.style.transform = 'rotateX(0) rotateY(0)';
+          prod.style.animation = 'none';
+        } else if(stage === 1) {
+          title.innerText = "V2.0"; title.style.color = '#111'; document.body.style.background = '#f0f4f8';
+          prod.innerText = "BETA";
+          prod.style.background = '#3b82f6'; prod.style.border = 'none'; prod.style.borderRadius = '0';
+          prod.style.boxShadow = 'none'; prod.style.color = '#fff'; prod.style.transform = 'rotateX(0) rotateY(0)';
+          prod.style.animation = 'none';
+        } else if(stage === 2) {
+          title.innerText = "V3.0"; title.style.color = '#111'; document.body.style.background = '#e2e8f0';
+          prod.innerText = "V1 LAUNCH";
+          prod.style.background = '#3b82f6'; prod.style.border = 'none'; prod.style.borderRadius = '20px';
+          prod.style.boxShadow = '0 10px 15px -3px rgba(0,0,0,0.1)'; prod.style.color = '#fff'; prod.style.transform = 'rotateX(0) rotateY(0)';
+          prod.style.animation = 'none';
+        } else if(stage === 3) {
+          title.innerText = "V5.0"; title.style.color = '#111'; document.body.style.background = '#cbd5e1';
+          prod.innerText = "SCALE";
+          prod.style.background = 'linear-gradient(135deg, #3b82f6, #8b5cf6)'; prod.style.border = 'none'; prod.style.borderRadius = '30px';
+          prod.style.boxShadow = '0 20px 25px -5px rgba(59, 130, 246, 0.5)'; prod.style.color = '#fff'; prod.style.transform = 'rotateX(0) rotateY(0)';
+          prod.style.animation = 'pulse 2s infinite';
+        } else if(stage === 4) {
+          title.innerText = "V10.0"; title.style.color = '#fff'; document.body.style.background = '#0f172a';
+          prod.innerText = "ENTERPRISE";
+          prod.style.background = 'rgba(255, 255, 255, 0.1)'; prod.style.border = '1px solid rgba(255, 255, 255, 0.2)'; prod.style.borderRadius = '50%';
+          prod.style.boxShadow = '0 0 50px rgba(139, 92, 246, 0.8), inset 0 0 20px rgba(255,255,255,0.5)'; prod.style.color = '#fff'; prod.style.backdropFilter = 'blur(10px)';
+          prod.style.animation = 'none';
+        }
+      }
+
+      // Continuous 3D rotation in stage 4 based on scroll micro-progress
+      if(stage === 4) {
+        const micro = (progress - 0.8) / 0.2; // 0 to 1
+        prod.style.transform = `rotateX(${micro * 360}deg) rotateY(${micro * 720}deg)`;
+      }
+
+      requestAnimationFrame(loop);
+    }
+
+    loop();
+  </script>
+  <style>
+    @keyframes pulse {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+      100% { transform: scale(1); }
+    }
+  </style>
+</body>
+</html>

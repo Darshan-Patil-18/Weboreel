@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Startup Hustle</title>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body, html {
+      width: 100%; height: 100%; overflow: hidden;
+      font-family: 'JetBrains Mono', monospace;
+      overscroll-behavior: none;
+    }
+
+    #scroll-container {
+      position: absolute; top: 0; left: 0; width: 100%; height: 5000px;
+      opacity: 0; pointer-events: none; z-index: 1000;
+    }
+
+    /* Rotating background for day/night */
+    .sky {
+      position: absolute; top: 50%; left: 50%; width: 200vw; height: 200vw;
+      transform-origin: center center; margin-left: -100vw; margin-top: -100vw;
+      border-radius: 50%; z-index: 1; transition: transform 0.1s linear;
+      /* Half day, half night */
+      background: conic-gradient(#87ceeb 0 180deg, #0f172a 180deg 360deg);
+    }
+    
+    .sun { position: absolute; top: 10%; left: 50%; width: 100px; height: 100px; background: #ffd700; border-radius: 50%; transform: translateX(-50%); box-shadow: 0 0 50px #ffd700; }
+    .moon { position: absolute; bottom: 10%; left: 50%; width: 100px; height: 100px; background: #fff; border-radius: 50%; transform: translateX(-50%); box-shadow: 0 0 30px #fff; }
+
+    /* The Desk */
+    .desk {
+      position: absolute; bottom: 0; left: 0; width: 100%; height: 30vh;
+      background: #3e2723; border-top: 10px solid #2b1a18; z-index: 10;
+    }
+
+    /* The Developer */
+    .dev {
+      position: absolute; bottom: 30vh; left: 50%; transform: translateX(-50%);
+      width: 120px; height: 160px; background: #222; border-radius: 20px 20px 0 0; z-index: 15;
+    }
+    .monitor-glow {
+      position: absolute; top: 20px; left: -20px; width: 160px; height: 80px;
+      background: rgba(0, 255, 255, 0.1); border-radius: 10px; filter: blur(20px);
+    }
+    .eyes {
+      position: absolute; top: 40px; width: 100%; display: flex; justify-content: space-evenly;
+    }
+    .eye { width: 15px; height: 15px; background: #fff; border-radius: 50%; transition: all 0.2s; position: relative; }
+    .eye::after { content:''; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 5px; height: 5px; background: #000; border-radius: 50%; }
+
+    /* Coffee Cups container */
+    .cups { position: absolute; bottom: 30vh; left: 20%; width: 200px; height: 300px; z-index: 20; }
+    .cup { position: absolute; width: 30px; height: 40px; background: #fff; border-radius: 0 0 5px 5px; border-top: 5px solid #d32f2f; opacity: 0; transition: opacity 0.5s, bottom 0.5s; }
+
+    /* Code Lines */
+    .code-container {
+      position: absolute; top: 20px; right: 20px; width: 300px; height: calc(70vh - 40px);
+      background: rgba(0,0,0,0.8); border-radius: 8px; padding: 20px; overflow: hidden; z-index: 20; color: #0f0; font-size: 0.8rem; border: 1px solid #333;
+    }
+
+    .hud { position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%); letter-spacing: 2px; z-index: 100; color: #fff; mix-blend-mode: difference; }
+    
+    /* Day counter */
+    .day-counter { position: fixed; top: 40px; left: 40px; font-size: 3rem; font-weight: bold; z-index: 100; mix-blend-mode: difference; color: #fff; }
+  </style>
+</head>
+<body>
+
+  <div class="sky" id="sky">
+    <div class="sun"></div>
+    <div class="moon"></div>
+  </div>
+
+  <div class="day-counter" id="counter">DAY 1</div>
+  <div class="hud">SCROLL TO GRIND</div>
+
+  <div class="desk"></div>
+  
+  <div class="dev">
+    <div class="monitor-glow"></div>
+    <div class="eyes" id="eyes">
+      <div class="eye"></div><div class="eye"></div>
+    </div>
+  </div>
+
+  <div class="cups" id="cups"></div>
+
+  <div class="code-container" id="code"></div>
+
+  <div id="scroll-container"></div>
+
+  <script>
+    let currentY = 0; let targetY = 0; let maxScroll = 5000; const ease = 0.05;
+    
+    let audioInit = false; let audioCtx, masterGain;
+    let bDay, bNight;
+
+    function initAudio() {
+      if(audioInit) return; audioInit = true;
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      audioCtx = new AudioContext(); masterGain = audioCtx.createGain(); masterGain.gain.value = 0.5; masterGain.connect(audioCtx.destination);
+      
+      // Day (Birds/High freq)
+      bDay = audioCtx.createGain(); bDay.gain.value = 1; bDay.connect(masterGain);
+      setInterval(() => {
+        if(bDay.gain.value > 0.1 && Math.random()>0.5) {
+          const o = audioCtx.createOscillator(); o.type = 'sine'; o.frequency.setValueAtTime(3000, audioCtx.currentTime); o.frequency.exponentialRampToValueAtTime(4000, audioCtx.currentTime+0.1);
+          const g = audioCtx.createGain(); g.gain.setValueAtTime(0, audioCtx.currentTime); g.gain.linearRampToValueAtTime(0.1, audioCtx.currentTime+0.05); g.gain.linearRampToValueAtTime(0, audioCtx.currentTime+0.2);
+          o.connect(g).connect(bDay); o.start(); o.stop(audioCtx.currentTime+0.2);
+        }
+      }, 1000);
+
+      // Night (Crickets/Low hum)
+      bNight = audioCtx.createGain(); bNight.gain.value = 0; bNight.connect(masterGain);
+      setInterval(() => {
+        if(bNight.gain.value > 0.1) {
+          const o = audioCtx.createOscillator(); o.type = 'square'; o.frequency.value = 5000;
+          const g = audioCtx.createGain(); g.gain.setValueAtTime(0.05, audioCtx.currentTime); g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime+0.1);
+          o.connect(g).connect(bNight); o.start(); o.stop(audioCtx.currentTime+0.1);
+        }
+      }, 200);
+      const nHum = audioCtx.createOscillator(); nHum.type = 'sine'; nHum.frequency.value = 60;
+      nHum.connect(bNight); nHum.start();
+    }
+
+    function playType() {
+      if(!audioCtx) return;
+      const o = audioCtx.createOscillator(); o.type = 'square'; o.frequency.value = 600 + Math.random()*200;
+      const g = audioCtx.createGain(); g.gain.setValueAtTime(0.05, audioCtx.currentTime); g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime+0.05);
+      o.connect(g).connect(masterGain); o.start(); o.stop(audioCtx.currentTime+0.05);
+    }
+
+    window.addEventListener('wheel', e => { initAudio(); e.preventDefault(); targetY += e.deltaY; targetY = Math.max(0, Math.min(targetY, maxScroll)); }, {passive: false});
+    window.addEventListener('mousedown', initAudio);
+    let touchY = 0;
+    window.addEventListener('touchstart', e => { initAudio(); touchY = e.touches[0].clientY; });
+    window.addEventListener('touchmove', e => { e.preventDefault(); targetY += (touchY - e.touches[0].clientY) * 1.5; targetY = Math.max(0, Math.min(targetY, maxScroll)); touchY = e.touches[0].clientY; }, {passive: false});
+
+    // Generate random code lines
+    const codeSnippets = [
+      "function init() {", "  await db.connect();", "  console.log('Ready');", "}", 
+      "const user = fetch(id);", "if(!user) return 404;", "user.update({ lastLogin: Date.now() });",
+      "import React from 'react';", "export default function App() {", "  return <div>Hello World</div>;", "}"
+    ];
+
+    const cupsContainer = document.getElementById('cups');
+    let cupsCount = 0;
+    function addCup() {
+      const cup = document.createElement('div'); cup.className = 'cup';
+      cup.style.left = `${Math.random() * 80}%`;
+      // Stack logic
+      const bottomPos = (Math.floor(cupsCount/5) * 40); 
+      cup.style.bottom = `${bottomPos}px`;
+      cupsContainer.appendChild(cup);
+      setTimeout(() => { cup.style.opacity = 1; }, 50);
+      cupsCount++;
+    }
+
+    let lastDay = 1;
+
+    function loop() {
+      currentY += (targetY - currentY) * ease;
+      const progress = currentY / maxScroll; // 0 to 1
+
+      // Rotation logic for Sky. 360 degrees = 1 full day.
+      // Let's do 10 full days over the 5000px scroll.
+      const totalDays = 10;
+      const rotation = progress * totalDays * 360;
+      document.getElementById('sky').style.transform = `rotate(${rotation}deg)`;
+
+      // Calculate current day number
+      const currentDay = Math.floor(progress * totalDays) + 1;
+      if(currentDay !== lastDay && currentDay <= totalDays) {
+        document.getElementById('counter').innerText = `DAY ${currentDay}`;
+        addCup(); // Add coffee every day
+        lastDay = currentDay;
+      }
+
+      // Day / Night Audio mix based on rotation angle (0 is day, 180 is night)
+      const dayCycle = (rotation % 360) / 360; // 0 to 1
+      const isNight = dayCycle > 0.25 && dayCycle < 0.75;
+      
+      if(audioInit && audioCtx) {
+        if(isNight) { bDay.gain.setTargetAtTime(0, audioCtx.currentTime, 0.5); bNight.gain.setTargetAtTime(1, audioCtx.currentTime, 0.5); }
+        else { bDay.gain.setTargetAtTime(1, audioCtx.currentTime, 0.5); bNight.gain.setTargetAtTime(0, audioCtx.currentTime, 0.5); }
+      }
+
+      // Eye animation based on sleep deprivation
+      const eyes = document.getElementById('eyes').children;
+      if(progress > 0.8) {
+        // Red, half closed eyes
+        eyes[0].style.height = '5px'; eyes[0].style.background = '#fcc';
+        eyes[1].style.height = '5px'; eyes[1].style.background = '#fcc';
+      } else {
+        eyes[0].style.height = '15px'; eyes[0].style.background = '#fff';
+        eyes[1].style.height = '15px'; eyes[1].style.background = '#fff';
+      }
+
+      // Typing animation
+      if(Math.abs(targetY - currentY) > 2) {
+        if(Math.random() > 0.8) {
+          playType();
+          const line = document.createElement('div');
+          line.innerText = codeSnippets[Math.floor(Math.random() * codeSnippets.length)];
+          const codeEl = document.getElementById('code');
+          codeEl.appendChild(line);
+          if(codeEl.children.length > 20) codeEl.removeChild(codeEl.firstChild);
+          codeEl.scrollTop = codeEl.scrollHeight;
+        }
+      }
+
+      requestAnimationFrame(loop);
+    }
+
+    loop();
+  </script>
+</body>
+</html>

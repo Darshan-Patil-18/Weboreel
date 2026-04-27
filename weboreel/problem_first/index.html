@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Problem First Thinking</title>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;700&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body, html {
+      width: 100%; height: 100%; overflow: hidden;
+      background: #111; color: #fff; font-family: 'Outfit', sans-serif;
+      overscroll-behavior: none; transition: background 1s;
+    }
+
+    #scroll-container {
+      position: absolute; top: 0; left: 0; width: 100%; height: 4000px;
+      opacity: 0; pointer-events: none; z-index: 1000;
+    }
+
+    canvas {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10;
+    }
+
+    .narrative {
+      position: fixed; top: 10%; left: 50%; transform: translateX(-50%);
+      font-size: 2.5rem; font-weight: 300; text-align: center;
+      z-index: 30; opacity: 1; transition: opacity 0.5s, color 1s; letter-spacing: 2px;
+    }
+
+    .hud { position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%); font-family: monospace; letter-spacing: 2px; z-index: 20; color: #888; transition: color 1s; }
+  </style>
+</head>
+<body>
+
+  <div class="narrative" id="narrative">THE PROBLEM IS CHAOS</div>
+  <div class="hud" id="hud">SCROLL TO UNTANGLE</div>
+
+  <canvas id="cvs"></canvas>
+  <div id="scroll-container"></div>
+
+  <script>
+    const cvs = document.getElementById('cvs');
+    const ctx = cvs.getContext('2d');
+    let width, height;
+    function resize() { width = cvs.width = window.innerWidth; height = cvs.height = window.innerHeight; }
+    window.addEventListener('resize', resize); resize();
+
+    let currentY = 0; let targetY = 0; let maxScroll = 4000; const ease = 0.05;
+    
+    let audioInit = false; let audioCtx, masterGain;
+    let bChaos, bOrder;
+
+    function initAudio() {
+      if(audioInit) return; audioInit = true;
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      audioCtx = new AudioContext(); masterGain = audioCtx.createGain(); masterGain.gain.value = 0.5; masterGain.connect(audioCtx.destination);
+      
+      // Chaos (Random detuned oscillators)
+      bChaos = audioCtx.createGain(); bChaos.gain.value = 1; bChaos.connect(masterGain);
+      for(let i=0; i<5; i++) {
+        const o = audioCtx.createOscillator(); o.type = 'sawtooth';
+        o.frequency.value = 100 + Math.random()*200;
+        const lfo = audioCtx.createOscillator(); lfo.frequency.value = Math.random()*5;
+        const lfoG = audioCtx.createGain(); lfoG.gain.value = 50;
+        lfo.connect(lfoG).connect(o.frequency);
+        o.connect(bChaos); o.start(); lfo.start();
+      }
+
+      // Order (Major 7th Chord - Sine)
+      bOrder = audioCtx.createGain(); bOrder.gain.value = 0; bOrder.connect(masterGain);
+      [261.63, 329.63, 392.00, 493.88].forEach(f => {
+        const o = audioCtx.createOscillator(); o.type = 'sine'; o.frequency.value = f;
+        o.connect(bOrder); o.start();
+      });
+    }
+
+    window.addEventListener('wheel', e => { initAudio(); e.preventDefault(); targetY += e.deltaY; targetY = Math.max(0, Math.min(targetY, maxScroll)); }, {passive: false});
+    window.addEventListener('mousedown', initAudio);
+    let touchY = 0;
+    window.addEventListener('touchstart', e => { initAudio(); touchY = e.touches[0].clientY; });
+    window.addEventListener('touchmove', e => { e.preventDefault(); targetY += (touchY - e.touches[0].clientY) * 1.5; targetY = Math.max(0, Math.min(targetY, maxScroll)); touchY = e.touches[0].clientY; }, {passive: false});
+
+    // 3D Cube vertices
+    const size = 150;
+    const cubeVertices = [
+      [-size, -size, -size], [size, -size, -size], [size, size, -size], [-size, size, -size],
+      [-size, -size, size], [size, -size, size], [size, size, size], [-size, size, size]
+    ];
+    // Edges (Pairs of vertex indices)
+    const edges = [
+      [0,1], [1,2], [2,3], [3,0], // back face
+      [4,5], [5,6], [6,7], [7,4], // front face
+      [0,4], [1,5], [2,6], [3,7]  // connecting edges
+    ];
+
+    // Generate random chaotic points matching the number of vertices
+    const chaosVertices = [];
+    for(let i=0; i<8; i++) {
+       chaosVertices.push([
+         (Math.random() - 0.5) * 800,
+         (Math.random() - 0.5) * 800,
+         (Math.random() - 0.5) * 800
+       ]);
+    }
+
+    // Pseudo-3D Projection
+    function project(x, y, z) {
+      const fov = 400; const camZ = 500;
+      const scale = fov / (fov + z + camZ);
+      return { x: x * scale + width/2, y: y * scale + height/2 };
+    }
+
+    let angleX = 0; let angleY = 0;
+
+    function loop() {
+      currentY += (targetY - currentY) * ease;
+      const progress = currentY / maxScroll; // 0 to 1
+
+      ctx.clearRect(0, 0, width, height);
+
+      // Rotate over time
+      angleX += 0.01; angleY += 0.015;
+
+      const currentVertices = [];
+
+      for(let i=0; i<8; i++) {
+        // Interpolate between Chaos and Order based on progress
+        // Use an easing function to make it snap cleanly at the end
+        const easeProg = progress < 0.5 ? 2 * progress * progress : -1 + (4 - 2 * progress) * progress;
+        const p = Math.max(0, Math.min(1, easeProg));
+
+        let cx = chaosVertices[i][0] + (cubeVertices[i][0] - chaosVertices[i][0]) * p;
+        let cy = chaosVertices[i][1] + (cubeVertices[i][1] - chaosVertices[i][1]) * p;
+        let cz = chaosVertices[i][2] + (cubeVertices[i][2] - chaosVertices[i][2]) * p;
+
+        // Apply rotation
+        // Rotate Y
+        let tX = cx * Math.cos(angleY) - cz * Math.sin(angleY);
+        let tZ = cx * Math.sin(angleY) + cz * Math.cos(angleY);
+        cx = tX; cz = tZ;
+        // Rotate X
+        let tY = cy * Math.cos(angleX) - cz * Math.sin(angleX);
+        tZ = cy * Math.sin(angleX) + cz * Math.cos(angleX);
+        cy = tY; cz = tZ;
+
+        currentVertices.push(project(cx, cy, cz));
+      }
+
+      // Draw Edges
+      ctx.lineWidth = 2 + (progress * 3); // Gets thicker
+      
+      if(progress > 0.9) {
+        ctx.strokeStyle = '#00ffcc';
+        ctx.shadowColor = '#00ffcc'; ctx.shadowBlur = 20;
+      } else {
+        ctx.strokeStyle = `rgba(255, 100, 100, ${1 - progress*0.5})`; // Reddish turning clear
+        ctx.shadowBlur = 0;
+      }
+
+      edges.forEach(e => {
+        const p1 = currentVertices[e[0]]; const p2 = currentVertices[e[1]];
+        ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y); ctx.stroke();
+      });
+
+      // UI
+      const nar = document.getElementById('narrative');
+      if(progress < 0.3) nar.innerText = "THE PROBLEM IS CHAOS";
+      else if(progress < 0.7) nar.innerText = "UNTANGLING...";
+      else if(progress < 0.9) nar.innerText = "FINDING STRUCTURE";
+      else {
+        nar.innerText = "THE SOLUTION IS ELEGANT";
+        nar.style.color = '#00ffcc';
+        document.getElementById('hud').style.color = '#00ffcc';
+        document.body.style.background = '#001a14';
+      }
+
+      if(progress < 0.9) {
+        nar.style.color = '#fff';
+        document.getElementById('hud').style.color = '#888';
+        document.body.style.background = '#111';
+      }
+
+      // Audio
+      if(audioInit && audioCtx) {
+         bChaos.gain.setTargetAtTime(1 - progress, audioCtx.currentTime, 0.1);
+         bOrder.gain.setTargetAtTime(progress, audioCtx.currentTime, 0.1);
+      }
+
+      requestAnimationFrame(loop);
+    }
+
+    loop();
+  </script>
+</body>
+</html>

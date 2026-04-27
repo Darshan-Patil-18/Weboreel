@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>AI Startup Boom</title>
+  <link href="https://fonts.googleapis.com/css2?family=VT323&family=Rajdhani:wght@500&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body, html {
+      width: 100%; height: 100%; overflow: hidden;
+      background: #c0c0c0; color: #000; font-family: 'VT323', monospace;
+      overscroll-behavior: none; transition: background 1.5s;
+    }
+
+    #scroll-container {
+      position: absolute; top: 0; left: 0; width: 100%; height: 4000px;
+      opacity: 0; pointer-events: none; z-index: 1000;
+    }
+
+    /* Legacy UI */
+    .legacy-ui {
+      position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      width: 400px; height: 300px; background: #c0c0c0; border: 2px solid;
+      border-color: #fff #888 #888 #fff; padding: 2px;
+      transition: opacity 1s, filter 1s; z-index: 20;
+    }
+    .win-header {
+      background: #000080; color: #fff; padding: 2px 5px; font-size: 1.2rem;
+      display: flex; justify-content: space-between;
+    }
+    .win-content { padding: 20px; text-align: center; }
+    .btn { background: #c0c0c0; border: 2px solid; border-color: #fff #888 #888 #fff; padding: 5px 15px; margin-top: 20px; cursor: pointer; }
+    .table { width: 100%; border-collapse: collapse; margin-top: 10px; background: #fff; }
+    .table td { border: 1px solid #888; padding: 2px; }
+
+    /* Canvas for AI Network */
+    canvas {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10; opacity: 0; transition: opacity 1.5s;
+    }
+
+    /* Text */
+    .hud { position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%); letter-spacing: 2px; z-index: 30; transition: color 1s; }
+    
+    .ai-text {
+      position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      font-family: 'Rajdhani', sans-serif; font-size: 4rem; color: #0ff;
+      text-shadow: 0 0 20px #0ff; opacity: 0; z-index: 30; pointer-events: none; transition: opacity 1s;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="legacy-ui" id="legacy">
+    <div class="win-header"><span>Database.exe</span><span>X</span></div>
+    <div class="win-content">
+      Processing manual query...
+      <table class="table">
+        <tr><td>ID</td><td>Data</td></tr>
+        <tr><td>01</td><td>Wait...</td></tr>
+        <tr><td>02</td><td>Loading</td></tr>
+      </table>
+      <div class="btn">Execute Batch</div>
+    </div>
+  </div>
+
+  <div class="ai-text" id="ai-text">NEURAL ORCHESTRATION</div>
+  <div class="hud" id="hud">SCROLL TO EVOLVE</div>
+
+  <canvas id="cvs"></canvas>
+  <div id="scroll-container"></div>
+
+  <script>
+    const cvs = document.getElementById('cvs');
+    const ctx = cvs.getContext('2d');
+    let width, height;
+    function resize() { width = cvs.width = window.innerWidth; height = cvs.height = window.innerHeight; }
+    window.addEventListener('resize', resize); resize();
+
+    let currentY = 0; let targetY = 0; let maxScroll = 4000; const ease = 0.05;
+    
+    let audioInit = false; let audioCtx, masterGain;
+    let bOld, bNew;
+
+    function initAudio() {
+      if(audioInit) return; audioInit = true;
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      audioCtx = new AudioContext(); masterGain = audioCtx.createGain(); masterGain.gain.value = 0.5; masterGain.connect(audioCtx.destination);
+      
+      // Old: HDD Clicks (Noise bursts)
+      bOld = audioCtx.createGain(); bOld.gain.value = 1; bOld.connect(masterGain);
+      setInterval(() => {
+        if(bOld.gain.value > 0.1 && Math.random() > 0.5) {
+          const o = audioCtx.createOscillator(); o.type = 'square'; o.frequency.value = 200 + Math.random()*200;
+          const g = audioCtx.createGain(); g.gain.setValueAtTime(0.1, audioCtx.currentTime); g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime+0.05);
+          o.connect(g).connect(bOld); o.start(); o.stop(audioCtx.currentTime+0.05);
+        }
+      }, 100);
+
+      // New: AI Synth Sweep
+      bNew = audioCtx.createGain(); bNew.gain.value = 0; bNew.connect(masterGain);
+      const drone = audioCtx.createOscillator(); drone.type = 'sine'; drone.frequency.value = 65.41; // C2
+      drone.connect(bNew); drone.start();
+      
+      setInterval(() => {
+        if(bNew.gain.value > 0.1) {
+          const o = audioCtx.createOscillator(); o.type = 'sine'; o.frequency.setValueAtTime(2000, audioCtx.currentTime); o.frequency.exponentialRampToValueAtTime(1000, audioCtx.currentTime+0.5);
+          const g = audioCtx.createGain(); g.gain.setValueAtTime(0.1, audioCtx.currentTime); g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime+0.5);
+          o.connect(g).connect(bNew); o.start(); o.stop(audioCtx.currentTime+0.5);
+        }
+      }, 500);
+    }
+
+    window.addEventListener('wheel', e => { initAudio(); e.preventDefault(); targetY += e.deltaY; targetY = Math.max(0, Math.min(targetY, maxScroll)); }, {passive: false});
+    window.addEventListener('mousedown', initAudio);
+    let touchY = 0;
+    window.addEventListener('touchstart', e => { initAudio(); touchY = e.touches[0].clientY; });
+    window.addEventListener('touchmove', e => { e.preventDefault(); targetY += (touchY - e.touches[0].clientY) * 1.5; targetY = Math.max(0, Math.min(targetY, maxScroll)); touchY = e.touches[0].clientY; }, {passive: false});
+
+    // Generate AI nodes
+    const nodes = [];
+    for(let i=0; i<100; i++) {
+      nodes.push({ x: Math.random()*width, y: Math.random()*height, vx: (Math.random()-0.5)*2, vy: (Math.random()-0.5)*2 });
+    }
+
+    let isAI = false;
+
+    function loop() {
+      currentY += (targetY - currentY) * ease;
+      const progress = currentY / maxScroll; // 0 to 1
+
+      // Threshold transition
+      if(progress > 0.5 && !isAI) {
+        isAI = true;
+        document.body.style.background = '#050510';
+        document.getElementById('legacy').style.opacity = 0;
+        document.getElementById('legacy').style.filter = 'blur(10px) scale(1.5)';
+        document.getElementById('cvs').style.opacity = 1;
+        document.getElementById('ai-text').style.opacity = 1;
+        document.getElementById('hud').style.color = '#fff';
+        document.getElementById('hud').style.fontFamily = "'Rajdhani', sans-serif";
+        if(audioInit && audioCtx) {
+           bOld.gain.setTargetAtTime(0, audioCtx.currentTime, 0.5);
+           bNew.gain.setTargetAtTime(1, audioCtx.currentTime, 0.5);
+        }
+      } else if (progress <= 0.5 && isAI) {
+        isAI = false;
+        document.body.style.background = '#c0c0c0';
+        document.getElementById('legacy').style.opacity = 1;
+        document.getElementById('legacy').style.filter = 'none';
+        document.getElementById('cvs').style.opacity = 0;
+        document.getElementById('ai-text').style.opacity = 0;
+        document.getElementById('hud').style.color = '#000';
+        document.getElementById('hud').style.fontFamily = "'VT323', monospace";
+        if(audioInit && audioCtx) {
+           bOld.gain.setTargetAtTime(1, audioCtx.currentTime, 0.5);
+           bNew.gain.setTargetAtTime(0, audioCtx.currentTime, 0.5);
+        }
+      }
+
+      // Draw AI Network
+      if(isAI) {
+        ctx.clearRect(0, 0, width, height);
+        // Update nodes
+        nodes.forEach(n => {
+          n.x += n.vx * (1 + (progress-0.5)*5); // speed up as you scroll deep
+          n.y += n.vy * (1 + (progress-0.5)*5);
+          if(n.x < 0 || n.x > width) n.vx *= -1;
+          if(n.y < 0 || n.y > height) n.vy *= -1;
+        });
+
+        // Draw connections
+        ctx.lineWidth = 1;
+        for(let i=0; i<nodes.length; i++) {
+          for(let j=i+1; j<nodes.length; j++) {
+            const dx = nodes[i].x - nodes[j].x;
+            const dy = nodes[i].y - nodes[j].y;
+            const dist = Math.sqrt(dx*dx + dy*dy);
+            if(dist < 150) {
+              ctx.beginPath(); ctx.moveTo(nodes[i].x, nodes[i].y); ctx.lineTo(nodes[j].x, nodes[j].y);
+              ctx.strokeStyle = `rgba(0, 255, 255, ${1 - dist/150})`;
+              ctx.stroke();
+            }
+          }
+        }
+        // Draw points
+        ctx.fillStyle = '#0ff';
+        nodes.forEach(n => {
+          ctx.beginPath(); ctx.arc(n.x, n.y, 2, 0, Math.PI*2); ctx.fill();
+        });
+      }
+
+      requestAnimationFrame(loop);
+    }
+
+    loop();
+  </script>
+</body>
+</html>

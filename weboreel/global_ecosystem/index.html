@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Global Ecosystem</title>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body, html {
+      width: 100%; height: 100%; overflow: hidden;
+      background: #020617; color: #fff; font-family: 'Orbitron', sans-serif;
+      overscroll-behavior: none;
+    }
+
+    #scroll-container {
+      position: absolute; top: 0; left: 0; width: 100%; height: 5000px;
+      opacity: 0; pointer-events: none; z-index: 1000;
+    }
+
+    canvas {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10;
+    }
+
+    .title { position: fixed; top: 10%; left: 50%; transform: translateX(-50%); font-size: 3rem; text-align: center; z-index: 20; color: #38bdf8; text-shadow: 0 0 10px rgba(56, 189, 248, 0.5); transition: opacity 0.5s; opacity: 0;}
+    .hud { position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%); letter-spacing: 2px; z-index: 20; color: #475569; font-size: 0.9rem; }
+    
+    .stats { position: fixed; top: 50%; left: 10%; z-index: 20; font-size: 1.5rem; color: #94a3b8; line-height: 1.5; pointer-events: none; opacity: 0; transition: opacity 1s; }
+    .val { color: #facc15; font-weight: bold; }
+  </style>
+</head>
+<body>
+
+  <div class="title" id="title">EXPANSION</div>
+  
+  <div class="stats" id="stats">
+    OFFICES: <span class="val" id="v-offices">1</span><br>
+    USERS: <span class="val" id="v-users">100</span><br>
+    PING: <span class="val" id="v-ping">12ms</span>
+  </div>
+
+  <div class="hud">SCROLL TO SCALE GLOBALLY</div>
+
+  <canvas id="cvs"></canvas>
+  <div id="scroll-container"></div>
+
+  <script>
+    const cvs = document.getElementById('cvs');
+    const ctx = cvs.getContext('2d');
+    let width, height;
+    function resize() { width = cvs.width = window.innerWidth; height = cvs.height = window.innerHeight; }
+    window.addEventListener('resize', resize); resize();
+
+    let currentY = 0; let targetY = 0; let maxScroll = 4000; const ease = 0.05;
+    
+    let audioInit = false; let audioCtx, masterGain;
+    
+    function initAudio() {
+      if(audioInit) return; audioInit = true;
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      audioCtx = new AudioContext(); masterGain = audioCtx.createGain(); masterGain.gain.value = 0.5; masterGain.connect(audioCtx.destination);
+    }
+
+    function playNode() {
+      if(!audioCtx) return;
+      const o = audioCtx.createOscillator(); o.type = 'sine'; o.frequency.value = 800 + Math.random()*400;
+      const g = audioCtx.createGain(); g.gain.setValueAtTime(0.2, audioCtx.currentTime); g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime+0.5);
+      o.connect(g).connect(masterGain); o.start(); o.stop(audioCtx.currentTime+0.5);
+    }
+
+    window.addEventListener('wheel', e => { initAudio(); e.preventDefault(); targetY += e.deltaY; targetY = Math.max(0, Math.min(targetY, maxScroll)); }, {passive: false});
+    window.addEventListener('mousedown', initAudio);
+    let touchY = 0;
+    window.addEventListener('touchstart', e => { initAudio(); touchY = e.touches[0].clientY; });
+    window.addEventListener('touchmove', e => { e.preventDefault(); targetY += (touchY - e.touches[0].clientY) * 1.5; targetY = Math.max(0, Math.min(targetY, maxScroll)); touchY = e.touches[0].clientY; }, {passive: false});
+
+    // Approximate Map Coordinates (normalized 0 to 1)
+    const nodes = [
+      { id: 'blr', n: 'Bangalore', x: 0.7, y: 0.5 },
+      { id: 'sf', n: 'San Francisco', x: 0.15, y: 0.35 },
+      { id: 'ldn', n: 'London', x: 0.48, y: 0.25 },
+      { id: 'syd', n: 'Sydney', x: 0.85, y: 0.8 },
+      { id: 'tok', n: 'Tokyo', x: 0.82, y: 0.35 },
+      { id: 'dxb', n: 'Dubai', x: 0.6, y: 0.45 },
+      { id: 'sp', n: 'Sao Paulo', x: 0.3, y: 0.7 }
+    ];
+
+    // Build connections list for expansion
+    const connections = [];
+    nodes.forEach((n1, i) => {
+      nodes.forEach((n2, j) => {
+        if(i !== j) connections.push({ from: n1, to: n2 });
+      });
+    });
+
+    let lastNumNodes = 0;
+
+    function loop() {
+      currentY += (targetY - currentY) * ease;
+      const progress = currentY / maxScroll; // 0 to 1
+
+      ctx.clearRect(0, 0, width, height);
+      
+      // Draw a subtle dotted background map
+      ctx.fillStyle = '#1e293b';
+      for(let x=0; x<width; x+=20) {
+        for(let y=0; y<height; y+=20) {
+           ctx.fillRect(x,y,1,1);
+        }
+      }
+
+      // Logic: 
+      // progress < 0.2: Just Bangalore
+      // progress > 0.2: SV
+      // progress > 0.4: London
+      // progress > 0.6: Exponential global connection
+      
+      let activeNodes = 1;
+      if(progress > 0.2) activeNodes = 2;
+      if(progress > 0.4) activeNodes = 3;
+      if(progress > 0.6) activeNodes = Math.min(nodes.length, 3 + Math.floor((progress-0.6)*10));
+
+      if(activeNodes !== lastNumNodes) {
+        lastNumNodes = activeNodes;
+        if(audioInit) playNode();
+      }
+
+      // Draw Lines
+      ctx.lineWidth = 1; ctx.strokeStyle = 'rgba(56, 189, 248, 0.3)';
+      const drawLimit = progress > 0.6 ? Math.floor((progress-0.6) * 2 * connections.length) : (activeNodes > 1 ? activeNodes-1 : 0);
+      
+      for(let i=0; i<Math.min(drawLimit, connections.length); i++) {
+        const c = connections[i];
+        const sx = c.from.x * width; const sy = c.from.y * height;
+        const ex = c.to.x * width; const ey = c.to.y * height;
+        
+        ctx.beginPath(); ctx.moveTo(sx, sy);
+        // Draw curved line
+        ctx.quadraticCurveTo(sx, ey, ex, ey);
+        ctx.stroke();
+
+        // Particles moving along lines
+        const partT = (Date.now() % 2000) / 2000; // 0 to 1
+        const px = (1 - partT) * (1 - partT) * sx + 2 * (1 - partT) * partT * sx + partT * partT * ex;
+        const py = (1 - partT) * (1 - partT) * sy + 2 * (1 - partT) * partT * ey + partT * partT * ey;
+        
+        ctx.fillStyle = '#facc15';
+        ctx.beginPath(); ctx.arc(px, py, 2, 0, Math.PI*2); ctx.fill();
+      }
+
+      // Draw Nodes
+      for(let i=0; i<activeNodes; i++) {
+        const n = nodes[i];
+        const nx = n.x * width; const ny = n.y * height;
+        
+        // Pulse ring
+        const r = 5 + Math.sin(Date.now() / 200) * 3;
+        ctx.beginPath(); ctx.arc(nx, ny, r, 0, Math.PI*2);
+        ctx.fillStyle = '#38bdf8'; ctx.fill();
+        ctx.shadowBlur = 10; ctx.shadowColor = '#38bdf8';
+        
+        ctx.fillStyle = '#fff'; ctx.font = '12px Orbitron';
+        ctx.fillText(n.n, nx + 15, ny + 4);
+        ctx.shadowBlur = 0;
+      }
+
+      // UI
+      document.getElementById('title').style.opacity = progress > 0.1 ? 1 : 0;
+      document.getElementById('stats').style.opacity = progress > 0.1 ? 1 : 0;
+      
+      if(progress > 0.1) {
+        document.getElementById('v-offices').innerText = activeNodes;
+        document.getElementById('v-users').innerText = Math.floor(progress * 10000000).toLocaleString();
+        document.getElementById('v-ping').innerText = progress > 0.6 ? 'Global CDN Active' : `${Math.floor(200 - progress*100)}ms`;
+      }
+
+      requestAnimationFrame(loop);
+    }
+
+    loop();
+  </script>
+</body>
+</html>

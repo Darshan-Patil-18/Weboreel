@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Pitch Deck Story</title>
+  <link href="https://fonts.googleapis.com/css2?family=Helvetica+Neue:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body, html {
+      width: 100%; height: 100%; overflow: hidden;
+      background: #f4f4f5; color: #18181b; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+      overscroll-behavior: none;
+    }
+
+    #scroll-container {
+      position: absolute; top: 0; left: 0; width: 100%; height: 6000px;
+      opacity: 0; pointer-events: none; z-index: 1000;
+    }
+
+    .scene {
+      width: 100vw; height: 100vh;
+      perspective: 1000px;
+      display: flex; justify-content: center; align-items: center;
+      overflow: hidden;
+    }
+
+    .slide-container {
+      position: absolute; width: 800px; height: 450px;
+      transform-style: preserve-3d;
+    }
+
+    .slide {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      background: #fff; border-radius: 12px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
+      padding: 60px; display: flex; flex-direction: column; justify-content: center;
+      opacity: 0; transform-origin: center center;
+    }
+
+    h1 { font-size: 3rem; margin-bottom: 20px; color: #2563eb; }
+    h2 { font-size: 2.5rem; margin-bottom: 15px; color: #1e40af; }
+    p { font-size: 1.5rem; line-height: 1.6; color: #475569; }
+    ul { font-size: 1.5rem; line-height: 1.6; color: #475569; margin-left: 30px; margin-top: 20px; }
+    li { margin-bottom: 10px; }
+
+    /* Specific Slide Styles */
+    #s0 { text-align: center; justify-content: center; align-items: center; }
+    #s0 h1 { font-size: 5rem; }
+    
+    .chart-placeholder {
+      width: 100%; height: 200px; background: #f1f5f9; border: 2px dashed #cbd5e1;
+      border-radius: 8px; display: flex; justify-content: center; align-items: center;
+      margin-top: 30px; font-weight: bold; color: #94a3b8;
+    }
+
+    .hud { position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%); letter-spacing: 2px; z-index: 20; color: #64748b; font-size: 0.9rem; }
+  </style>
+</head>
+<body>
+  
+  <div class="hud">SCROLL TO ADVANCE SLIDES</div>
+
+  <div class="scene">
+    <div class="slide-container" id="container">
+      
+      <!-- Slides -->
+      <div class="slide" id="s0">
+        <h1>Acme Corp</h1>
+        <p>The Future of Everything</p>
+      </div>
+
+      <div class="slide" id="s1">
+        <h2>1. The Problem</h2>
+        <p>Currently, users spend 40% of their time managing disparate tools. The market is fragmented, inefficient, and expensive.</p>
+        <ul>
+          <li>High churn rates</li>
+          <li>Low data visibility</li>
+          <li>Manual syncing required</li>
+        </ul>
+      </div>
+
+      <div class="slide" id="s2">
+        <h2>2. The Solution</h2>
+        <p>A unified, AI-driven platform that connects all your data sources instantly.</p>
+        <div style="display:flex; justify-content:space-between; margin-top:40px;">
+          <div style="width:30%; background:#eff6ff; padding:20px; border-radius:8px; text-align:center; color:#1e40af; font-weight:bold;">Connect</div>
+          <div style="width:30%; background:#eff6ff; padding:20px; border-radius:8px; text-align:center; color:#1e40af; font-weight:bold;">Analyze</div>
+          <div style="width:30%; background:#eff6ff; padding:20px; border-radius:8px; text-align:center; color:#1e40af; font-weight:bold;">Act</div>
+        </div>
+      </div>
+
+      <div class="slide" id="s3">
+        <h2>3. Traction & Revenue</h2>
+        <p>We've achieved $1M ARR in 12 months with 0 customer churn.</p>
+        <div class="chart-placeholder">UP AND TO THE RIGHT (Imagine a bar chart here)</div>
+      </div>
+
+      <div class="slide" id="s4" style="background: #2563eb; color: #fff;">
+        <h2 style="color:#fff;">4. The Ask</h2>
+        <p style="color:#bfdbfe;">Raising $5M Seed to scale GTM and expand engineering.</p>
+        <div style="font-size:3rem; font-weight:bold; margin-top:50px; text-align:center;">Join Us.</div>
+      </div>
+
+    </div>
+  </div>
+
+  <div id="scroll-container"></div>
+
+  <script>
+    let currentY = 0; let targetY = 0; let maxScroll = 5000; const ease = 0.05;
+    const numSlides = 5;
+    
+    let audioInit = false; let audioCtx, masterGain;
+    let clickOsc;
+
+    function initAudio() {
+      if(audioInit) return; audioInit = true;
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      audioCtx = new AudioContext(); masterGain = audioCtx.createGain(); masterGain.gain.value = 0.5; masterGain.connect(audioCtx.destination);
+    }
+
+    function playClick() {
+       if(!audioInit || !audioCtx) return;
+       const o = audioCtx.createOscillator(); o.type = 'triangle'; o.frequency.setValueAtTime(400, audioCtx.currentTime); o.frequency.exponentialRampToValueAtTime(800, audioCtx.currentTime+0.05);
+       const g = audioCtx.createGain(); g.gain.setValueAtTime(0.5, audioCtx.currentTime); g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime+0.1);
+       o.connect(g).connect(masterGain); o.start(); o.stop(audioCtx.currentTime+0.1);
+    }
+
+    window.addEventListener('wheel', e => { initAudio(); e.preventDefault(); targetY += e.deltaY; targetY = Math.max(0, Math.min(targetY, maxScroll)); }, {passive: false});
+    window.addEventListener('mousedown', initAudio);
+    let touchY = 0;
+    window.addEventListener('touchstart', e => { initAudio(); touchY = e.touches[0].clientY; });
+    window.addEventListener('touchmove', e => { e.preventDefault(); targetY += (touchY - e.touches[0].clientY) * 1.5; targetY = Math.max(0, Math.min(targetY, maxScroll)); touchY = e.touches[0].clientY; }, {passive: false});
+
+    let currentSlideIndex = -1;
+
+    function loop() {
+      currentY += (targetY - currentY) * ease;
+      const progress = currentY / maxScroll; // 0 to 1
+
+      // Calculate which slide is active based on progress
+      // Progress 0-1 maps to Z translation from deeply negative to highly positive
+      const totalDepth = 10000;
+      const currentZ = progress * totalDepth;
+
+      let newSlideIndex = -1;
+
+      for(let i=0; i<numSlides; i++) {
+        const el = document.getElementById('s' + i);
+        // Space slides 2000px apart
+        const slideZ = i * 2000; 
+        
+        // Relative Z position of the slide to the camera
+        const relZ = currentZ - slideZ;
+        
+        // We want the slide to be visible between z=-3000 (far away) to z=1000 (past the camera)
+        if(relZ > -4000 && relZ < 1000) {
+          el.style.display = 'flex';
+          el.style.transform = `translateZ(${relZ}px)`;
+          
+          // Calculate opacity
+          let op = 0;
+          if(relZ < -1000) {
+            op = (relZ + 4000) / 3000; // fade in
+          } else if (relZ > 500) {
+            op = 1 - ((relZ - 500) / 500); // fade out fast as it passes camera
+          } else {
+            op = 1;
+          }
+          el.style.opacity = op;
+          
+          if(op > 0.8) newSlideIndex = i;
+
+          // Blur effect
+          if(relZ < -1000) {
+            el.style.filter = `blur(${Math.abs(relZ+1000)/200}px)`;
+          } else {
+            el.style.filter = 'blur(0px)';
+          }
+
+        } else {
+          el.style.display = 'none';
+        }
+      }
+
+      if(newSlideIndex !== currentSlideIndex && newSlideIndex !== -1) {
+        currentSlideIndex = newSlideIndex;
+        playClick(); // Click sound when slide comes into focus
+      }
+
+      requestAnimationFrame(loop);
+    }
+
+    loop();
+  </script>
+</body>
+</html>

@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Risk vs Reward</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body, html {
+      width: 100%; height: 100%; overflow: hidden;
+      background: #1a1a1a; color: #fff; font-family: 'Cinzel', serif;
+      overscroll-behavior: none;
+    }
+
+    #scroll-container {
+      position: absolute; top: 0; left: 0; width: 100%; height: 5000px;
+      opacity: 0; pointer-events: none; z-index: 1000;
+    }
+
+    canvas {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10;
+    }
+
+    .title { position: fixed; top: 10%; left: 50%; transform: translateX(-50%); font-size: 3rem; z-index: 20; color: #d4af37; text-align: center; }
+    .hud { position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%); font-family: monospace; letter-spacing: 2px; z-index: 20; color: #888; font-size: 0.9rem; }
+  </style>
+</head>
+<body>
+
+  <div class="title" id="title">THE SCALE</div>
+  <div class="hud">SCROLL TO WEIGH</div>
+
+  <canvas id="cvs"></canvas>
+  <div id="scroll-container"></div>
+
+  <script>
+    const cvs = document.getElementById('cvs');
+    const ctx = cvs.getContext('2d');
+    let width, height;
+    function resize() { width = cvs.width = window.innerWidth; height = cvs.height = window.innerHeight; }
+    window.addEventListener('resize', resize); resize();
+
+    let currentY = 0; let targetY = 0; let maxScroll = 4000; const ease = 0.05;
+    
+    let audioInit = false; let audioCtx, masterGain;
+    
+    function initAudio() {
+      if(audioInit) return; audioInit = true;
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      audioCtx = new AudioContext(); masterGain = audioCtx.createGain(); masterGain.gain.value = 0.5; masterGain.connect(audioCtx.destination);
+    }
+
+    function playCreak() {
+      if(!audioCtx) return;
+      const o = audioCtx.createOscillator(); o.type = 'sawtooth'; o.frequency.setValueAtTime(50, audioCtx.currentTime); o.frequency.linearRampToValueAtTime(30, audioCtx.currentTime+0.5);
+      const g = audioCtx.createGain(); g.gain.setValueAtTime(0.5, audioCtx.currentTime); g.gain.linearRampToValueAtTime(0, audioCtx.currentTime+0.5);
+      o.connect(g).connect(masterGain); o.start(); o.stop(audioCtx.currentTime+0.5);
+    }
+
+    function playCoin() {
+      if(!audioCtx) return;
+      const o = audioCtx.createOscillator(); o.type = 'sine'; o.frequency.setValueAtTime(2000 + Math.random()*1000, audioCtx.currentTime);
+      const g = audioCtx.createGain(); g.gain.setValueAtTime(0.1, audioCtx.currentTime); g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime+0.2);
+      o.connect(g).connect(masterGain); o.start(); o.stop(audioCtx.currentTime+0.2);
+    }
+
+    window.addEventListener('wheel', e => { initAudio(); e.preventDefault(); targetY += e.deltaY; targetY = Math.max(0, Math.min(targetY, maxScroll)); }, {passive: false});
+    window.addEventListener('mousedown', initAudio);
+    let touchY = 0;
+    window.addEventListener('touchstart', e => { initAudio(); touchY = e.touches[0].clientY; });
+    window.addEventListener('touchmove', e => { e.preventDefault(); targetY += (touchY - e.touches[0].clientY) * 1.5; targetY = Math.max(0, Math.min(targetY, maxScroll)); touchY = e.touches[0].clientY; }, {passive: false});
+
+    // Particle system for coins
+    const coins = [];
+
+    function loop() {
+      currentY += (targetY - currentY) * ease;
+      const progress = currentY / maxScroll; // 0 to 1
+
+      ctx.clearRect(0, 0, width, height);
+
+      const cx = width / 2;
+      const cy = height * 0.4;
+      const armLength = Math.min(width * 0.3, 300);
+
+      // Determine angle based on progress
+      // 0-0.7: Risks accumulate, tilts left (-20 deg max)
+      // 0.7-1: Reward hits, tilts right (+20 deg max)
+      let angleDeg = 0;
+      if(progress < 0.7) {
+        angleDeg = -(progress / 0.7) * 20;
+      } else {
+        // Swing from -20 to +20
+        const p2 = (progress - 0.7) / 0.3;
+        angleDeg = -20 + (p2 * 40);
+      }
+      
+      const angleRad = angleDeg * (Math.PI / 180);
+
+      // Sound trigger
+      if(Math.abs(targetY - currentY) > 5 && progress < 0.7 && Math.random() > 0.9) {
+        if(audioInit) playCreak();
+      }
+
+      // Draw Base
+      ctx.fillStyle = '#8b7355'; // Wood
+      ctx.fillRect(cx - 10, cy, 20, height*0.4);
+      ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx-40, cy+height*0.4); ctx.lineTo(cx+40, cy+height*0.4); ctx.fill();
+
+      // Draw Pivot
+      ctx.beginPath(); ctx.arc(cx, cy, 15, 0, Math.PI*2);
+      ctx.fillStyle = '#b8860b'; ctx.fill(); // Gold pivot
+
+      // Draw Arm
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.rotate(angleRad);
+      
+      ctx.fillStyle = '#cd853f'; // Wood arm
+      ctx.fillRect(-armLength, -5, armLength*2, 10);
+
+      // Draw Left Pan hanging
+      ctx.save();
+      ctx.translate(-armLength, 0);
+      ctx.rotate(-angleRad); // Keep upright
+      ctx.strokeStyle = '#999'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(-40, 100); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(40, 100); ctx.stroke();
+      ctx.beginPath(); ctx.arc(0, 100, 40, 0, Math.PI); ctx.fillStyle = '#444'; ctx.fill();
+      
+      // Draw Risk Weights
+      if(progress > 0.1) { ctx.fillStyle = '#222'; ctx.fillRect(-15, 80, 30, 20); ctx.fillStyle='#fff'; ctx.font='10px sans-serif'; ctx.fillText('DEBT', -12, 92); }
+      if(progress > 0.3) { ctx.fillStyle = '#222'; ctx.fillRect(-15, 60, 30, 20); ctx.fillStyle='#fff'; ctx.font='10px sans-serif'; ctx.fillText('TIME', -12, 72); }
+      if(progress > 0.5) { ctx.fillStyle = '#222'; ctx.fillRect(-15, 40, 30, 20); ctx.fillStyle='#fff'; ctx.font='10px sans-serif'; ctx.fillText('STRESS', -16, 52); }
+      
+      ctx.restore();
+
+      // Draw Right Pan hanging
+      ctx.save();
+      ctx.translate(armLength, 0);
+      ctx.rotate(-angleRad); // Keep upright
+      ctx.strokeStyle = '#999'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(-40, 100); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(40, 100); ctx.stroke();
+      ctx.beginPath(); ctx.arc(0, 100, 40, 0, Math.PI); ctx.fillStyle = '#444'; ctx.fill();
+      
+      // Right Pan absolute position for coins to land
+      const rPanX = cx + Math.cos(angleRad) * armLength;
+      const rPanY = cy + Math.sin(angleRad) * armLength + 100;
+
+      ctx.restore();
+      ctx.restore();
+
+      // Drop Coins
+      if(progress > 0.7 && Math.random() > 0.5) {
+         coins.push({
+           x: rPanX + (Math.random()*40-20),
+           y: 0,
+           vy: 5 + Math.random()*5,
+           active: true
+         });
+      }
+
+      // Update & Draw Coins
+      ctx.fillStyle = '#ffd700';
+      for(let i=0; i<coins.length; i++) {
+         const c = coins[i];
+         if(c.active) {
+           c.y += c.vy;
+           if(c.y >= rPanY - 10) {
+             c.y = rPanY - 10; c.active = false;
+             if(audioInit) playCoin();
+           }
+         }
+         ctx.beginPath(); ctx.arc(c.x, c.y, 5, 0, Math.PI*2); ctx.fill();
+      }
+
+      // UI
+      const title = document.getElementById('title');
+      if(progress < 0.2) title.innerText = "THE RISK";
+      else if(progress < 0.7) { title.innerText = "THE BURDEN"; title.style.color = '#fff'; }
+      else { title.innerText = "THE REWARD"; title.style.color = '#ffd700'; }
+
+      requestAnimationFrame(loop);
+    }
+
+    loop();
+  </script>
+</body>
+</html>
