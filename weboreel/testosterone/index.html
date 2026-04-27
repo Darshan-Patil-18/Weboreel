@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Testosterone & Adrenaline</title>
+  <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@700&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body, html {
+      width: 100%; height: 100%; overflow: hidden;
+      background: #000; color: #ff0000; font-family: 'Oswald', sans-serif;
+      overscroll-behavior: none;
+    }
+
+    #scroll-container {
+      position: absolute; top: 0; left: 0; width: 100%; height: 11000px;
+      opacity: 0; pointer-events: none; z-index: 1000;
+    }
+
+    /* Start Overlay to fix Audio Policy */
+    #start-overlay {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: #000; color: #ff0000; z-index: 9999;
+      display: flex; justify-content: center; align-items: center;
+      font-size: 3rem; cursor: pointer; text-transform: uppercase;
+      transition: opacity 0.5s; text-shadow: 0 0 20px #ff0000;
+    }
+
+    /* Sections */
+    .section {
+      position: absolute; top: 0; left: 0; width: 100vw; height: 100vh;
+      opacity: 0; z-index: 1; pointer-events: none;
+      display: flex; justify-content: center; align-items: center;
+    }
+
+    .bg {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      object-fit: cover; filter: grayscale(100%) contrast(1.5);
+      z-index: 2; transform: scale(1.2);
+    }
+
+    .overlay {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      background: radial-gradient(circle at center, rgba(255,0,0,0.2) 0%, rgba(0,0,0,0.9) 100%);
+      z-index: 3; mix-blend-mode: multiply;
+    }
+
+    .quote {
+      position: relative; z-index: 10; font-size: 8vw; color: #fff;
+      text-transform: uppercase; text-shadow: 0 10px 30px #000, 0 0 20px #ff0000;
+      text-align: center; white-space: nowrap;
+    }
+
+    .hud { position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%); letter-spacing: 5px; z-index: 50; color: #aa0000; font-size: 1.5rem; text-transform: uppercase; }
+  </style>
+</head>
+<body>
+
+  <div id="start-overlay">CLICK TO IGNITE</div>
+
+  <div class="hud" id="hud" style="opacity: 0;">SCROLL TO ESCALATE</div>
+
+  <!-- Sections -->
+  <div class="section" id="sec-0">
+    <img class="bg" id="bg-0" src="https://imgs.search.brave.com/T0aCYXTRqB8J7UWKuIDa9lXC0hKJpMdqvUmH0KhAHwk/rs:fit:860:0:0:0/g:ce/aHR0cHM6Ly9tZWRp/YS5pc3RvY2twaG90/by5jb20vaWQvMTM5/NTU1MzI2My9waG90/by9za3lkaXZlcnMt/bGVhcC1vdXQtb2Yt/YWlycGxhbmUtaW4t/YWVyaWFsLWZsaWdo/dC5qcGc_cz02MTJ4/NjEyJnc9MCZrPTIw/JmM9d2N4OWtfOVZm/SjdsN1FhRlRmWUtD/bVl0OWNjRHpNR3Nf/MHNWNDdCR0EzST0" alt="skydive">
+    <div class="overlay"></div>
+    <div class="quote" id="q-0">CONQUER FEAR.</div>
+  </div>
+
+  <div class="section" id="sec-1">
+    <img class="bg" id="bg-1" src="https://imgs.search.brave.com/uqmmwUDOhF0001X6oMAQ9a6OtTcgVrfGyWHNlb0EZ4M/rs:fit:860:0:0:0/g:ce/aHR0cHM6Ly9tZWRp/YS5nZXR0eWltYWdl/cy5jb20vaWQvc3Rr/MTcyMzNzcG8vcGhv/dG8vYmxhY2stYW5k/LXdoaXRlLXNob3Qt/b2YteW91bmctbWFs/ZS1hdGhsZXRlcy1z/cHJpbnRpbmcuanBn/P3M9NjEyeDYxMiZ3/PTAmaz0yMCZjPUxL/SlhkTHl6ZjlwQUpo/SFJoZWhQRzRsZlFE/ampIYTN0UDN3SG5v/S0trTkU9" alt="sprint">
+    <div class="overlay"></div>
+    <div class="quote" id="q-1">PUSH THE LIMIT.</div>
+  </div>
+
+  <div class="section" id="sec-2">
+    <img class="bg" id="bg-2" src="https://imgs.search.brave.com/mfynRcTa79U3022dXmSQg79mudH1lrRXDUMtymJoQuU/rs:fit:860:0:0:0/g:ce/aHR0cHM6Ly9tZWRp/YS5pc3RvY2twaG90/by5jb20vaWQvMTIx/ODYxMDA1MC9waG90/by93b21hbi1tYWtl/cy1kYW5nZXJvdXMt/anVtcC1iZXR3ZWVu/LXR3by1yb2NrLWZv/cm1hdGlvbnMuanBn/P3M9NjEyeDYxMiZ3/PTAmaz0yMCZjPWV6/dHA5OVJxY1NsUWRk/RzVUdTFwWS1rU192/UzBtcTBWci1uaFoy/ZHh0STg9" alt="jump">
+    <div class="overlay"></div>
+    <div class="quote" id="q-2">EMBRACE DANGER.</div>
+  </div>
+
+  <div class="section" id="sec-3">
+    <img class="bg" id="bg-3" src="https://imgs.search.brave.com/TiN5IQOpx4yvWVtSNBAV4NkYjcoclhgkQtupwXUAn0U/rs:fit:860:0:0:0/g:ce/aHR0cHM6Ly9tZWRp/YS5pc3RvY2twaG90/by5jb20vaWQvNjkz/MzU3MTM4L3Bob3Rv/L21hbi1qdW1waW5n/LW9uLWJteC1iaWtl/LW92ZXItcHJlY2lw/aWNlLWluLW1vdW50/YWlucy1hdC1zdW5z/ZXQuanBnP3M9NjEy/eDYxMiZ3PTAmaz0y/MCZjPTZpTlY2cFRO/TU9sMlN4Tm5GNHlv/Uk9kZnFyQnFELXhv/SDc4ZVRTa1B6Zkk9" alt="bmx">
+    <div class="overlay"></div>
+    <div class="quote" id="q-3">DOMINATE.</div>
+  </div>
+
+  <!-- New Sections -->
+  <div class="section" id="sec-4">
+    <img class="bg" id="bg-4" src="https://imgs.search.brave.com/Gya6o1pH5TVlnE2QWu9yUjlG2nTrydlv7b5NK23mz7U/rs:fit:860:0:0:0/g:ce/aHR0cHM6Ly9tZWRp/YS5nZXR0eWltYWdl/cy5jb20vaWQvNTQ3/NDM2OTEyL3Bob3Rv/L2J1bmdlZS1qdW1w/aW5nLmpwZz9zPTYx/Mng2MTImdz0wJms9/MjAmYz15R0FkdHZf/bzVoOXV6c0xoSEZ4/VTlhbF9ILTNFemdT/Q3VxUmlKOUhxMDhB/PQ" alt="bungee">
+    <div class="overlay"></div>
+    <div class="quote" id="q-4">TAKE THE PLUNGE.</div>
+  </div>
+
+  <div class="section" id="sec-5">
+    <img class="bg" id="bg-5" src="https://imgs.search.brave.com/ORf-dcwInOqoxEw2qnaCMB53RRPd_rn-cQD8lyXqACY/rs:fit:860:0:0:0/g:ce/aHR0cHM6Ly9tZWRp/YS5nZXR0eWltYWdl/cy5jb20vaWQvMTY5/MjM4MzMyNi9waG90/by9hdGhsZXRpYy1t/YW4tY2xpbWJzLWEt/cm9jay13aXRoLWEt/cm9wZS5qcGc_cz02/MTJ4NjEyJnc9MCZr/PTIwJmM9NHM1NjF0/TTh6UmQzU19TbTN2/U2JnbnAzaGtnMlFY/dTN3b1phQ3h0S2VH/UT0" alt="climbing">
+    <div class="overlay"></div>
+    <div class="quote" id="q-5">SCALE THE SUMMIT.</div>
+  </div>
+
+  <div class="section" id="sec-6">
+    <img class="bg" id="bg-6" src="https://imgs.search.brave.com/n5skCVu-yVdRh5GB3kzTPMf3RpWe0004pIMIMn7EahQ/rs:fit:860:0:0:0/g:ce/aHR0cHM6Ly9pbWFn/ZXMudW5zcGxhc2gu/Y29tL3Bob3RvLTE1/MjI5MzE2OTgyOTUt/ZTdiNGQzZTQxODhm/P2l4bGliPXJiLTQu/MS4wJml4aWQ9TTN3/eE1qQTNmREI4TUh4/elpXRnlZMmg4TVRK/OGZHRmtjbVZ1WVd4/cGJtVjhaVzU4TUh4/OE1IeDhmREE9JmZt/PWpwZyZxPTYwJnc9/MzAwMA" alt="parkour">
+    <div class="overlay"></div>
+    <div class="quote" id="q-6">DEFY GRAVITY.</div>
+  </div>
+
+  <div class="section" id="sec-7">
+    <img class="bg" id="bg-7" src="https://imgs.search.brave.com/HJiXkf9nfTJa59sBasvX2eTDWX3MAgoG2za05BZmAgk/rs:fit:860:0:0:0/g:ce/aHR0cHM6Ly9tZWRp/YS5nZXR0eWltYWdl/cy5jb20vaWQvNTIz/Mjc4NDE0L3Bob3Rv/L2ZlbWFsZS1rYXlh/a2VyLXJ1bm5pbmct/YS13YXRlcmZhbGwu/anBnP3M9NjEyeDYx/MiZ3PTAmaz0yMCZj/PVo4OGQzQXBWNWJu/RWNlSlVVLVFSaHln/RGpCdzMyMU84OTU3/SXVxQjIyQnM9" alt="kayak">
+    <div class="overlay"></div>
+    <div class="quote" id="q-7">RIDE THE CHAOS.</div>
+  </div>
+
+  <div class="section" id="sec-8">
+    <img class="bg" id="bg-8" src="https://imgs.search.brave.com/aUouAPj7E0_U0LBPf90IafEfVsCfextar9LBP-wk3-M/rs:fit:860:0:0:0/g:ce/aHR0cHM6Ly9zdGF0/aWMudmVjdGVlenku/Y29tL3N5c3RlbS9y/ZXNvdXJjZXMvdGh1/bWJuYWlscy8wMjEv/NjEwLzM0MS9zbWFs/bC9zZXh5LWJvZHkt/b2YtbXVzY3VsYXIt/eW91bmctc29sZGll/ci1hc2lhbi1tYW4t/aW4tZ3ltLWNvbmNl/cHQtb2YtaGVhbHRo/LWNhcmUtZXhlcmNp/c2UtZml0bmVzcy1z/dHJvbmctbXVzY2xl/LW1hc3MtYm9keS1l/bmhhbmNlbWVudC1m/YXQtcmVkdWN0aW9u/LWZvci1tZW4tcy1o/ZWFsdGgtc3VwcGxl/bWVudC1wcm9kdWN0/LXByZXNlbnRhdGlv/bi1mcmVlLXBob3Rv/LkpQRw" alt="gym">
+    <div class="overlay"></div>
+    <div class="quote" id="q-8">BUILD IRON.</div>
+  </div>
+
+  <div class="section" id="sec-9">
+    <img class="bg" id="bg-9" src="https://imgs.search.brave.com/HM3NGBeIxZaQdNXEqGgxMlaeYN32Oi3RvSuZnr-UQUM/rs:fit:860:0:0:0/g:ce/aHR0cHM6Ly9zdGF0/aWMudmVjdGVlenku/Y29tL3N5c3RlbS9y/ZXNvdXJjZXMvdGh1/bWJuYWlscy8wNDkv/OTMxLzEzNi9zbWFs/bC93ZWxsLWRlZmlu/ZWQtbXVzY3VsYXIt/dG9yc28tb2YtYS1i/bGFjay1hdGhsZXRl/LXBob3RvLmpwZWc" alt="athlete">
+    <div class="overlay"></div>
+    <div class="quote" id="q-9">CARVE GRANITE.</div>
+  </div>
+
+  <div class="section" id="sec-10">
+    <img class="bg" id="bg-10" src="https://imgs.search.brave.com/zeKKIkDnPaUHHSFm4i97hLqU4C6mQXWUyzU1QgbF56Y/rs:fit:860:0:0:0/g:ce/aHR0cHM6Ly9zdGF0/aWMudmVjdGVlenku/Y29tL3N5c3RlbS9y/ZXNvdXJjZXMvdGh1/bWJuYWlscy8wMzUv/NDIzLzMyMi9zbWFs/bC9jbG9zZS11cC1v/Zi1tYW4tbW9kZWwt/dG9yc28tcG9zaW5n/LXNob3dpbmctcGVy/ZmVjdC1ib2R5LXBo/b3RvLmpwZw" alt="model">
+    <div class="overlay"></div>
+    <div class="quote" id="q-10">UNBREAKABLE.</div>
+  </div>
+
+  <div id="scroll-container"></div>
+
+  <script>
+    const numSections = 11;
+    let currentY = 0; let targetY = 0; let maxScroll = 10000; const ease = 0.05;
+    
+    // --- AUDIO ENGINE ---
+    let audioCtx, masterGain;
+    let clockTimer;
+    let nextNoteTime = 0;
+    let stepCount = 0;
+    let currentBPM = 120; // Increases with scroll
+
+    // Synthesize a heavy kick drum
+    function playKick(time) {
+       const o = audioCtx.createOscillator(); o.type = 'sine';
+       o.frequency.setValueAtTime(150, time);
+       o.frequency.exponentialRampToValueAtTime(0.01, time + 0.5);
+       
+       const g = audioCtx.createGain();
+       g.gain.setValueAtTime(3.0, time); // INCREASED VOLUME
+       g.gain.exponentialRampToValueAtTime(0.01, time + 0.5);
+       
+       o.connect(g).connect(masterGain);
+       o.start(time); o.stop(time + 0.5);
+    }
+
+    // Synthesize a gritty bass
+    function playBass(time, pitch) {
+       const o = audioCtx.createOscillator(); o.type = 'sawtooth';
+       o.frequency.setValueAtTime(pitch, time);
+       
+       const g = audioCtx.createGain();
+       g.gain.setValueAtTime(1.5, time); // INCREASED VOLUME
+       g.gain.exponentialRampToValueAtTime(0.01, time + 0.2);
+       
+       o.connect(g).connect(masterGain);
+       o.start(time); o.stop(time + 0.2);
+    }
+
+    function scheduleAudio() {
+      if(!audioCtx) return;
+      const scheduleAheadTime = 0.1;
+      
+      while (nextNoteTime < audioCtx.currentTime + scheduleAheadTime) {
+        const secPerBeat = 60.0 / currentBPM;
+        const noteDuration = secPerBeat / 4; // 16th notes
+        
+        const p = currentY / maxScroll;
+
+        // Kick drum on beats 1, 5, 9, 13
+        if(stepCount % 4 === 0) playKick(nextNoteTime);
+        
+        // Bass on offbeats, pitch rises with scroll
+        if(stepCount % 2 === 1) playBass(nextNoteTime, 40 + (p * 80));
+
+        nextNoteTime += noteDuration;
+        stepCount++;
+      }
+      clockTimer = setTimeout(scheduleAudio, 25);
+    }
+
+    document.getElementById('start-overlay').addEventListener('click', () => {
+      document.getElementById('start-overlay').style.opacity = 0;
+      setTimeout(() => { document.getElementById('start-overlay').style.display = 'none'; }, 500);
+      document.getElementById('hud').style.opacity = 1;
+      
+      // Initialize Audio on Click
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      audioCtx = new AudioContext();
+      
+      // Much more aggressive distortion curve
+      const dist = audioCtx.createWaveShaper();
+      const curve = new Float32Array(400);
+      for(let i=0; i<400; ++i) { const x = i * 2 / 400 - 1; curve[i] = (3 + 50) * x * 20 * (Math.PI / 180) / (Math.PI + 50 * Math.abs(x)); }
+      dist.curve = curve; dist.oversample = '4x';
+
+      masterGain = audioCtx.createGain(); 
+      masterGain.gain.value = 2.0; // INCREASED MASTER VOLUME
+      masterGain.connect(dist).connect(audioCtx.destination);
+      
+      nextNoteTime = audioCtx.currentTime + 0.1;
+      scheduleAudio();
+    });
+
+    // --- SCROLL LOGIC ---
+    window.addEventListener('wheel', e => { e.preventDefault(); targetY += e.deltaY * 1.5; targetY = Math.max(0, Math.min(targetY, maxScroll)); }, {passive: false});
+    let touchY = 0;
+    window.addEventListener('touchstart', e => { touchY = e.touches[0].clientY; }, {passive: true});
+    window.addEventListener('touchmove', e => { e.preventDefault(); targetY += (touchY - e.touches[0].clientY) * 2; targetY = Math.max(0, Math.min(targetY, maxScroll)); touchY = e.touches[0].clientY; }, {passive: false});
+
+    function loop() {
+      currentY += (targetY - currentY) * ease;
+      const progress = currentY / maxScroll; // 0 to 1
+
+      // Speed up music as you scroll down
+      currentBPM = 100 + (progress * 100); // 100 to 200 BPM
+
+      // Section visibility logic
+      const sectionHeight = 1 / (numSections - 1); // e.g. 0.1 for 11 sections
+      
+      for(let i=0; i<numSections; i++) {
+        const sec = document.getElementById('sec-'+i);
+        const bg = document.getElementById('bg-'+i);
+        const q = document.getElementById('q-'+i);
+        
+        // Calculate distance from the center of this section's progress point
+        const secProgress = i * sectionHeight;
+        const dist = Math.abs(progress - secProgress);
+        
+        // Fade in/out window
+        if(dist < sectionHeight) {
+           // It's active
+           const localP = 1 - (dist / sectionHeight); // 1 at center, 0 at edges
+           sec.style.opacity = localP;
+           
+           // Smooth zoom on image
+           // Scale goes from 1.2 to 1.0 as you scroll through it
+           const zoom = 1.2 - (localP * 0.2);
+           bg.style.transform = `scale(${zoom})`;
+
+           // Parallax scale on quote
+           const qScale = 0.8 + (localP * 0.4); // 0.8 to 1.2
+           q.style.transform = `scale(${qScale})`;
+           
+           // Add red glow based on scroll depth
+           const redGlow = Math.floor(progress * 255);
+           q.style.textShadow = `0 10px 30px #000, 0 0 20px rgb(${redGlow}, 0, 0)`;
+        } else {
+           sec.style.opacity = 0;
+        }
+      }
+
+      requestAnimationFrame(loop);
+    }
+
+    loop();
+  </script>
+</body>
+</html>
