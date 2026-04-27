@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Design Your Outfit</title>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@800&family=Inter:wght@400&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body, html {
+      width: 100%; height: 100%; overflow: hidden;
+      background: #e5e5e5; color: #111; font-family: 'Inter', sans-serif;
+      overscroll-behavior: none; transition: background 1s, color 1s;
+    }
+
+    #scroll-container {
+      position: absolute; top: 0; left: 0; width: 100%; height: 5000px;
+      opacity: 0; pointer-events: none;
+    }
+
+    /* Mannequin Base */
+    .mannequin {
+      position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      width: 200px; height: 500px; z-index: 10;
+    }
+    
+    .m-head { position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 50px; height: 70px; background: #ccc; border-radius: 25px; transition: background 1s; }
+    .m-neck { position: absolute; top: 65px; left: 50%; transform: translateX(-50%); width: 20px; height: 30px; background: #bbb; transition: background 1s; }
+    .m-torso { position: absolute; top: 90px; left: 50%; transform: translateX(-50%); width: 100px; height: 180px; background: #ccc; border-radius: 20px; transition: background 1s; }
+    .m-leg-l { position: absolute; top: 260px; left: 55px; width: 35px; height: 200px; background: #ccc; border-radius: 10px; transition: background 1s; }
+    .m-leg-r { position: absolute; top: 260px; right: 55px; width: 35px; height: 200px; background: #ccc; border-radius: 10px; transition: background 1s; }
+    
+    .stand { position: absolute; bottom: -20px; left: 50%; transform: translateX(-50%); width: 150px; height: 10px; background: #888; border-radius: 5px; }
+    .pole { position: absolute; bottom: -10px; left: 50%; transform: translateX(-50%); width: 10px; height: 200px; background: #888; z-index: -1; }
+
+    /* Clothing Items (Dropped in via JS transform) */
+    .clothing { position: absolute; left: 50%; transform: translate(-50%, -150vh); transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275), filter 1s; z-index: 20; }
+    
+    .c-pants { top: 250px; width: 110px; height: 220px; background: #333; border-radius: 10px 10px 5px 5px; clip-path: polygon(0 0, 100% 0, 90% 100%, 60% 100%, 50% 20%, 40% 100%, 10% 100%); filter: grayscale(1); }
+    
+    .c-shirt { top: 85px; width: 120px; height: 190px; background: #fff; border-radius: 20px 20px 5px 5px; box-shadow: inset 0 -20px 0 rgba(0,0,0,0.1); filter: grayscale(1); }
+    
+    .c-jacket { top: 80px; width: 140px; height: 210px; background: #556b2f; border-radius: 25px 25px 5px 5px; border: 4px solid #333; border-bottom: none; z-index: 25; filter: grayscale(1); }
+    
+    .c-hat { top: -20px; width: 90px; height: 40px; background: #ff4500; border-radius: 40px 40px 5px 5px; border-bottom: 8px solid #cc3700; z-index: 30; filter: grayscale(1); }
+
+    /* Finale Effects */
+    .sparkle { position: absolute; width: 20px; height: 20px; background: #fff; clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%); opacity: 0; transition: opacity 0.5s; z-index: 100; animation: spin 2s infinite linear; }
+    @keyframes spin { 100% { transform: rotate(360deg); } }
+
+    #sp1 { top: 20%; left: 30%; } #sp2 { top: 60%; right: 25%; } #sp3 { top: 30%; right: 35%; }
+
+    /* UI */
+    .title { position: fixed; top: 5%; left: 50%; transform: translateX(-50%); font-family: 'Syne', sans-serif; font-size: 5rem; letter-spacing: 5px; text-transform: uppercase; z-index: 100; transition: color 1s, opacity 0.5s; opacity: 0; mix-blend-mode: difference; color: #fff; }
+    .hud { position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%); font-family: monospace; letter-spacing: 2px; z-index: 100; mix-blend-mode: difference; color: #fff; }
+
+    .mute-btn { position: fixed; bottom: 20px; right: 20px; font-size: 1.5rem; z-index: 100; cursor: pointer; opacity: 0.5; mix-blend-mode: difference; color: #fff; }
+    .start-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #e5e5e5; color: #111; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 1000; cursor: pointer; font-size: 2rem; letter-spacing: 3px; font-family: 'Syne', sans-serif; }
+  </style>
+</head>
+<body>
+  <div class="start-screen" id="start-btn">THE ATELIER</div>
+  <div class="mute-btn" id="mute-btn">✂️</div>
+
+  <div class="title" id="title">BASE</div>
+  <div class="hud">SCROLL TO BUILD</div>
+
+  <div class="sparkle" id="sp1"></div>
+  <div class="sparkle" id="sp2"></div>
+  <div class="sparkle" id="sp3"></div>
+
+  <div class="mannequin">
+    <div class="m-head" id="mh"></div><div class="m-neck" id="mn"></div>
+    <div class="m-torso" id="mt"></div>
+    <div class="m-leg-l" id="mll"></div><div class="m-leg-r" id="mlr"></div>
+    <div class="pole"></div><div class="stand"></div>
+    
+    <div class="clothing c-pants" id="c-pants"></div>
+    <div class="clothing c-shirt" id="c-shirt"></div>
+    <div class="clothing c-jacket" id="c-jacket"></div>
+    <div class="clothing c-hat" id="c-hat"></div>
+  </div>
+
+  <div id="scroll-container"></div>
+
+  <script>
+    let currentY = 0; let targetY = 0; let maxScroll = 5000; let isStarted = false; const ease = 0.05;
+    
+    window.addEventListener('wheel', e => { if(!isStarted) return; e.preventDefault(); targetY += e.deltaY; targetY = Math.max(0, Math.min(targetY, maxScroll)); }, {passive: false});
+    let touchY = 0;
+    window.addEventListener('touchstart', e => touchY = e.touches[0].clientY);
+    window.addEventListener('touchmove', e => { if(!isStarted) return; e.preventDefault(); targetY += (touchY - e.touches[0].clientY) * 1.5; targetY = Math.max(0, Math.min(targetY, maxScroll)); touchY = e.touches[0].clientY; }, {passive: false});
+
+    // Audio
+    let audioCtx, masterGain;
+    
+    function initAudio() {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      audioCtx = new AudioContext(); masterGain = audioCtx.createGain(); masterGain.gain.value = 0.5; masterGain.connect(audioCtx.destination);
+    }
+
+    function playDrop() {
+      if(!audioCtx) return;
+      // Whoosh
+      const nSrc = audioCtx.createBufferSource(); const nBuf = audioCtx.createBuffer(1, audioCtx.sampleRate*0.5, audioCtx.sampleRate);
+      for(let i=0; i<audioCtx.sampleRate*0.5; i++) nBuf.getChannelData(0)[i] = Math.random()*2-1;
+      nSrc.buffer = nBuf;
+      const f = audioCtx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.setValueAtTime(100, audioCtx.currentTime); f.frequency.exponentialRampToValueAtTime(2000, audioCtx.currentTime+0.2);
+      const gN = audioCtx.createGain(); gN.gain.setValueAtTime(0, audioCtx.currentTime); gN.gain.linearRampToValueAtTime(0.3, audioCtx.currentTime+0.1); gN.gain.linearRampToValueAtTime(0, audioCtx.currentTime+0.3);
+      nSrc.connect(f).connect(gN).connect(masterGain); nSrc.start();
+      
+      // Thud
+      setTimeout(() => {
+        const o = audioCtx.createOscillator(); o.type = 'sine'; o.frequency.setValueAtTime(150, audioCtx.currentTime); o.frequency.exponentialRampToValueAtTime(40, audioCtx.currentTime+0.1);
+        const g = audioCtx.createGain(); g.gain.setValueAtTime(1, audioCtx.currentTime); g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime+0.1);
+        o.connect(g).connect(masterGain); o.start(); o.stop(audioCtx.currentTime+0.1);
+      }, 200);
+    }
+
+    function playFinale() {
+      if(!audioCtx) return;
+      // Big pop chord
+      [261.63, 329.63, 392.00, 523.25].forEach(f => {
+        const o = audioCtx.createOscillator(); o.type = 'triangle'; o.frequency.value = f;
+        const g = audioCtx.createGain(); g.gain.setValueAtTime(0.5, audioCtx.currentTime); g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime+2);
+        o.connect(g).connect(masterGain); o.start(); o.stop(audioCtx.currentTime+2);
+      });
+      // Sparkle chime
+      const so = audioCtx.createOscillator(); so.type = 'sine'; so.frequency.setValueAtTime(2000, audioCtx.currentTime); so.frequency.linearRampToValueAtTime(1000, audioCtx.currentTime+0.5);
+      const sg = audioCtx.createGain(); sg.gain.setValueAtTime(0.2, audioCtx.currentTime); sg.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime+0.5);
+      so.connect(sg).connect(masterGain); so.start(); so.stop(audioCtx.currentTime+0.5);
+    }
+
+    let lastStage = 0;
+
+    function loop() {
+      if(isStarted) {
+        currentY += (targetY - currentY) * ease;
+        const progress = currentY / maxScroll; // 0 to 1
+
+        let stage = 0;
+        if(progress > 0.15 && progress < 0.3) stage = 1;
+        else if(progress >= 0.3 && progress < 0.45) stage = 2;
+        else if(progress >= 0.45 && progress < 0.6) stage = 3;
+        else if(progress >= 0.6 && progress < 0.8) stage = 4;
+        else if(progress >= 0.8) stage = 5;
+
+        if(stage !== lastStage) {
+          if(stage > lastStage && stage < 5) playDrop();
+          if(stage === 5 && lastStage !== 5) playFinale();
+          lastStage = stage;
+          
+          const title = document.getElementById('title');
+          title.style.opacity = 0;
+          setTimeout(() => { title.style.opacity = 1; }, 300);
+
+          if(stage === 0) {
+            title.innerText = "BASE";
+            document.getElementById('c-pants').style.transform = 'translate(-50%, -150vh)';
+            document.getElementById('c-shirt').style.transform = 'translate(-50%, -150vh)';
+            document.getElementById('c-jacket').style.transform = 'translate(-50%, -150vh)';
+            document.getElementById('c-hat').style.transform = 'translate(-50%, -150vh)';
+          } else if(stage === 1) {
+            title.innerText = "BOTTOMS";
+            document.getElementById('c-pants').style.transform = 'translate(-50%, 0)';
+            document.getElementById('c-shirt').style.transform = 'translate(-50%, -150vh)';
+            document.getElementById('c-jacket').style.transform = 'translate(-50%, -150vh)';
+            document.getElementById('c-hat').style.transform = 'translate(-50%, -150vh)';
+          } else if(stage === 2) {
+            title.innerText = "TOP";
+            document.getElementById('c-pants').style.transform = 'translate(-50%, 0)';
+            document.getElementById('c-shirt').style.transform = 'translate(-50%, 0)';
+            document.getElementById('c-jacket').style.transform = 'translate(-50%, -150vh)';
+            document.getElementById('c-hat').style.transform = 'translate(-50%, -150vh)';
+          } else if(stage === 3) {
+            title.innerText = "OUTERWEAR";
+            document.getElementById('c-pants').style.transform = 'translate(-50%, 0)';
+            document.getElementById('c-shirt').style.transform = 'translate(-50%, 0)';
+            document.getElementById('c-jacket').style.transform = 'translate(-50%, 0)';
+            document.getElementById('c-hat').style.transform = 'translate(-50%, -150vh)';
+          } else if(stage === 4) {
+            title.innerText = "ACCESSORIES";
+            document.getElementById('c-pants').style.transform = 'translate(-50%, 0)';
+            document.getElementById('c-shirt').style.transform = 'translate(-50%, 0)';
+            document.getElementById('c-jacket').style.transform = 'translate(-50%, 0)';
+            document.getElementById('c-hat').style.transform = 'translate(-50%, 0)';
+            
+            // Reset to greyscale
+            document.body.style.background = '#e5e5e5';
+            ['c-pants','c-shirt','c-jacket','c-hat'].forEach(id => document.getElementById(id).style.filter = 'grayscale(1)');
+            ['mh','mn','mt','mll','mlr'].forEach(id => document.getElementById(id).style.background = '#ccc');
+            ['sp1','sp2','sp3'].forEach(id => document.getElementById(id).style.opacity = 0);
+          } else {
+            title.innerText = "THE LOOK";
+            // Colored finale
+            document.body.style.background = '#ffebcd'; // Blanched Almond
+            ['c-pants','c-shirt','c-jacket','c-hat'].forEach(id => document.getElementById(id).style.filter = 'grayscale(0)');
+            // Change mannequin to skin tone
+            ['mh','mn','mt','mll','mlr'].forEach(id => document.getElementById(id).style.background = '#8b4513');
+            ['sp1','sp2','sp3'].forEach(id => document.getElementById(id).style.opacity = 1);
+          }
+        }
+      }
+      requestAnimationFrame(loop);
+    }
+
+    document.getElementById('start-btn').addEventListener('click', function() {
+      initAudio(); this.style.display = 'none'; isStarted = true; loop();
+    });
+
+    let isMuted = false;
+    document.getElementById('mute-btn').addEventListener('click', function() {
+      if(!audioCtx) return; isMuted = !isMuted;
+      masterGain.gain.linearRampToValueAtTime(isMuted ? 0 : 0.5, audioCtx.currentTime + 0.3);
+    });
+  </script>
+</body>
+</html>
