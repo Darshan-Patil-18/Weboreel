@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Museum Heist</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body, html {
+      width: 100%; height: 100%; overflow: hidden;
+      background: #111; color: #fff; font-family: 'Space Mono', monospace;
+      overscroll-behavior: none;
+    }
+
+    #scroll-container {
+      position: absolute; top: 0; left: 0; height: 100%; display: flex;
+      will-change: transform;
+    }
+
+    /* Environment */
+    .floor { position: fixed; bottom: 0; left: 0; width: 100%; height: 20%; background: #0a0a0a; border-top: 2px solid #222; z-index: 1; }
+    .bg-pillars { position: absolute; top: 0; left: 0; width: 400vw; height: 100%; display: flex; z-index: 0; }
+    .pillar { width: 50px; height: 100%; background: #1a1a1a; margin-left: 300px; box-shadow: inset 10px 0 20px #000; }
+
+    /* The Thief */
+    #thief-container {
+      position: fixed; bottom: 20%; left: 20%; width: 60px; height: 120px;
+      z-index: 10; transform-origin: bottom center; transition: transform 0.1s;
+    }
+    .thief-head { position: absolute; top: 0; left: 15px; width: 30px; height: 30px; background: #fff; border-radius: 50%; }
+    .thief-body { position: absolute; top: 30px; left: 28px; width: 4px; height: 50px; background: #fff; }
+    .thief-arm-l { position: absolute; top: 40px; left: 8px; width: 20px; height: 4px; background: #fff; transform: rotate(45deg); transform-origin: right; }
+    .thief-arm-r { position: absolute; top: 40px; left: 32px; width: 20px; height: 4px; background: #fff; transform: rotate(-45deg); transform-origin: left; }
+    .thief-leg-l { position: absolute; top: 80px; left: 18px; width: 4px; height: 40px; background: #fff; transform: rotate(20deg); transform-origin: top; }
+    .thief-leg-r { position: absolute; top: 80px; left: 38px; width: 4px; height: 40px; background: #fff; transform: rotate(-20deg); transform-origin: top; }
+
+    /* Animation classes */
+    @keyframes run { 0% { transform: rotate(30deg); } 50% { transform: rotate(-30deg); } 100% { transform: rotate(30deg); } }
+    .running .thief-leg-l { animation: run 0.5s infinite; }
+    .running .thief-leg-r { animation: run 0.5s infinite; animation-delay: 0.25s; }
+    .running .thief-arm-l { animation: run 0.5s infinite; animation-delay: 0.25s; }
+    .running .thief-arm-r { animation: run 0.5s infinite; }
+
+    .ducking { transform: scaleY(0.5); }
+    .jumping { transform: translateY(-150px); }
+
+    /* Obstacles & Sections */
+    .section { width: 100vw; height: 100%; position: relative; flex-shrink: 0; z-index: 5; border-right: 1px dashed #333; }
+    
+    .laser-h { position: absolute; left: 0; width: 100%; height: 4px; background: #f00; box-shadow: 0 0 10px #f00, 0 0 20px #f00; }
+    .laser-v { position: absolute; top: 0; width: 4px; height: 80%; background: #f00; box-shadow: 0 0 10px #f00, 0 0 20px #f00; }
+
+    /* Diamond */
+    .pedestal { position: absolute; bottom: 20%; left: 50%; transform: translateX(-50%); width: 100px; height: 200px; background: #222; border-top: 10px solid #444; }
+    .diamond {
+      position: absolute; bottom: calc(20% + 220px); left: 50%; transform: translateX(-50%);
+      width: 0; height: 0; border-left: 30px solid transparent; border-right: 30px solid transparent; border-bottom: 40px solid #0ff;
+      filter: drop-shadow(0 0 20px #0ff); animation: float 2s infinite alternate ease-in-out;
+    }
+    .diamond::after { content: ''; position: absolute; top: 40px; left: -30px; width: 0; height: 0; border-left: 30px solid transparent; border-right: 30px solid transparent; border-top: 50px solid #0aa; }
+    @keyframes float { 0% { transform: translate(-50%, 0); } 100% { transform: translate(-50%, -20px); } }
+
+    /* Alarm */
+    .alarm-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,0,0,0.2); z-index: 50; pointer-events: none; opacity: 0; transition: opacity 0.2s; }
+    .alarm-active .alarm-overlay { opacity: 1; animation: flash 0.5s infinite alternate; }
+    @keyframes flash { 0% { opacity: 0.2; } 100% { opacity: 0.8; } }
+
+    .velocity-meter { position: fixed; top: 20px; left: 20px; z-index: 100; font-size: 1rem; color: #fff; }
+
+    .mute-btn { position: fixed; bottom: 20px; right: 20px; font-size: 1.5rem; z-index: 100; cursor: pointer; opacity: 0.5; color: white; }
+    .start-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; color: #fff; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 1000; cursor: pointer; font-size: 2rem; }
+  </style>
+</head>
+<body>
+  <div class="start-screen" id="start-btn">
+    <div>START HEIST</div>
+    <div style="font-size:1rem; color:#888; margin-top:20px;">Scroll to move. Don't scroll too fast.</div>
+  </div>
+  <div class="mute-btn" id="mute-btn">🕵️</div>
+
+  <div class="velocity-meter" id="vel-meter">NOISE LEVEL: 0%</div>
+  <div class="alarm-overlay"></div>
+  <div class="floor"></div>
+
+  <div class="bg-pillars">
+    <div class="pillar"></div><div class="pillar"></div><div class="pillar"></div><div class="pillar"></div>
+    <div class="pillar"></div><div class="pillar"></div><div class="pillar"></div><div class="pillar"></div>
+  </div>
+
+  <div id="thief-container">
+    <div class="thief-head"></div>
+    <div class="thief-body"></div>
+    <div class="thief-arm-l"></div><div class="thief-arm-r"></div>
+    <div class="thief-leg-l"></div><div class="thief-leg-r"></div>
+  </div>
+
+  <div id="scroll-container">
+    <div class="section" id="s1">
+      <div style="position:absolute; bottom:30%; left:50%; color:#555;">[ ENTERING GALLERY ]</div>
+    </div>
+    
+    <div class="section" id="s2">
+      <!-- High laser, duck -->
+      <div class="laser-h" style="bottom: calc(20% + 80px);"></div>
+      <div style="position:absolute; bottom:10%; left:50%; color:#555;">[ DUCK ]</div>
+    </div>
+
+    <div class="section" id="s3">
+      <!-- Low laser, jump -->
+      <div class="laser-h" style="bottom: calc(20% + 20px);"></div>
+      <div style="position:absolute; bottom:10%; left:50%; color:#555;">[ JUMP ]</div>
+    </div>
+
+    <div class="section" id="s4">
+      <!-- Target -->
+      <div class="pedestal"></div>
+      <div class="diamond" id="diamond"></div>
+    </div>
+  </div>
+
+  <script>
+    let currentX = 0; let targetX = 0; let maxScroll = 0; let isStarted = false; const ease = 0.1;
+    const scrollCont = document.getElementById('scroll-container');
+    const thief = document.getElementById('thief-container');
+    const pillars = document.querySelector('.bg-pillars');
+    let isAlarm = false;
+
+    function resize() { maxScroll = window.innerWidth * 3; }
+    window.addEventListener('resize', resize);
+    window.addEventListener('wheel', e => {
+      if(!isStarted || isAlarm) return; e.preventDefault();
+      targetX += e.deltaY; targetX = Math.max(0, Math.min(targetX, maxScroll));
+    }, {passive: false});
+
+    let touchX = 0;
+    window.addEventListener('touchstart', e => touchX = e.touches[0].clientX);
+    window.addEventListener('touchmove', e => {
+      if(!isStarted || isAlarm) return; e.preventDefault();
+      targetX += (touchX - e.touches[0].clientX) * 1.5; targetX = Math.max(0, Math.min(targetX, maxScroll));
+      touchX = e.touches[0].clientX;
+    }, {passive: false});
+
+    // Audio
+    let audioCtx, masterGain, bassOsc, bassGain, alarmOsc;
+    function initAudio() {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      audioCtx = new AudioContext(); masterGain = audioCtx.createGain(); masterGain.gain.value = 0.5; masterGain.connect(audioCtx.destination);
+      
+      // Stealth bass
+      bassOsc = audioCtx.createOscillator(); bassOsc.type = 'triangle'; bassOsc.frequency.value = 60;
+      bassGain = audioCtx.createGain(); bassGain.gain.value = 0.2;
+      bassOsc.connect(bassGain).connect(masterGain); bassOsc.start();
+    }
+
+    function triggerAlarm() {
+      if(isAlarm) return;
+      isAlarm = true; document.body.classList.add('alarm-active');
+      document.getElementById('vel-meter').innerText = "ALARM TRIGGERED! BUSTED.";
+      document.getElementById('vel-meter').style.color = '#f00';
+      thief.classList.remove('running');
+      if(audioCtx) {
+        alarmOsc = audioCtx.createOscillator(); alarmOsc.type = 'square'; alarmOsc.frequency.value = 800;
+        const lfo = audioCtx.createOscillator(); lfo.frequency.value = 5;
+        const lfoGain = audioCtx.createGain(); lfoGain.gain.value = 400;
+        lfo.connect(lfoGain).connect(alarmOsc.frequency);
+        alarmOsc.connect(masterGain); alarmOsc.start(); lfo.start();
+        bassGain.gain.value = 0;
+      }
+    }
+
+    function loop() {
+      if(isStarted) {
+        const vel = targetX - currentX;
+        currentX += vel * ease;
+        scrollCont.style.transform = `translateX(${-currentX}px)`;
+        pillars.style.transform = `translateX(${-currentX * 0.5}px)`; // Parallax background
+
+        if(!isAlarm) {
+          const noise = Math.min(100, Math.abs(vel));
+          document.getElementById('vel-meter').innerText = `NOISE LEVEL: ${Math.round(noise)}%`;
+          if(noise > 80) triggerAlarm();
+
+          // Pose logic based on section
+          const vw = window.innerWidth;
+          const progress = currentX / vw;
+          
+          thief.className = ''; // Reset
+          
+          if(Math.abs(vel) > 1) {
+            thief.classList.add('running');
+          }
+
+          // Section 2: Duck (between 1.2 and 1.8 vw)
+          if(progress > 1.0 && progress < 1.7) {
+            thief.classList.add('ducking'); thief.classList.remove('running');
+          }
+          // Section 3: Jump (between 2.0 and 2.7 vw)
+          else if(progress > 2.0 && progress < 2.7) {
+            thief.classList.add('jumping'); thief.classList.remove('running');
+          }
+          
+          // Section 4: Win
+          if(progress > 2.9) {
+            document.getElementById('diamond').style.display = 'none'; // Stolen!
+            document.getElementById('vel-meter').innerText = "HEIST SUCCESSFUL.";
+            document.getElementById('vel-meter').style.color = '#0ff';
+          }
+        }
+      }
+      requestAnimationFrame(loop);
+    }
+
+    document.getElementById('start-btn').addEventListener('click', function() {
+      initAudio(); this.style.display = 'none'; isStarted = true; resize(); loop();
+    });
+
+    let isMuted = false;
+    document.getElementById('mute-btn').addEventListener('click', function() {
+      if(!audioCtx) return; isMuted = !isMuted;
+      masterGain.gain.linearRampToValueAtTime(isMuted ? 0 : 0.5, audioCtx.currentTime + 0.3);
+      this.style.opacity = isMuted ? 0.3 : 1;
+    });
+    window.onload = resize;
+  </script>
+</body>
+</html>
