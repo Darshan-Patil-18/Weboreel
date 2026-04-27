@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Celebrity Style Evolution</title>
+  <link href="https://fonts.googleapis.com/css2?family=Righteous&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body, html {
+      width: 100%; height: 100%; overflow: hidden;
+      background: #87ceeb; color: #111; font-family: 'Righteous', cursive;
+      overscroll-behavior: none; transition: background 1s, color 1s;
+    }
+
+    #scroll-container {
+      position: absolute; top: 0; left: 0; width: 100%; height: 4000px;
+      opacity: 0; pointer-events: none;
+    }
+
+    /* Environmental Props */
+    .bg-prop { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; opacity: 0; transition: opacity 1s; z-index: 1; }
+    #p-debut { background: radial-gradient(circle at center, #fff, transparent 60%); }
+    #p-rebel { background: linear-gradient(45deg, #000, #330000); }
+    #p-synth { background: repeating-linear-gradient(0deg, #f0f, #0ff 10px, transparent 10px, transparent 20px); opacity: 0.2; mix-blend-mode: screen; }
+    #p-avant { background: repeating-conic-gradient(#fff 0 15deg, #000 15deg 30deg); opacity: 0.1; }
+
+    /* The Star */
+    .star {
+      position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      width: 200px; height: 400px; z-index: 10;
+    }
+
+    /* Hair */
+    .hair { position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 100px; height: 120px; border-radius: 50%; transition: all 1s; background: #daa520; }
+    /* Face */
+    .face { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); width: 60px; height: 70px; background: #ffdead; border-radius: 30px; transition: all 1s; }
+    /* Outfit */
+    .outfit { position: absolute; top: 90px; left: 50%; transform: translateX(-50%); width: 120px; height: 310px; transition: all 1s; }
+    
+    /* Prop container (Guitar, Synth, etc) */
+    .hand-prop { position: absolute; top: 150px; left: 80px; width: 100px; height: 100px; transition: all 1s; opacity: 0; }
+
+    /* Text */
+    .era-title { position: fixed; top: 10%; left: 50%; transform: translateX(-50%); font-size: 5rem; text-transform: uppercase; letter-spacing: 5px; z-index: 100; transition: color 1s, opacity 0.5s; text-shadow: 0 5px 10px rgba(0,0,0,0.2); }
+    
+    .hud { position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%); font-family: monospace; letter-spacing: 2px; z-index: 100; mix-blend-mode: difference; color: #fff; }
+
+    .mute-btn { position: fixed; bottom: 20px; right: 20px; font-size: 1.5rem; z-index: 100; cursor: pointer; opacity: 0.5; mix-blend-mode: difference; color: #fff; }
+    .start-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #87ceeb; color: #fff; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 1000; cursor: pointer; font-size: 2rem; letter-spacing: 3px; font-family: 'Righteous', cursive; }
+  </style>
+</head>
+<body>
+  <div class="start-screen" id="start-btn">THE ERAS</div>
+  <div class="mute-btn" id="mute-btn">🎸</div>
+
+  <div class="bg-prop" id="p-debut"></div>
+  <div class="bg-prop" id="p-rebel"></div>
+  <div class="bg-prop" id="p-synth"></div>
+  <div class="bg-prop" id="p-avant"></div>
+
+  <div class="era-title" id="title">THE DEBUT</div>
+  <div class="hud">SCROLL TO REINVENT</div>
+
+  <div class="star">
+    <div class="hair" id="hair"></div>
+    <div class="face" id="face"></div>
+    <div class="outfit" id="outfit" style="background: #fff; border-radius: 10px 10px 0 0;"></div>
+    <div class="hand-prop" id="hprop" style="background: #8b4513; border-radius: 50% 50% 10px 10px; opacity: 1;"></div> <!-- Guitar abstract -->
+  </div>
+
+  <div id="scroll-container"></div>
+
+  <script>
+    let currentY = 0; let targetY = 0; let maxScroll = 4000; let isStarted = false; const ease = 0.05;
+    
+    window.addEventListener('wheel', e => { if(!isStarted) return; e.preventDefault(); targetY += e.deltaY; targetY = Math.max(0, Math.min(targetY, maxScroll)); }, {passive: false});
+    let touchY = 0;
+    window.addEventListener('touchstart', e => touchY = e.touches[0].clientY);
+    window.addEventListener('touchmove', e => { if(!isStarted) return; e.preventDefault(); targetY += (touchY - e.touches[0].clientY) * 1.5; targetY = Math.max(0, Math.min(targetY, maxScroll)); touchY = e.touches[0].clientY; }, {passive: false});
+
+    // Audio
+    let audioCtx, masterGain;
+    let bDebut, bRebel, bSynth, bAvant;
+    
+    function initAudio() {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      audioCtx = new AudioContext(); masterGain = audioCtx.createGain(); masterGain.gain.value = 0.5; masterGain.connect(audioCtx.destination);
+      
+      // Debut (Acoustic Guitar - Plucked sine)
+      bDebut = audioCtx.createGain(); bDebut.gain.value = 1;
+      setInterval(() => {
+        if(isStarted && audioCtx && bDebut.gain.value > 0.1) {
+          const o = audioCtx.createOscillator(); o.type = 'sine'; o.frequency.value = [196, 246.94, 293.66, 392][Math.floor(Math.random()*4)];
+          const g = audioCtx.createGain(); g.gain.setValueAtTime(0.5, audioCtx.currentTime); g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime+1);
+          o.connect(g).connect(bDebut).connect(masterGain); o.start(); o.stop(audioCtx.currentTime+1);
+        }
+      }, 500);
+
+      // Rebel (Distorted Electric - Sawtooth power chord)
+      bRebel = audioCtx.createGain(); bRebel.gain.value = 0;
+      setInterval(() => {
+        if(isStarted && audioCtx && bRebel.gain.value > 0.1) {
+          [82.41, 123.47, 164.81].forEach(f => {
+            const o = audioCtx.createOscillator(); o.type = 'sawtooth'; o.frequency.value = f;
+            const g = audioCtx.createGain(); g.gain.setValueAtTime(0.3, audioCtx.currentTime); g.gain.linearRampToValueAtTime(0, audioCtx.currentTime+0.5);
+            // Distortion via wave shaping (simplified by high gain into hard limit, but we'll just use raw saw)
+            o.connect(g).connect(bRebel).connect(masterGain); o.start(); o.stop(audioCtx.currentTime+0.5);
+          });
+        }
+      }, 1000);
+
+      // Synth (80s Synthpop Arp - Square)
+      bSynth = audioCtx.createGain(); bSynth.gain.value = 0;
+      let sNotes = [261.63, 329.63, 392.00, 523.25]; let sIdx = 0;
+      setInterval(() => {
+        if(isStarted && audioCtx && bSynth.gain.value > 0.1) {
+          const o = audioCtx.createOscillator(); o.type = 'square'; o.frequency.value = sNotes[sIdx];
+          sIdx = (sIdx + 1) % sNotes.length;
+          const g = audioCtx.createGain(); g.gain.setValueAtTime(0.2, audioCtx.currentTime); g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime+0.1);
+          o.connect(g).connect(bSynth).connect(masterGain); o.start(); o.stop(audioCtx.currentTime+0.1);
+        }
+      }, 150);
+
+      // Avant Garde (Weird dissonant FM noise)
+      bAvant = audioCtx.createGain(); bAvant.gain.value = 0;
+      const oA = audioCtx.createOscillator(); oA.type = 'sine'; oA.frequency.value = 100;
+      const lfoA = audioCtx.createOscillator(); lfoA.type = 'sawtooth'; lfoA.frequency.value = 50;
+      const lgA = audioCtx.createGain(); lgA.gain.value = 1000;
+      lfoA.connect(lgA).connect(oA.frequency);
+      oA.connect(bAvant).connect(masterGain); oA.start(); lfoA.start();
+    }
+
+    let lastStage = -1;
+
+    function loop() {
+      if(isStarted) {
+        currentY += (targetY - currentY) * ease;
+        const progress = currentY / maxScroll; // 0 to 1
+
+        let stage = 0;
+        if(progress > 0.25 && progress < 0.5) stage = 1;
+        else if(progress >= 0.5 && progress < 0.75) stage = 2;
+        else if(progress >= 0.75) stage = 3;
+
+        if(stage !== lastStage) {
+          lastStage = stage;
+          
+          const title = document.getElementById('title');
+          const hair = document.getElementById('hair');
+          const face = document.getElementById('face');
+          const outfit = document.getElementById('outfit');
+          const hprop = document.getElementById('hprop');
+
+          // BG Opacity
+          ['p-debut','p-rebel','p-synth','p-avant'].forEach((id, i) => {
+            document.getElementById(id).style.opacity = i === stage ? (i===2?0.2:i===3?0.1:1) : 0;
+          });
+
+          // Text Anim
+          title.style.opacity = 0;
+          setTimeout(() => { title.style.opacity = 1; }, 300);
+
+          if(stage === 0) { // Debut
+            document.body.style.background = '#87ceeb'; title.innerText = "THE DEBUT"; title.style.color = '#fff';
+            hair.style.background = '#daa520'; hair.style.width = '100px'; hair.style.borderRadius = '50%';
+            outfit.style.background = '#fff'; outfit.style.borderRadius = '10px 10px 0 0'; outfit.style.clipPath = 'none';
+            hprop.style.opacity = 1; hprop.style.background = '#8b4513'; hprop.style.borderRadius = '50% 50% 10px 10px'; hprop.style.transform = 'rotate(45deg)';
+            if(audioCtx) { bDebut.gain.setTargetAtTime(1, audioCtx.currentTime, 0.5); bRebel.gain.setTargetAtTime(0, audioCtx.currentTime, 0.5); bSynth.gain.setTargetAtTime(0, audioCtx.currentTime, 0.5); bAvant.gain.setTargetAtTime(0, audioCtx.currentTime, 0.5); }
+          } else if(stage === 1) { // Rebel
+            document.body.style.background = '#111'; title.innerText = "THE REBEL"; title.style.color = '#f00';
+            hair.style.background = '#000'; hair.style.width = '60px'; hair.style.borderRadius = '10px'; // Short dark hair
+            outfit.style.background = '#222'; outfit.style.border = '2px solid #555'; outfit.style.borderRadius = '20px 20px 0 0'; outfit.style.clipPath = 'none';
+            hprop.style.opacity = 0; // Drop guitar
+            if(audioCtx) { bDebut.gain.setTargetAtTime(0, audioCtx.currentTime, 0.5); bRebel.gain.setTargetAtTime(1, audioCtx.currentTime, 0.5); bSynth.gain.setTargetAtTime(0, audioCtx.currentTime, 0.5); bAvant.gain.setTargetAtTime(0, audioCtx.currentTime, 0.5); }
+          } else if(stage === 2) { // Synth
+            document.body.style.background = '#2b00ff'; title.innerText = "THE SYNTH ERA"; title.style.color = '#0ff';
+            hair.style.background = '#f0f'; hair.style.width = '120px'; hair.style.borderRadius = '60px 60px 0 0'; // Big 80s hair
+            outfit.style.background = 'linear-gradient(45deg, #0ff, #f0f)'; outfit.style.border = 'none'; outfit.style.borderRadius = '30px 30px 0 0'; outfit.style.clipPath = 'none';
+            hprop.style.opacity = 1; hprop.style.background = '#111'; hprop.style.borderRadius = '5px'; hprop.style.width = '120px'; hprop.style.height = '40px'; hprop.style.transform = 'rotate(-20deg)'; // Keytar
+            if(audioCtx) { bDebut.gain.setTargetAtTime(0, audioCtx.currentTime, 0.5); bRebel.gain.setTargetAtTime(0, audioCtx.currentTime, 0.5); bSynth.gain.setTargetAtTime(1, audioCtx.currentTime, 0.5); bAvant.gain.setTargetAtTime(0, audioCtx.currentTime, 0.5); }
+          } else { // Avant
+            document.body.style.background = '#fff'; title.innerText = "THE AVANT-GARDE"; title.style.color = '#000';
+            hair.style.background = '#fff'; hair.style.border = '2px solid #000'; hair.style.width = '200px'; hair.style.borderRadius = '100px 100px 0 0'; // Abstract shape
+            outfit.style.background = '#000'; outfit.style.border = 'none'; outfit.style.borderRadius = '0';
+            outfit.style.clipPath = 'polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)'; // Geometric dress
+            hprop.style.opacity = 0;
+            if(audioCtx) { bDebut.gain.setTargetAtTime(0, audioCtx.currentTime, 0.5); bRebel.gain.setTargetAtTime(0, audioCtx.currentTime, 0.5); bSynth.gain.setTargetAtTime(0, audioCtx.currentTime, 0.5); bAvant.gain.setTargetAtTime(1, audioCtx.currentTime, 0.5); }
+          }
+        }
+      }
+      requestAnimationFrame(loop);
+    }
+
+    document.getElementById('start-btn').addEventListener('click', function() {
+      initAudio(); this.style.display = 'none'; isStarted = true; loop();
+    });
+
+    let isMuted = false;
+    document.getElementById('mute-btn').addEventListener('click', function() {
+      if(!audioCtx) return; isMuted = !isMuted;
+      masterGain.gain.linearRampToValueAtTime(isMuted ? 0 : 0.5, audioCtx.currentTime + 0.3);
+    });
+  </script>
+</body>
+</html>
