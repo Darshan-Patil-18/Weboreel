@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Sound Visualizer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body, html {
+      width: 100%; height: 100%; overflow: hidden;
+      background: #000; color: #fff; font-family: 'Space Mono', monospace;
+      overscroll-behavior: none;
+    }
+
+    #canvas-container {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; pointer-events: none;
+    }
+
+    #scroll-container {
+      position: absolute; top: 0; left: 0; width: 100%; will-change: transform; z-index: 2;
+    }
+
+    .marker {
+      width: 100%; height: 100vh; display: flex; justify-content: flex-start; align-items: flex-end;
+      padding: 40px; color: rgba(255,255,255,0.3); font-size: 1.5rem; letter-spacing: 5px;
+    }
+
+    /* UI Overlay */
+    .hud {
+      position: fixed; top: 20px; left: 20px; z-index: 10; pointer-events: none;
+      display: flex; flex-direction: column; gap: 10px; font-size: 0.9rem; color: rgba(0,255,255,0.8);
+    }
+    .hud span { background: rgba(0,20,40,0.5); padding: 5px 10px; border-left: 2px solid #0ff; }
+
+    .mute-btn { position: fixed; bottom: 20px; right: 20px; font-size: 1.5rem; z-index: 100; cursor: pointer; opacity: 0.5; color: white; }
+    .start-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; color: #0ff; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 1000; cursor: pointer; font-size: 2rem; letter-spacing: 5px; text-shadow: 0 0 20px #0ff; }
+  </style>
+</head>
+<body>
+  <div class="start-screen" id="start-btn">
+    <div>SYNC AUDIO</div>
+    <div style="font-size: 1rem; color: #888; margin-top: 20px;">Scroll to control filter & tempo</div>
+  </div>
+  <div class="mute-btn" id="mute-btn">🎛️</div>
+
+  <div class="hud">
+    <span id="hud-filter">CUTOFF: 200 Hz</span>
+    <span id="hud-tempo">TEMPO: 100 BPM</span>
+    <span id="hud-depth">DEPTH: 0%</span>
+  </div>
+
+  <canvas id="canvas-container"></canvas>
+
+  <div id="scroll-container">
+    <div class="marker">001 : DEEP BASS</div>
+    <div class="marker">002 : LOW MIDS</div>
+    <div class="marker">003 : HIGH MIDS</div>
+    <div class="marker">004 : PRESENCE</div>
+    <div class="marker" style="padding-bottom: 20vh;">005 : BRILLIANCE</div>
+  </div>
+
+  <script>
+    let currentY = 0; let targetY = 0; let maxScroll = 0; let isStarted = false; const ease = 0.08;
+    const scrollCont = document.getElementById('scroll-container');
+    
+    function resize() { maxScroll = scrollCont.offsetHeight - window.innerHeight; }
+    window.addEventListener('resize', resize);
+    window.addEventListener('wheel', e => { if(!isStarted) return; e.preventDefault(); targetY += e.deltaY; targetY = Math.max(0, Math.min(targetY, maxScroll)); }, {passive: false});
+    let touchY = 0;
+    window.addEventListener('touchstart', e => touchY = e.touches[0].clientY);
+    window.addEventListener('touchmove', e => { if(!isStarted) return; e.preventDefault(); targetY += (touchY - e.touches[0].clientY) * 1.5; targetY = Math.max(0, Math.min(targetY, maxScroll)); touchY = e.touches[0].clientY; }, {passive: false});
+
+    // Audio Context & Analyser
+    let audioCtx, masterGain, filterNode, analyser, dataArray;
+    let tempo = 100; // BPM
+    let nextNoteTime = 0;
+    let currentNote = 0;
+    
+    // Pentatonic scale frequencies
+    const scale = [196.00, 220.00, 261.63, 293.66, 329.63, 392.00, 440.00, 523.25]; 
+
+    function initAudio() {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      audioCtx = new AudioContext();
+      masterGain = audioCtx.createGain(); masterGain.gain.value = 0.3;
+      
+      // Filter controlled by scroll
+      filterNode = audioCtx.createBiquadFilter();
+      filterNode.type = 'lowpass';
+      filterNode.frequency.value = 200;
+      
+      // Delay effect
+      const delay = audioCtx.createDelay(); delay.delayTime.value = 0.3;
+      const feedback = audioCtx.createGain(); feedback.gain.value = 0.4;
+      delay.connect(feedback); feedback.connect(delay);
+      
+      // Analyser for visualizer
+      analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 512;
+      const bufferLength = analyser.frequencyBinCount;
+      dataArray = new Uint8Array(bufferLength);
+
+      filterNode.connect(delay);
+      filterNode.connect(analyser);
+      delay.connect(analyser);
+      analyser.connect(masterGain);
+      masterGain.connect(audioCtx.destination);
+
+      // Base drone
+      const drone = audioCtx.createOscillator(); drone.type = 'sawtooth'; drone.frequency.value = 65.41; // C2
+      const droneGain = audioCtx.createGain(); droneGain.gain.value = 0.2;
+      drone.connect(droneGain).connect(filterNode); drone.start();
+
+      nextNoteTime = audioCtx.currentTime + 0.1;
+    }
+
+    function scheduleArp() {
+      if(!audioCtx) return;
+      while (nextNoteTime < audioCtx.currentTime + 0.1) {
+        // Play note
+        const osc = audioCtx.createOscillator();
+        osc.type = Math.random() > 0.5 ? 'sine' : 'square';
+        osc.frequency.value = scale[currentNote % scale.length] * (Math.random() > 0.8 ? 2 : 1);
+        
+        const env = audioCtx.createGain();
+        env.gain.setValueAtTime(0, nextNoteTime);
+        env.gain.linearRampToValueAtTime(0.3, nextNoteTime + 0.02);
+        env.gain.exponentialRampToValueAtTime(0.001, nextNoteTime + 0.2);
+        
+        osc.connect(env).connect(filterNode);
+        osc.start(nextNoteTime);
+        osc.stop(nextNoteTime + 0.2);
+
+        // Advance
+        const secondsPerBeat = 60.0 / tempo;
+        nextNoteTime += secondsPerBeat * 0.25; // 16th notes
+        currentNote += Math.floor(Math.random() * 3) + 1;
+      }
+    }
+
+    // Canvas Visualizer
+    const canvas = document.getElementById('canvas-container');
+    const ctx = canvas.getContext('2d');
+    let cw, ch;
+    let particles = [];
+
+    function initCanvas() {
+      cw = window.innerWidth; ch = window.innerHeight;
+      canvas.width = cw; canvas.height = ch;
+      particles = [];
+      for(let i=0; i<200; i++) {
+        particles.push({
+          angle: Math.random() * Math.PI * 2,
+          radius: Math.random() * 100 + 50,
+          speed: Math.random() * 2 + 0.5,
+          color: `hsl(${Math.random()*60 + 180}, 100%, 50%)`
+        });
+      }
+    }
+    window.addEventListener('resize', initCanvas); initCanvas();
+
+    function renderCanvas() {
+      ctx.fillStyle = 'rgba(0,0,0,0.2)';
+      ctx.fillRect(0,0,cw,ch);
+
+      if(analyser) {
+        analyser.getByteFrequencyData(dataArray);
+        
+        const cx = cw / 2; const cy = ch / 2;
+        let avgFreq = 0;
+
+        // Draw frequency circle
+        ctx.beginPath();
+        for(let i=0; i<dataArray.length / 2; i++) {
+          const val = dataArray[i];
+          avgFreq += val;
+          const r = 100 + val;
+          const a = (i / (dataArray.length / 2)) * Math.PI * 2;
+          const x = cx + Math.cos(a) * r;
+          const y = cy + Math.sin(a) * r;
+          if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+        }
+        ctx.closePath();
+        ctx.strokeStyle = `hsl(${(currentY/maxScroll)*360}, 100%, 50%)`;
+        ctx.lineWidth = 3; ctx.stroke();
+
+        avgFreq = avgFreq / (dataArray.length / 2);
+
+        // Draw particles
+        particles.forEach((p, i) => {
+          const val = dataArray[i % (dataArray.length/2)];
+          const r = p.radius + val * 2;
+          p.angle += p.speed * 0.01 * (val/50 + 0.1);
+          const x = cx + Math.cos(p.angle) * r;
+          const y = cy + Math.sin(p.angle) * r;
+          
+          ctx.beginPath();
+          ctx.arc(x, y, val > 200 ? 3 : 1.5, 0, Math.PI*2);
+          ctx.fillStyle = val > 200 ? '#fff' : p.color;
+          ctx.fill();
+        });
+      }
+
+      requestAnimationFrame(renderCanvas);
+    }
+
+    function loop() {
+      if(isStarted) {
+        currentY += (targetY - currentY) * ease;
+        scrollCont.style.transform = `translateY(${-currentY}px)`;
+
+        const depthRatio = Math.max(0, Math.min(1, currentY / maxScroll));
+        
+        // Update Audio Params
+        if(audioCtx) {
+          // Filter opens from 200 to 10000 exponentially
+          const minF = 200; const maxF = 10000;
+          const f = minF * Math.pow(maxF/minF, depthRatio);
+          filterNode.frequency.setTargetAtTime(f, audioCtx.currentTime, 0.1);
+          
+          // Tempo increases 100 to 240
+          tempo = 100 + (depthRatio * 140);
+          
+          scheduleArp();
+        }
+
+        // Update HUD
+        document.getElementById('hud-filter').innerText = `CUTOFF: ${audioCtx ? Math.round(filterNode.frequency.value) : 200} Hz`;
+        document.getElementById('hud-tempo').innerText = `TEMPO: ${Math.round(tempo)} BPM`;
+        document.getElementById('hud-depth').innerText = `DEPTH: ${Math.round(depthRatio*100)}%`;
+      }
+      requestAnimationFrame(loop);
+    }
+
+    document.getElementById('start-btn').addEventListener('click', function() {
+      initAudio(); this.style.display = 'none'; isStarted = true; resize(); renderCanvas(); loop();
+    });
+
+    let isMuted = false;
+    document.getElementById('mute-btn').addEventListener('click', function() {
+      if(!audioCtx) return; isMuted = !isMuted;
+      masterGain.gain.linearRampToValueAtTime(isMuted ? 0 : 0.3, audioCtx.currentTime + 0.3);
+      this.style.opacity = isMuted ? 0.3 : 1;
+    });
+    window.onload = resize;
+  </script>
+</body>
+</html>
