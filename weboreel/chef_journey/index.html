@@ -1,0 +1,762 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>A Meal in Five Acts</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Cormorant+Garamond:ital,wght@1,300&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-dark: #050403;
+      --gold: #d4a843;
+      --text-cream: #fbf5e9;
+      --text-grey: #8a8885;
+      
+      --c1-bg: #0a0603;
+      --c2-bg: #080a05;
+      --c3-bg: #030a03;
+      --c4-bg: #0a0503;
+      --c5-bg: #0a0508;
+    }
+    
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body, html {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: var(--bg-dark);
+      color: var(--text-cream);
+      font-family: 'DM Sans', sans-serif;
+      overscroll-behavior: none;
+    }
+
+    /* Grain Overlay */
+    .grain {
+      position: fixed;
+      top: 0; left: 0; width: 100%; height: 100%;
+      pointer-events: none;
+      z-index: 100;
+      opacity: 0.03;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+    }
+
+    /* Typography */
+    h1, h2, .course-name, .chef-note {
+      font-family: 'Cormorant Garamond', serif;
+      font-style: italic;
+      font-weight: 300;
+    }
+    .bebas { font-family: 'Bebas Neue', cursive; }
+
+    #scroll-container {
+      position: absolute;
+      top: 0; left: 0; width: 100%;
+      will-change: transform;
+    }
+
+    .section {
+      width: 100%;
+      height: 120vh; /* slightly taller for slow reveal */
+      position: relative;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      transition: background-color 1s ease;
+    }
+
+    .content-wrapper {
+      position: relative;
+      width: 100%;
+      max-width: 1000px;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+    }
+
+    /* Hero Section */
+    #hero {
+      height: 100vh;
+      background: var(--bg-dark);
+    }
+    .hero-title {
+      font-size: clamp(2rem, 6vw, 4rem);
+      color: var(--text-cream);
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+    .hero-sub {
+      font-size: 0.9rem;
+      color: var(--text-grey);
+      text-transform: uppercase;
+      letter-spacing: 2px;
+    }
+    /* Fork & Knife */
+    .cutlery-container {
+      display: flex;
+      gap: 40px;
+      margin-bottom: 2rem;
+      animation: sway 4s infinite ease-in-out alternate;
+    }
+    @keyframes sway {
+      0% { transform: translateY(0); }
+      100% { transform: translateY(-10px); }
+    }
+    .fork, .knife {
+      width: 4px;
+      height: 100px;
+      background: linear-gradient(90deg, #999, #ddd, #999);
+      position: relative;
+    }
+    .fork::before {
+      content: ''; position: absolute;
+      top: -20px; left: -8px; width: 20px; height: 30px;
+      border: 4px solid #bbb;
+      border-top: none;
+      border-radius: 0 0 10px 10px;
+    }
+    .fork::after {
+      content: ''; position: absolute;
+      top: -20px; left: 0; width: 4px; height: 30px;
+      background: #bbb;
+    }
+    .knife::before {
+      content: ''; position: absolute;
+      top: -30px; left: 0; width: 12px; height: 50px;
+      background: linear-gradient(90deg, #999, #ddd);
+      border-radius: 10px 0 0 0;
+      clip-path: polygon(0 0, 100% 20%, 100% 100%, 0 100%);
+    }
+
+    /* Candle */
+    .candle-container {
+      margin-top: 3rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .flame {
+      width: 15px; height: 25px;
+      background: var(--gold);
+      border-radius: 50% 50% 20% 20%;
+      box-shadow: 0 0 20px var(--gold), 0 0 40px #ff6600;
+      animation: flicker 0.1s infinite alternate;
+      transform-origin: bottom;
+    }
+    .wick { width: 2px; height: 10px; background: #333; }
+    @keyframes flicker {
+      0% { transform: scale(1) rotate(-1deg); opacity: 0.9; }
+      100% { transform: scale(1.05) rotate(2deg); opacity: 1; }
+    }
+
+    /* Course 1: Amuse Bouche */
+    #course1 { background: var(--c1-bg); }
+    .c-number {
+      position: absolute;
+      font-size: 30vw;
+      color: var(--gold);
+      opacity: 0.04;
+      z-index: 0;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+    }
+    .plate-1 {
+      width: 200px; height: 200px;
+      background: radial-gradient(#fff, #f5f5f5);
+      border-radius: 50%;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.8);
+      position: relative;
+      display: flex; justify-content: center; align-items: center;
+      transform: translateY(100px);
+      transition: transform 1s cubic-bezier(0.2, 0.8, 0.2, 1);
+      z-index: 2;
+    }
+    .plate-1.visible { transform: translateY(0); }
+    .olive {
+      width: 30px; height: 40px;
+      background: #3a4032;
+      border-radius: 40% 60% 50% 50%;
+      box-shadow: inset -5px -5px 10px rgba(0,0,0,0.5);
+      position: relative;
+    }
+    .toothpick {
+      position: absolute;
+      width: 2px; height: 60px;
+      background: #d2b48c;
+      transform: rotate(45deg);
+      top: -10px; left: 15px;
+    }
+    .c-info {
+      text-align: center; margin-top: 2rem; z-index: 2;
+    }
+    .course-name { font-size: 2.5rem; color: var(--text-cream); }
+    .desc { font-size: 1.1rem; color: var(--text-grey); margin-top: 1rem; max-width: 400px; }
+    .ingredients {
+      display: flex; gap: 10px; margin-top: 1rem; justify-content: center;
+    }
+    .ingredient-pill {
+      font-size: 0.8rem; padding: 4px 12px; border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 20px;
+      transform: translateX(50px); opacity: 0;
+      transition: all 0.5s ease;
+    }
+    .ingredient-pill.visible { transform: translateX(0); opacity: 1; }
+
+    /* Course 2: Soup */
+    #course2 { background: var(--c2-bg); }
+    .bowl-2 {
+      width: 220px; height: 220px;
+      background: radial-gradient(circle, #8b4513, #5c2d0a);
+      border-radius: 50%;
+      border: 3px solid rgba(255,255,255,0.1);
+      box-shadow: 0 30px 60px rgba(0,0,0,0.9);
+      position: relative;
+      display: flex; justify-content: center; align-items: center;
+      transform: translateY(-60px);
+      transition: transform 1s ease;
+      z-index: 2;
+    }
+    .bowl-2.visible { transform: translateY(0); }
+    .cream-swirl {
+      width: 120px; height: 120px;
+      border: 4px solid #fff;
+      border-radius: 50%;
+      border-bottom-color: transparent;
+      border-left-color: transparent;
+      transform: rotate(45deg);
+      opacity: 0.8;
+      stroke-dasharray: 400; stroke-dashoffset: 400;
+      transition: stroke-dashoffset 2s ease;
+    }
+    .herb-dots {
+      position: absolute; width: 4px; height: 4px; background: #4caf50; border-radius: 50%;
+    }
+    .steam {
+      position: absolute;
+      width: 10px; height: 40px;
+      background: rgba(255,255,255,0.2);
+      filter: blur(5px);
+      border-radius: 50%;
+      animation: rise 3s infinite ease-in;
+      opacity: 0;
+    }
+    @keyframes rise {
+      0% { transform: translateY(0) scale(1); opacity: 0; }
+      50% { opacity: 0.5; }
+      100% { transform: translateY(-40px) scale(2); opacity: 0; }
+    }
+
+    /* Course 3: Salad */
+    #course3 { background: var(--c3-bg); }
+    .glass-bowl {
+      width: 250px; height: 250px;
+      background: rgba(255,255,255,0.05);
+      border-radius: 50%;
+      box-shadow: inset 0 -20px 40px rgba(255,255,255,0.05), 0 20px 40px rgba(0,0,0,0.8);
+      position: relative; z-index: 2;
+    }
+    .salad-item {
+      position: absolute;
+      transform: translateY(-100px) rotate(720deg);
+      opacity: 0;
+      transition: all 1s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    .salad-item.visible {
+      transform: translateY(0) rotate(0deg);
+      opacity: 1;
+    }
+    .leaf { width: 40px; height: 20px; background: #2e7d32; border-radius: 50% 0 50% 0; }
+    .tomato { width: 20px; height: 20px; background: #d32f2f; border-radius: 50%; }
+    .crouton { width: 15px; height: 15px; background: #fbc02d; border-radius: 2px; }
+    
+    .dressing-pour {
+      position: absolute; top: -60px; left: 50%;
+      width: 2px; height: 0; background: var(--gold);
+      transition: height 1s ease 1s;
+    }
+    .dressing-pour.visible { height: 80px; }
+
+    /* Course 4: Main */
+    #course4 { background: var(--c4-bg); }
+    .plate-4 {
+      width: 250px; height: 250px;
+      background: #fdfdfd; border-radius: 50%;
+      box-shadow: 0 30px 80px rgba(0,0,0,0.9);
+      position: relative;
+      display: flex; justify-content: center; align-items: center;
+      transform: scale(0.5); opacity: 0;
+      transition: transform 1.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 1s;
+      z-index: 2;
+    }
+    .plate-4.visible { transform: scale(1); opacity: 1; }
+    .sauce-pool {
+      position: absolute; width: 140px; height: 100px;
+      background: #4a0000; border-radius: 40% 60% 70% 30%;
+      filter: blur(2px);
+    }
+    .steak {
+      position: absolute; width: 120px; height: 80px;
+      background: #3e1f0e; border-radius: 30px;
+      box-shadow: inset 0 0 20px #1a0800;
+      overflow: hidden;
+    }
+    .grill-mark {
+      position: absolute; width: 150%; height: 3px; background: #1a0800;
+      transform: rotate(-45deg);
+    }
+    .asparagus { position: absolute; width: 6px; height: 90px; background: #558b2f; top: 30px; left: 40px; border-radius: 3px; transform: rotate(15deg);}
+    .carrot { position: absolute; width: 10px; height: 50px; background: #ef6c00; bottom: 40px; right: 50px; border-radius: 5px; transform: rotate(-30deg); }
+    .chef-note {
+      font-size: 1.5rem; color: var(--gold); margin-top: 3rem; text-align: center;
+      opacity: 0; transition: opacity 1s ease 1s;
+    }
+    .chef-note.visible { opacity: 1; }
+
+    /* Course 5: Dessert */
+    #course5 { background: var(--c5-bg); }
+    .tart {
+      width: 150px; height: 150px;
+      background: #2a1508; border-radius: 50%;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.8), inset 0 0 10px #000;
+      position: relative; z-index: 2;
+      display: flex; justify-content: center; align-items: center;
+    }
+    .tart-inner {
+      width: 130px; height: 130px; background: #3d2314; border-radius: 50%;
+    }
+    .gold-leaf {
+      position: absolute; width: 20px; height: 15px;
+      background: linear-gradient(45deg, var(--gold), #ffee88);
+      clip-path: polygon(10% 0, 100% 30%, 80% 100%, 0 80%);
+      top: 40px; left: 40px;
+    }
+    .berry { position: absolute; width: 12px; height: 12px; background: #b71c1c; border-radius: 50%; }
+    .dessert-candle {
+      position: absolute; width: 2px; height: 30px; background: #fff; top: -15px;
+    }
+    .dessert-flame {
+      position: absolute; width: 6px; height: 10px; background: var(--gold); border-radius: 50% 50% 20% 20%;
+      top: -25px; left: -2px; animation: flicker 0.1s infinite alternate;
+    }
+    .final-msg {
+      font-size: 2rem; color: var(--text-cream); text-align: center; max-width: 600px;
+      margin-top: 3rem; opacity: 0; transition: opacity 2s ease 1s;
+    }
+    .final-msg.visible { opacity: 1; }
+    
+    .confetti {
+      position: absolute; width: 6px; height: 6px; background: var(--gold);
+      animation: float-down 4s linear forwards; opacity: 0;
+    }
+    @keyframes float-down {
+      0% { transform: translateY(-100px) rotate(0); opacity: 1; }
+      100% { transform: translateY(300px) rotate(360deg); opacity: 0; }
+    }
+
+    /* Fixed Menu Sidebar */
+    .sidebar {
+      position: fixed; top: 50%; left: 30px; transform: translateY(-50%);
+      display: flex; flex-direction: column; gap: 20px; z-index: 50;
+    }
+    .menu-label {
+      font-family: 'Bebas Neue', cursive; font-size: 1rem; color: var(--text-grey);
+      margin-bottom: 10px; letter-spacing: 2px; text-align: center;
+    }
+    .dot {
+      width: 6px; height: 6px; background: var(--text-grey); border-radius: 50%;
+      cursor: pointer; transition: background 0.3s, transform 0.3s;
+    }
+    .dot.active { background: var(--gold); transform: scale(1.5); }
+
+    /* Mute Btn */
+    .mute-btn {
+      position: fixed; bottom: 30px; right: 30px; font-size: 1.5rem; z-index: 50;
+      cursor: pointer; opacity: 0.5; transition: opacity 0.3s;
+    }
+    .mute-btn:hover { opacity: 1; }
+
+    /* Overlay */
+    .overlay {
+      position: fixed; top:0; left:0; width:100%; height:100%; background: #000;
+      z-index: 1000; display: flex; justify-content: center; align-items: center;
+      cursor: pointer; font-family: 'Cormorant Garamond', serif; font-size: 1.5rem; font-style: italic; color: var(--gold);
+    }
+    
+    @media(max-width: 768px) {
+      .plate-1, .bowl-2, .glass-bowl, .plate-4, .tart { transform: scale(0.7) !important; }
+      .sidebar { left: auto; right: 20px; }
+      .c-number { font-size: 50vw; }
+      .hero-title { font-size: 3rem; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="overlay" id="start-btn">Click to take your seat</div>
+
+  <div class="grain"></div>
+  <div class="mute-btn" id="mute-btn">🍽️</div>
+
+  <div class="sidebar">
+    <div class="menu-label">MENU</div>
+    <div class="dot active" data-target="0"></div>
+    <div class="dot" data-target="1"></div>
+    <div class="dot" data-target="2"></div>
+    <div class="dot" data-target="3"></div>
+    <div class="dot" data-target="4"></div>
+    <div class="dot" data-target="5"></div>
+  </div>
+
+  <div id="scroll-container">
+    <div class="section" id="hero">
+      <div class="content-wrapper">
+        <div class="cutlery-container">
+          <div class="fork"></div>
+          <div class="knife"></div>
+        </div>
+        <h1 class="hero-title">A MEAL IN FIVE ACTS</h1>
+        <p class="hero-sub">Scroll to begin your dining experience</p>
+        <div class="candle-container">
+          <div class="flame"></div>
+          <div class="wick"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section" id="course1">
+      <div class="c-number bebas">I</div>
+      <div class="content-wrapper">
+        <div class="plate-1" id="p1">
+          <div class="olive">
+            <div class="toothpick"></div>
+          </div>
+        </div>
+        <div class="c-info">
+          <div class="course-name">Amuse Bouche</div>
+          <p class="desc">A single Kalamata olive, cured in citrus and thyme. One bite to awaken the palate.</p>
+          <div class="ingredients" id="ing1">
+            <span class="ingredient-pill">Olive</span>
+            <span class="ingredient-pill" style="transition-delay: 0.1s">Citrus</span>
+            <span class="ingredient-pill" style="transition-delay: 0.2s">Thyme</span>
+            <span class="ingredient-pill" style="transition-delay: 0.3s">Sea Salt</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section" id="course2">
+      <div class="c-number bebas">II</div>
+      <div class="content-wrapper">
+        <div class="bowl-2" id="p2">
+          <svg class="cream-swirl" id="swirl" viewBox="0 0 100 100">
+            <path d="M50 10 A40 40 0 1 1 10 50" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round"/>
+          </svg>
+          <div class="herb-dots" style="top: 30%; left: 40%"></div>
+          <div class="herb-dots" style="top: 50%; left: 70%"></div>
+          <div class="herb-dots" style="top: 70%; left: 30%"></div>
+          <div class="steam" style="top: 20%; left: 50%; animation-delay: 0s"></div>
+          <div class="steam" style="top: 40%; left: 30%; animation-delay: 1s"></div>
+          <div class="steam" style="top: 60%; left: 60%; animation-delay: 2s"></div>
+        </div>
+        <div class="c-info">
+          <div class="course-name">Consommé</div>
+          <p class="desc">Rich wild mushroom broth, touched with truffle cream.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="section" id="course3">
+      <div class="c-number bebas">III</div>
+      <div class="content-wrapper">
+        <div class="glass-bowl" id="p3">
+          <div class="dressing-pour" id="pour"></div>
+          <!-- Salad items injected via JS -->
+        </div>
+        <div class="c-info">
+          <div class="course-name">The Garden</div>
+          <p class="desc">Foraged greens, heirloom cherry tomatoes, rustic croutons.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="section" id="course4">
+      <div class="c-number bebas">IV</div>
+      <div class="content-wrapper">
+        <div class="plate-4" id="p4">
+          <div class="sauce-pool"></div>
+          <div class="steak">
+            <div class="grill-mark" style="top: 20%; left: -10%"></div>
+            <div class="grill-mark" style="top: 40%; left: -10%"></div>
+            <div class="grill-mark" style="top: 60%; left: -10%"></div>
+            <div class="grill-mark" style="top: 80%; left: -10%"></div>
+          </div>
+          <div class="asparagus"></div>
+          <div class="asparagus" style="left: 50px; top: 35px;"></div>
+          <div class="carrot"></div>
+        </div>
+        <div class="chef-note" id="note4">Dry-aged 45 days. Seared at 700°F. Rested 8 minutes.</div>
+      </div>
+    </div>
+
+    <div class="section" id="course5">
+      <div class="c-number bebas">V</div>
+      <div class="content-wrapper">
+        <div class="tart">
+          <div class="tart-inner"></div>
+          <div class="gold-leaf"></div>
+          <div class="berry" style="top: 30px; right: 40px"></div>
+          <div class="berry" style="top: 40px; right: 30px"></div>
+          <div class="berry" style="top: 25px; right: 25px"></div>
+          <div class="dessert-candle">
+            <div class="dessert-flame"></div>
+          </div>
+        </div>
+        <div class="final-msg" id="msg5">Every great meal ends with something sweet. So should every great day.</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Setup Salad Items
+    const saladBowl = document.getElementById('p3');
+    const itemTypes = ['leaf', 'tomato', 'crouton'];
+    for(let i=0; i<12; i++) {
+      const el = document.createElement('div');
+      const type = itemTypes[Math.floor(Math.random() * itemTypes.length)];
+      el.className = `salad-item ${type}`;
+      el.style.top = `${20 + Math.random()*50}%`;
+      el.style.left = `${20 + Math.random()*50}%`;
+      el.style.transitionDelay = `${i * 0.1}s`;
+      saladBowl.appendChild(el);
+    }
+
+    // Scroll System
+    let currentY = 0;
+    let targetY = 0;
+    let maxScroll = 0;
+    const ease = 0.075;
+    let isStarted = false;
+    let sections = document.querySelectorAll('.section');
+    
+    function resize() {
+      maxScroll = document.getElementById('scroll-container').offsetHeight - window.innerHeight;
+    }
+    window.addEventListener('resize', resize);
+    
+    window.addEventListener('wheel', e => {
+      if(!isStarted) return;
+      e.preventDefault();
+      targetY += e.deltaY;
+      targetY = Math.max(0, Math.min(targetY, maxScroll));
+    }, {passive: false});
+
+    let touchY = 0;
+    window.addEventListener('touchstart', e => touchY = e.touches[0].clientY);
+    window.addEventListener('touchmove', e => {
+      if(!isStarted) return;
+      e.preventDefault();
+      targetY += (touchY - e.touches[0].clientY) * 1.5;
+      targetY = Math.max(0, Math.min(targetY, maxScroll));
+      touchY = e.touches[0].clientY;
+    }, {passive: false});
+
+    // Sidebar navigation
+    const dots = document.querySelectorAll('.dot');
+    dots.forEach((dot, index) => {
+      dot.addEventListener('click', () => {
+        targetY = index * window.innerHeight * 1.2; // roughly section thresholds
+      });
+    });
+
+    let audioCtx, masterGain, p1Osc, p2Osc;
+    let triggered = [false, false, false, false, false, false];
+
+    function initAudio() {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      audioCtx = new AudioContext();
+      masterGain = audioCtx.createGain();
+      masterGain.gain.value = 1;
+      masterGain.connect(audioCtx.destination);
+
+      p1Osc = audioCtx.createOscillator();
+      p1Osc.frequency.value = 110;
+      const g1 = audioCtx.createGain(); g1.gain.value = 0.02;
+      p1Osc.connect(g1).connect(masterGain);
+      p1Osc.start();
+
+      p2Osc = audioCtx.createOscillator();
+      p2Osc.frequency.value = 220;
+      const g2 = audioCtx.createGain(); g2.gain.value = 0.02;
+      p2Osc.connect(g2).connect(masterGain);
+      p2Osc.start();
+    }
+
+    function playSound(type) {
+      if(!audioCtx || masterGain.gain.value === 0) return;
+      const t = audioCtx.currentTime;
+      if(type === 'ting') {
+        const osc = audioCtx.createOscillator();
+        const g = audioCtx.createGain();
+        osc.frequency.value = 1200;
+        osc.connect(g).connect(masterGain);
+        osc.start(t);
+        g.gain.setValueAtTime(0.5, t);
+        g.gain.exponentialRampToValueAtTime(0.01, t + 0.1);
+        osc.stop(t + 0.1);
+      } else if (type === 'pour') {
+        const bufferSize = audioCtx.sampleRate * 0.3;
+        const noise = audioCtx.createBufferSource();
+        const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for(let i=0; i<bufferSize; i++) data[i] = Math.random() * 2 - 1;
+        noise.buffer = buffer;
+        const filter = audioCtx.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(2000, t);
+        filter.frequency.linearRampToValueAtTime(500, t + 0.3);
+        const g = audioCtx.createGain();
+        g.gain.setValueAtTime(0.1, t);
+        g.gain.linearRampToValueAtTime(0, t + 0.3);
+        noise.connect(filter).connect(g).connect(masterGain);
+        noise.start();
+      } else if (type === 'crunch') {
+        const bufferSize = audioCtx.sampleRate * 0.08;
+        const noise = audioCtx.createBufferSource();
+        const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+        for(let i=0; i<bufferSize; i++) buffer.getChannelData(0)[i] = Math.random() * 2 - 1;
+        noise.buffer = buffer;
+        const filter = audioCtx.createBiquadFilter();
+        filter.type = 'highpass'; filter.frequency.value = 3000;
+        const g = audioCtx.createGain();
+        g.gain.setValueAtTime(0.2, t); g.gain.exponentialRampToValueAtTime(0.01, t+0.08);
+        noise.connect(filter).connect(g).connect(masterGain);
+        noise.start();
+      } else if (type === 'sizzle') {
+        const bufferSize = audioCtx.sampleRate * 0.2;
+        const noise = audioCtx.createBufferSource();
+        const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+        for(let i=0; i<bufferSize; i++) buffer.getChannelData(0)[i] = Math.random() * 2 - 1;
+        noise.buffer = buffer;
+        const filter = audioCtx.createBiquadFilter();
+        filter.type = 'bandpass'; filter.frequency.value = 500;
+        const g = audioCtx.createGain();
+        g.gain.setValueAtTime(0.3, t); g.gain.exponentialRampToValueAtTime(0.01, t+0.2);
+        noise.connect(filter).connect(g).connect(masterGain);
+        noise.start();
+      } else if (type === 'clink') {
+        const osc = audioCtx.createOscillator();
+        const g = audioCtx.createGain();
+        osc.frequency.value = 800;
+        osc.connect(g).connect(masterGain);
+        osc.start(t);
+        g.gain.setValueAtTime(0.3, t);
+        g.gain.exponentialRampToValueAtTime(0.01, t + 0.15);
+        osc.stop(t + 0.15);
+      }
+    }
+
+    function checkTriggers() {
+      const vh = window.innerHeight;
+      const sh = vh * 1.2; // section height
+      
+      // Active dot
+      const activeIdx = Math.round(currentY / sh);
+      dots.forEach((d, i) => d.classList.toggle('active', i === activeIdx));
+
+      // Motion blur on fast scroll
+      const velocity = Math.abs(targetY - currentY);
+      if(velocity > 50) {
+        document.body.style.filter = `blur(${Math.min(velocity/20, 3)}px)`;
+      } else {
+        document.body.style.filter = 'none';
+      }
+
+      // Course 1
+      if(currentY > sh * 0.5) {
+        document.getElementById('p1').classList.add('visible');
+        document.querySelectorAll('#ing1 span').forEach(s => s.classList.add('visible'));
+        if(!triggered[1]) { playSound('ting'); triggered[1] = true; }
+      }
+      
+      // Course 2
+      if(currentY > sh * 1.5) {
+        document.getElementById('p2').classList.add('visible');
+        document.getElementById('swirl').style.strokeDashoffset = '0';
+        if(!triggered[2]) { playSound('pour'); triggered[2] = true; }
+      }
+
+      // Course 3
+      if(currentY > sh * 2.5) {
+        document.querySelectorAll('.salad-item').forEach(el => el.classList.add('visible'));
+        document.getElementById('pour').classList.add('visible');
+        if(!triggered[3]) { playSound('crunch'); triggered[3] = true; }
+      }
+
+      // Course 4
+      if(currentY > sh * 3.5) {
+        document.getElementById('p4').classList.add('visible');
+        document.getElementById('note4').classList.add('visible');
+        if(!triggered[4]) {
+          // Dramatic darken
+          const cont = document.getElementById('scroll-container');
+          cont.style.filter = 'brightness(0.3)';
+          setTimeout(() => cont.style.filter = 'brightness(1)', 300);
+          playSound('sizzle'); triggered[4] = true; 
+        }
+      }
+
+      // Course 5
+      if(currentY > sh * 4.5) {
+        document.getElementById('msg5').classList.add('visible');
+        if(!triggered[5]) { 
+          playSound('clink'); 
+          // Confetti
+          for(let i=0; i<20; i++) {
+            const c = document.createElement('div');
+            c.className = 'confetti';
+            c.style.left = `${20 + Math.random()*60}%`;
+            c.style.animationDelay = `${Math.random()*1}s`;
+            document.getElementById('course5').appendChild(c);
+          }
+          triggered[5] = true; 
+        }
+      }
+    }
+
+    function loop() {
+      if(isStarted) {
+        currentY += (targetY - currentY) * ease;
+        document.getElementById('scroll-container').style.transform = `translateY(${-currentY}px)`;
+        checkTriggers();
+      }
+      requestAnimationFrame(loop);
+    }
+
+    document.getElementById('start-btn').addEventListener('click', function() {
+      initAudio();
+      this.style.display = 'none';
+      isStarted = true;
+      resize();
+      loop();
+    });
+    
+    let isMuted = false;
+    document.getElementById('mute-btn').addEventListener('click', function() {
+      if(!audioCtx) return;
+      isMuted = !isMuted;
+      masterGain.gain.linearRampToValueAtTime(isMuted ? 0 : 1, audioCtx.currentTime + 0.3);
+      this.style.opacity = isMuted ? 0.3 : 1;
+    });
+
+    window.onload = resize;
+  </script>
+</body>
+</html>
