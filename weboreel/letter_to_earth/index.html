@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Letter to Earth</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;1,400&family=Inter:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body, html {
+      width: 100%; height: 100%; overflow: hidden;
+      background: #000; color: #fff; font-family: 'Cormorant Garamond', serif;
+      overscroll-behavior: none;
+    }
+
+    #canvas-container {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; pointer-events: none;
+    }
+
+    /* Nebula Background */
+    .nebula {
+      position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      width: 100vw; height: 100vh; pointer-events: none; z-index: 2;
+      background: radial-gradient(circle at 50% 50%, rgba(100, 50, 255, 0.2), transparent 60%),
+                  radial-gradient(circle at 30% 70%, rgba(255, 50, 100, 0.1), transparent 50%),
+                  radial-gradient(circle at 70% 30%, rgba(50, 200, 255, 0.15), transparent 50%);
+      filter: blur(40px); opacity: 0; transition: opacity 2s;
+    }
+
+    #scroll-container {
+      position: absolute; top: 0; left: 0; width: 100%; will-change: transform; z-index: 10;
+    }
+
+    .scene {
+      width: 100%; height: 120vh; display: flex; flex-direction: column;
+      justify-content: center; align-items: center; position: relative;
+    }
+
+    .log {
+      font-family: 'Inter', sans-serif; font-size: 0.9rem; letter-spacing: 2px;
+      color: #0f0; opacity: 0.8; margin-bottom: 20px;
+    }
+    .log.error { color: #f00; text-shadow: 0 0 10px #f00; }
+
+    .letter-text {
+      font-size: clamp(2rem, 5vw, 4rem); text-align: center; max-width: 800px;
+      padding: 0 20px; opacity: 0; transform: translateY(20px);
+      transition: opacity 1s, transform 1s;
+    }
+    .scene.active .letter-text { opacity: 1; transform: translateY(0); }
+
+    /* Glitch effect */
+    @keyframes glitch {
+      0% { transform: translate(0); }
+      20% { transform: translate(-2px, 2px); filter: invert(1); }
+      40% { transform: translate(-2px, -2px); filter: invert(0); }
+      60% { transform: translate(2px, 2px); filter: invert(1); }
+      80% { transform: translate(2px, -2px); filter: invert(0); }
+      100% { transform: translate(0); }
+    }
+    .glitching { animation: glitch 0.2s infinite; }
+
+    .mute-btn { position: fixed; bottom: 20px; right: 20px; font-size: 1.5rem; z-index: 100; cursor: pointer; opacity: 0.5; color: white; }
+    .start-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; color: #fff; display: flex; justify-content: center; align-items: center; z-index: 1000; cursor: pointer; font-family: 'Inter'; font-size: 1rem; letter-spacing: 5px; }
+  </style>
+</head>
+<body>
+  <div class="start-screen" id="start-btn">CONNECT TO PROBE</div>
+  <div class="mute-btn" id="mute-btn">📻</div>
+  
+  <canvas id="canvas-container"></canvas>
+  <div class="nebula" id="nebula"></div>
+
+  <div id="scroll-container">
+    <div class="scene" id="s1">
+      <div class="log">> SYSTEM LOG: COMMS LINK ESTABLISHED.</div>
+      <div class="letter-text">I don't know if this will reach you.</div>
+    </div>
+    
+    <div class="scene" id="s2">
+      <div class="letter-text">The distance is... unimaginable.</div>
+      <div class="letter-text" style="font-size: 1.5rem; margin-top: 20px; color: #aaa;">2.4 million light years.</div>
+    </div>
+
+    <div class="scene" id="s3">
+      <div class="letter-text" style="font-style: italic;">The nebula here is beautiful.</div>
+    </div>
+
+    <div class="scene" id="s4">
+      <div class="letter-text">It burns with colors we don't have names for.</div>
+    </div>
+
+    <div class="scene" id="s5">
+      <div class="letter-text">But it's not home.</div>
+    </div>
+
+    <div class="scene" id="s6">
+      <div class="letter-text">My life support is failing.</div>
+      <div class="letter-text" style="font-size: 1.5rem; margin-top: 20px; color: #aaa;">Oxygen: 4%</div>
+    </div>
+
+    <div class="scene" id="s7">
+      <div class="letter-text">Tell them...</div>
+    </div>
+
+    <div class="scene" id="s8">
+      <div class="letter-text" style="font-size: clamp(3rem, 8vw, 6rem);">Tell them I looked up.</div>
+    </div>
+
+    <div class="scene" id="s9" style="height: 150vh; justify-content: flex-start; padding-top: 40vh;">
+      <div class="log error" id="final-log">> SYSTEM LOG: COMMS LINK LOST.</div>
+    </div>
+  </div>
+
+  <script>
+    let currentY = 0; let targetY = 0; let maxScroll = 0; let isStarted = false; const ease = 0.05;
+    const scrollCont = document.getElementById('scroll-container');
+    const scenes = document.querySelectorAll('.scene');
+    
+    function resize() { maxScroll = scrollCont.offsetHeight - window.innerHeight; }
+    window.addEventListener('resize', resize);
+    window.addEventListener('wheel', e => { if(!isStarted) return; e.preventDefault(); targetY += e.deltaY; targetY = Math.max(0, Math.min(targetY, maxScroll)); }, {passive: false});
+    let touchY = 0;
+    window.addEventListener('touchstart', e => touchY = e.touches[0].clientY);
+    window.addEventListener('touchmove', e => { if(!isStarted) return; e.preventDefault(); targetY += (touchY - e.touches[0].clientY) * 1.5; targetY = Math.max(0, Math.min(targetY, maxScroll)); touchY = e.touches[0].clientY; }, {passive: false});
+
+    // Starfield Canvas
+    const canvas = document.getElementById('canvas-container'); const ctx = canvas.getContext('2d');
+    let cw, ch; const stars = [];
+    function initCanvas() {
+      cw = window.innerWidth; ch = window.innerHeight; canvas.width = cw; canvas.height = ch;
+      for(let i=0; i<400; i++) stars.push({ x: Math.random()*cw, y: Math.random()*ch, r: Math.random()*1.5, depth: Math.random() });
+    }
+    window.addEventListener('resize', initCanvas); initCanvas();
+
+    function renderCanvas() {
+      ctx.clearRect(0,0,cw,ch);
+      const vel = targetY - currentY;
+      stars.forEach(s => {
+        s.y -= vel * 0.005 * (1 - s.depth); // Parallax
+        if(s.y < 0) s.y = ch; if(s.y > ch) s.y = 0;
+        ctx.fillStyle = `rgba(255,255,255,${1 - s.depth})`;
+        ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, Math.PI*2); ctx.fill();
+      });
+      requestAnimationFrame(renderCanvas);
+    }
+
+    // Audio
+    let audioCtx, masterGain, staticGain, staticFilter;
+    let pianoFired = false;
+    let glitchFired = false;
+
+    function initAudio() {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      audioCtx = new AudioContext(); masterGain = audioCtx.createGain(); masterGain.gain.value = 0.5; masterGain.connect(audioCtx.destination);
+      
+      // Drone
+      const drone = audioCtx.createOscillator(); drone.type = 'sine'; drone.frequency.value = 55; // A1
+      const droneG = audioCtx.createGain(); droneG.gain.value = 0.3;
+      drone.connect(droneG).connect(masterGain); drone.start();
+
+      // Static hiss
+      const bSize = audioCtx.sampleRate; const nBuf = audioCtx.createBuffer(1, bSize, audioCtx.sampleRate);
+      for(let i=0; i<bSize; i++) nBuf.getChannelData(0)[i] = Math.random()*2-1;
+      const noise = audioCtx.createBufferSource(); noise.buffer = nBuf; noise.loop = true;
+      staticFilter = audioCtx.createBiquadFilter(); staticFilter.type = 'highpass'; staticFilter.frequency.value = 2000;
+      staticGain = audioCtx.createGain(); staticGain.gain.value = 0.01;
+      noise.connect(staticFilter).connect(staticGain).connect(masterGain); noise.start();
+    }
+
+    function playPiano() {
+      if(!audioCtx) return;
+      const osc = audioCtx.createOscillator(); osc.type = 'sine'; osc.frequency.value = 440; // A4
+      const osc2 = audioCtx.createOscillator(); osc2.type = 'triangle'; osc2.frequency.value = 440;
+      const g = audioCtx.createGain(); g.gain.setValueAtTime(0, audioCtx.currentTime);
+      g.gain.linearRampToValueAtTime(0.5, audioCtx.currentTime + 0.05);
+      g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 4);
+      
+      // Reverb fake
+      const delay = audioCtx.createDelay(); delay.delayTime.value = 0.4;
+      const fbk = audioCtx.createGain(); fbk.gain.value = 0.4;
+      delay.connect(fbk); fbk.connect(delay); g.connect(delay); delay.connect(masterGain);
+
+      osc.connect(g); osc2.connect(g); g.connect(masterGain);
+      osc.start(); osc2.start(); osc.stop(audioCtx.currentTime + 4); osc2.stop(audioCtx.currentTime+4);
+    }
+
+    function triggerGlitch() {
+      document.body.classList.add('glitching');
+      if(audioCtx) {
+        staticGain.gain.setValueAtTime(0.5, audioCtx.currentTime);
+        staticGain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.5);
+      }
+      setTimeout(() => {
+        document.body.classList.remove('glitching');
+        document.body.innerHTML = '<div style="width:100%; height:100vh; background:#000; display:flex; justify-content:center; align-items:center; color:#f00; font-family:Inter; letter-spacing:5px;">NO SIGNAL</div>';
+      }, 500);
+    }
+
+    function loop() {
+      if(isStarted && !glitchFired) {
+        currentY += (targetY - currentY) * ease;
+        scrollCont.style.transform = `translateY(${-currentY}px)`;
+
+        const vh = window.innerHeight;
+        const progress = currentY / maxScroll;
+
+        // Nebula opacity
+        const nebula = document.getElementById('nebula');
+        if(currentY > 2*vh && currentY < 6*vh) nebula.style.opacity = '1';
+        else nebula.style.opacity = '0';
+
+        // Static increases with distance
+        if(audioCtx && !glitchFired) {
+          staticGain.gain.setTargetAtTime(0.01 + progress * 0.1, audioCtx.currentTime, 0.1);
+        }
+
+        // Active scenes
+        scenes.forEach((s, i) => {
+          const rect = s.getBoundingClientRect();
+          if(rect.top < vh * 0.7 && rect.bottom > vh * 0.3) s.classList.add('active');
+          
+          if(i === 7 && s.classList.contains('active') && !pianoFired) {
+            pianoFired = true; playPiano();
+          }
+        });
+
+        // Final log glitch
+        const s9Rect = document.getElementById('s9').getBoundingClientRect();
+        if(s9Rect.top < vh * 0.5 && !glitchFired) {
+          glitchFired = true;
+          setTimeout(triggerGlitch, 1000);
+        }
+      }
+      if(!glitchFired) requestAnimationFrame(loop);
+    }
+
+    document.getElementById('start-btn').addEventListener('click', function() {
+      initAudio(); this.style.display = 'none'; isStarted = true; resize(); renderCanvas();
+      scenes[0].classList.add('active'); loop();
+    });
+
+    let isMuted = false;
+    document.getElementById('mute-btn').addEventListener('click', function() {
+      if(!audioCtx) return; isMuted = !isMuted;
+      masterGain.gain.linearRampToValueAtTime(isMuted ? 0 : 0.5, audioCtx.currentTime + 0.3);
+      this.style.opacity = isMuted ? 0.3 : 1;
+    });
+    window.onload = resize;
+  </script>
+</body>
+</html>
