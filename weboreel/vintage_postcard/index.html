@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Vintage Postcards</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@600&family=Playfair+Display:ital@1&family=Space+Mono&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body, html {
+      width: 100%; height: 100%; overflow: hidden;
+      background: #2a2520; color: #111; overscroll-behavior: none;
+    }
+
+    /* Grain Filter */
+    .grain {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 100; opacity: 0.4;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+    }
+
+    #scroll-container {
+      position: absolute; top: 0; left: 0; height: 100%; display: flex;
+      will-change: transform; transition: filter 0.5s;
+    }
+
+    .postcard-wrapper {
+      width: 100vw; height: 100vh; display: flex; justify-content: center; align-items: center;
+      flex-shrink: 0; perspective: 1000px;
+    }
+
+    .postcard {
+      width: 800px; height: 500px; max-width: 90vw; background: #fdfaf6;
+      border-radius: 5px; box-shadow: 10px 15px 30px rgba(0,0,0,0.5);
+      position: relative; display: flex; overflow: hidden;
+      transform-origin: center; transition: transform 0.1s;
+    }
+    
+    .postcard::before {
+      content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      box-shadow: inset 0 0 50px rgba(100,70,30,0.5); pointer-events: none; z-index: 5;
+    }
+
+    .stamp {
+      position: absolute; top: 20px; right: 20px; width: 60px; height: 80px;
+      border: 2px dashed #999; padding: 5px; background: #fff;
+      display: flex; flex-direction: column; justify-content: space-between;
+      transform: rotate(10deg); box-shadow: 2px 2px 5px rgba(0,0,0,0.2); z-index: 2;
+    }
+    .stamp-img { width: 100%; height: 50px; background: #444; }
+    .stamp-val { font-family: 'Space Mono', monospace; font-size: 10px; text-align: center; }
+    
+    .postmark {
+      position: absolute; top: 10px; right: 10px; width: 100px; height: 100px;
+      border: 3px solid rgba(0,0,0,0.4); border-radius: 50%; z-index: 3;
+      transform: rotate(-15deg); display: flex; justify-content: center; align-items: center;
+      font-family: 'Space Mono', monospace; font-size: 12px; color: rgba(0,0,0,0.4);
+      clip-path: circle(50% at 50% 50%);
+    }
+
+    /* Layout: Left Image, Right Text */
+    .img-side { width: 50%; height: 100%; position: relative; border-right: 2px solid #ddd; background: #eee; overflow: hidden; }
+    .text-side { width: 50%; height: 100%; padding: 40px; position: relative; font-family: 'Caveat', cursive; font-size: 2rem; line-height: 1.5; color: #322; }
+    .address-lines { position: absolute; bottom: 40px; right: 40px; width: 80%; }
+    .addr-line { width: 100%; height: 2px; background: #ddd; margin-bottom: 30px; }
+
+    /* Scene Specifics */
+    /* 1. 1920s Paris */
+    .p1 .img-side { background: #d2c0a8; filter: sepia(0.8) contrast(1.2); }
+    .eiffel { position: absolute; bottom: 0; left: 50%; transform: translateX(-50%); width: 100px; height: 300px; }
+    .eiffel::before { content: ''; position: absolute; bottom: 0; left: 20px; width: 60px; height: 200px; border: 4px solid #333; border-bottom: none; border-radius: 50% 50% 0 0; }
+    .eiffel::after { content: ''; position: absolute; bottom: 200px; left: 45px; width: 10px; height: 100px; background: #333; }
+
+    /* 2. 1950s NY */
+    .p2 .img-side { background: #999; filter: grayscale(1) contrast(1.5); }
+    .skyline { position: absolute; bottom: 0; width: 100%; height: 60%; display: flex; align-items: flex-end; }
+    .bldg { background: #222; border: 1px solid #111; position: relative; }
+    .bldg::after { content: ''; position: absolute; top: 10px; left: 10%; width: 80%; height: 80%; background: repeating-linear-gradient(180deg, #fff 0, #fff 2px, transparent 2px, transparent 10px), repeating-linear-gradient(90deg, #fff 0, #fff 2px, transparent 2px, transparent 10px); opacity: 0.3; }
+
+    /* 3. 1970s London */
+    .p3 .img-side { background: #aeb5b8; filter: saturate(0.5) hue-rotate(-10deg); }
+    .bigben { position: absolute; bottom: 0; left: 50%; transform: translateX(-50%); width: 60px; height: 350px; background: #5a4b3c; }
+    .clock-face { position: absolute; top: 50px; left: 10px; width: 40px; height: 40px; background: #ffe; border-radius: 50%; border: 2px solid #333; }
+    .rain { position: absolute; width: 100%; height: 100%; background: repeating-linear-gradient(15deg, transparent 0, transparent 20px, rgba(255,255,255,0.2) 20px, rgba(255,255,255,0.2) 21px); }
+
+    /* 4. 1990s Tokyo */
+    .p4 .img-side { background: #112; filter: hue-rotate(90deg) saturate(2); }
+    .neon-sign { position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%); width: 20px; height: 150px; background: #fff; box-shadow: 0 0 20px #f0f, 0 0 40px #f0f; display: flex; flex-direction: column; justify-content: space-around; font-family: sans-serif; font-size: 12px; writing-mode: vertical-rl; padding: 5px; color: #f0f; }
+
+    /* 5. 2020s Mars */
+    .p5 .img-side { background: #823; filter: sepia(0.5) hue-rotate(-30deg) saturate(1.5); }
+    .dome { position: absolute; bottom: 20%; left: 50%; transform: translateX(-50%); width: 200px; height: 100px; background: rgba(255,255,255,0.2); border-radius: 100px 100px 0 0; border: 2px solid rgba(255,255,255,0.5); }
+    .planet { position: absolute; top: 20px; right: 20px; width: 30px; height: 30px; background: #add8e6; border-radius: 50%; box-shadow: inset -5px -5px 10px rgba(0,0,0,0.5); }
+
+    /* Scroll hints */
+    .progress-bar { position: fixed; bottom: 0; left: 0; height: 5px; background: #fff; width: 0%; z-index: 50; transition: width 0.1s; }
+    .year-display { position: fixed; bottom: 20px; left: 20px; font-family: 'Space Mono', monospace; font-size: 2rem; color: #fff; z-index: 50; }
+
+    .mute-btn { position: fixed; bottom: 20px; right: 20px; font-size: 1.5rem; z-index: 100; cursor: pointer; opacity: 0.5; color: white; }
+    .start-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #2a2520; color: #fff; display: flex; justify-content: center; align-items: center; z-index: 1000; cursor: pointer; font-family: 'Playfair Display'; font-style: italic; font-size: 3rem; }
+    
+    @media(max-width: 768px) {
+      .postcard { flex-direction: column; height: 80vh; }
+      .img-side, .text-side { width: 100%; height: 50%; }
+      .text-side { padding: 20px; font-size: 1.5rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="start-screen" id="start-btn">Open Mailbox</div>
+  <div class="mute-btn" id="mute-btn">📭</div>
+  <div class="grain"></div>
+  
+  <div class="year-display" id="year">1924</div>
+  <div class="progress-bar" id="prog"></div>
+
+  <div id="scroll-container">
+    
+    <!-- 1. Paris -->
+    <div class="postcard-wrapper">
+      <div class="postcard p1" data-tilt="2">
+        <div class="img-side">
+          <div class="eiffel"></div>
+          <div style="position:absolute; bottom:10px; left:10px; font-family:'Playfair Display'; font-style:italic;">Paris</div>
+        </div>
+        <div class="text-side">
+          <div class="stamp"><div class="stamp-img" style="background:#534;"></div><div class="stamp-val">10c</div></div>
+          <div class="postmark">PARIS<br>1924</div>
+          Dearest,<br><br>The city of light is as beautiful as ever. Wish you were here to see the tower at dusk.<br><br>Yours, M.
+          <div class="address-lines"><div class="addr-line"></div><div class="addr-line"></div><div class="addr-line"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2. NY -->
+    <div class="postcard-wrapper">
+      <div class="postcard p2" data-tilt="-1">
+        <div class="img-side">
+          <div class="skyline">
+            <div class="bldg" style="width:30%; height:100%"></div>
+            <div class="bldg" style="width:40%; height:150%"></div>
+            <div class="bldg" style="width:30%; height:80%"></div>
+          </div>
+          <div style="position:absolute; bottom:10px; left:10px; font-family:'Space Mono'; color:#fff;">NEW YORK</div>
+        </div>
+        <div class="text-side" style="font-family:'Space Mono'; font-size:1.2rem; font-weight:bold;">
+          <div class="stamp"><div class="stamp-img" style="background:#222;"></div><div class="stamp-val">3¢</div></div>
+          <div class="postmark" style="transform:rotate(5deg); border-style:dashed;">NY NY<br>1955</div>
+          HELLO FROM THE CITY THAT NEVER SLEEPS. EVERYTHING MOVES SO FAST HERE. STOP.<br><br>MISSING HOME. STOP.<br><br>- J.
+          <div class="address-lines"><div class="addr-line"></div><div class="addr-line"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3. London -->
+    <div class="postcard-wrapper">
+      <div class="postcard p3" data-tilt="3">
+        <div class="img-side">
+          <div class="rain"></div>
+          <div class="bigben"><div class="clock-face"></div></div>
+          <div style="position:absolute; bottom:10px; left:10px; font-family:'Playfair Display'; font-weight:bold; color:#fff;">London</div>
+        </div>
+        <div class="text-side" style="font-size: 1.8rem;">
+          <div class="stamp"><div class="stamp-img" style="background:#456;"></div><div class="stamp-val">8p</div></div>
+          <div class="postmark" style="color:red; border-color:red;">LONDN<br>1978</div>
+          Mate,<br><br>It's raining again. The gigs have been loud and the tea is decent. <br><br>Cheers, D.
+          <div class="address-lines"><div class="addr-line"></div><div class="addr-line"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4. Tokyo -->
+    <div class="postcard-wrapper">
+      <div class="postcard p4" data-tilt="-2">
+        <div class="img-side">
+          <div class="neon-sign">東京</div>
+          <div style="position:absolute; bottom:10px; left:10px; font-family:'Space Mono'; color:#0ff; text-shadow:0 0 5px #0ff;">TOKYO</div>
+        </div>
+        <div class="text-side" style="font-family:'Space Mono'; font-size: 1rem; line-height:2;">
+          <div class="stamp"><div class="stamp-img" style="background:#f0f;"></div><div class="stamp-val">¥50</div></div>
+          <div class="postmark" style="border-radius:0; border: 2px solid #f0f; color:#f0f;">TYO<br>1998</div>
+          > INITIATING MESSAGE...<br>
+          > THE FUTURE IS NOW.<br>
+          > NEON LIGHTS EVERYWHERE.<br>
+          > END OF LINE.
+          <div class="address-lines"><div class="addr-line" style="background:#f0f; opacity:0.3"></div><div class="addr-line" style="background:#f0f; opacity:0.3"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 5. Mars -->
+    <div class="postcard-wrapper">
+      <div class="postcard p5" data-tilt="1">
+        <div class="img-side">
+          <div class="planet"></div>
+          <div class="dome"></div>
+          <div style="position:absolute; bottom:10px; left:10px; font-family:'Space Mono'; color:#fff; letter-spacing:5px;">ARES V</div>
+        </div>
+        <div class="text-side" style="font-family:'Space Mono'; font-size: 1.2rem; color: #522;">
+          <div class="stamp"><div class="stamp-img" style="background:#f55;"></div><div class="stamp-val">10CR</div></div>
+          <div class="postmark" style="color:#f55; border-color:#f55; border-radius:10px;">MARS<br>2026</div>
+          Dust storm passed. The colony is quiet today. I looked up and saw Earth. A pale blue dot.<br><br>See you soon.<br>Elara
+          <div class="address-lines"><div class="addr-line" style="background:#f55; opacity:0.3"></div><div class="addr-line" style="background:#f55; opacity:0.3"></div></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    let currentX = 0; let targetX = 0; let maxScroll = 0; let isStarted = false; const ease = 0.08;
+    const scrollCont = document.getElementById('scroll-container');
+    const postcards = document.querySelectorAll('.postcard');
+    
+    function resize() {
+      // 5 wrappers, so width is 500vw. Max scroll is 400vw.
+      maxScroll = window.innerWidth * 4;
+    }
+    window.addEventListener('resize', resize);
+    
+    window.addEventListener('wheel', e => {
+      if(!isStarted) return; e.preventDefault();
+      // Use deltaY for vertical mouse wheels to translate to X
+      targetX += e.deltaY;
+      targetX = Math.max(0, Math.min(targetX, maxScroll));
+    }, {passive: false});
+
+    let touchX = 0;
+    window.addEventListener('touchstart', e => touchX = e.touches[0].clientX);
+    window.addEventListener('touchmove', e => {
+      if(!isStarted) return; e.preventDefault();
+      targetX += (touchX - e.touches[0].clientX) * 1.5;
+      targetX = Math.max(0, Math.min(targetX, maxScroll));
+      touchX = e.touches[0].clientX;
+    }, {passive: false});
+
+    // Audio
+    let audioCtx, masterGain;
+    const sounds = [];
+    function initAudio() {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      audioCtx = new AudioContext();
+      masterGain = audioCtx.createGain(); masterGain.gain.value = 0.5;
+      masterGain.connect(audioCtx.destination);
+
+      for(let i=0; i<5; i++) {
+        const g = audioCtx.createGain(); g.gain.value = 0;
+        g.connect(masterGain);
+        sounds.push(g);
+      }
+
+      // 1. Paris Accordion (Triangle)
+      const p1 = audioCtx.createOscillator(); p1.type = 'triangle'; p1.frequency.value = 440;
+      p1.connect(sounds[0]); p1.start();
+      
+      // 2. NY Jazz Bass (Sine low)
+      const p2 = audioCtx.createOscillator(); p2.type = 'sine'; p2.frequency.value = 100;
+      p2.connect(sounds[1]); p2.start();
+
+      // 3. London Rock Drum (Noise hit)
+      const bSize = audioCtx.sampleRate * 2; const nBuf = audioCtx.createBuffer(1, bSize, audioCtx.sampleRate);
+      for(let j=0; j<bSize; j++) nBuf.getChannelData(0)[j] = Math.random()*2-1;
+      const noise = audioCtx.createBufferSource(); noise.buffer = nBuf; noise.loop = true;
+      const lpf = audioCtx.createBiquadFilter(); lpf.type = 'lowpass'; lpf.frequency.value = 200;
+      noise.connect(lpf).connect(sounds[2]); noise.start();
+
+      // 4. Tokyo Synth (Sawtooth)
+      const p4 = audioCtx.createOscillator(); p4.type = 'sawtooth'; p4.frequency.value = 880;
+      p4.connect(sounds[3]); p4.start();
+
+      // 5. Mars Drone (Sine low + highpass)
+      const p5 = audioCtx.createOscillator(); p5.type = 'sine'; p5.frequency.value = 60;
+      p5.connect(sounds[4]); p5.start();
+    }
+
+    const years = [1924, 1955, 1978, 1998, 2026];
+
+    function loop() {
+      if(isStarted) {
+        currentX += (targetX - currentX) * ease;
+        scrollCont.style.transform = `translateX(${-currentX}px)`;
+
+        const vw = window.innerWidth;
+        const progress = currentX / maxScroll;
+        document.getElementById('prog').style.width = `${progress * 100}%`;
+
+        // Active Index & Audio
+        const exactIdx = currentX / vw;
+        const activeIdx = Math.max(0, Math.min(4, Math.round(exactIdx)));
+        document.getElementById('year').innerText = years[activeIdx];
+
+        if(audioCtx) {
+          sounds.forEach((g, i) => {
+            // Distance from exact index
+            const dist = Math.abs(exactIdx - i);
+            const vol = Math.max(0, 1 - dist); // 1 at exact, 0 at 1 away
+            g.gain.setTargetAtTime(vol * 0.2, audioCtx.currentTime, 0.1);
+          });
+        }
+
+        // Parallax and Tilt
+        postcards.forEach((pc, i) => {
+          const dist = exactIdx - i; // -1 to 1 when near
+          const baseTilt = parseFloat(pc.getAttribute('data-tilt'));
+          if(Math.abs(dist) < 1.5) {
+            // Skew based on scroll velocity and tilt based on distance
+            const skew = (targetX - currentX) * 0.05;
+            pc.style.transform = `rotate(${baseTilt - dist*10}deg) skewX(${skew}deg) scale(${1 - Math.abs(dist)*0.1})`;
+          }
+        });
+      }
+      requestAnimationFrame(loop);
+    }
+
+    document.getElementById('start-btn').addEventListener('click', function() {
+      initAudio(); this.style.display = 'none'; isStarted = true; resize(); loop();
+    });
+
+    let isMuted = false;
+    document.getElementById('mute-btn').addEventListener('click', function() {
+      if(!audioCtx) return; isMuted = !isMuted;
+      masterGain.gain.linearRampToValueAtTime(isMuted ? 0 : 0.5, audioCtx.currentTime + 0.3);
+      this.style.opacity = isMuted ? 0.3 : 1;
+    });
+    window.onload = resize;
+  </script>
+</body>
+</html>
