@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Architect Walk</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body, html {
+      width: 100%; height: 100%; overflow: hidden;
+      font-family: 'Space Mono', monospace; background: #000;
+      overscroll-behavior: none;
+    }
+
+    #scroll-container {
+      position: absolute; top: 0; left: 0; width: 100%;
+      will-change: transform;
+    }
+
+    /* Elevator Panel */
+    .elevator-panel {
+      position: fixed; left: 0; top: 0; width: 50px; height: 100%;
+      background: rgba(20,20,20,0.9); border-right: 1px solid #333;
+      display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 20px;
+      z-index: 100;
+    }
+    .floor-btn {
+      color: #555; font-size: 0.8rem; cursor: pointer; transition: color 0.3s, text-shadow 0.3s;
+    }
+    .floor-btn.active {
+      color: #ff6600; text-shadow: 0 0 10px #ff6600; font-weight: bold;
+    }
+    .arrow { color: #555; font-size: 0.6rem; margin: 10px 0; }
+
+    /* Floor Structure */
+    .floor {
+      width: 100%; height: 100vh; position: relative; overflow: hidden;
+      border-bottom: 2px solid #222; margin-left: 50px; width: calc(100% - 50px);
+    }
+    
+    /* Parallax Classes */
+    .p-bg { position: absolute; width: 100%; height: 100%; z-index: 1; }
+    .p-dist { position: absolute; width: 100%; height: 100%; z-index: 2; }
+    .p-furn { position: absolute; width: 100%; height: 100%; z-index: 3; }
+    .p-tex { position: absolute; width: 100%; height: 100%; z-index: 4; }
+
+    /* R - Roof */
+    #f-r .p-bg { background: linear-gradient(180deg, #87ceeb 0%, #c9e8f5 100%); }
+    .sun {
+      position: absolute; top: 10%; right: 10%; width: 80px; height: 80px;
+      background: #fff7cc; border-radius: 50%; box-shadow: 0 0 50px #fff7cc;
+    }
+    .cloud {
+      position: absolute; background: #fff; border-radius: 50px; opacity: 0.8;
+      animation: drift linear infinite;
+    }
+    @keyframes drift {
+      from { transform: translateX(100vw); } to { transform: translateX(-200px); }
+    }
+    .city-bg {
+      position: absolute; bottom: 8%; width: 100%; height: 30%;
+      background: repeating-linear-gradient(90deg, #555 0, #555 30px, transparent 30px, transparent 40px, #444 40px, #444 80px, transparent 80px, transparent 90px);
+      clip-path: polygon(0 100%, 0 40%, 10% 40%, 10% 20%, 30% 20%, 30% 60%, 50% 60%, 50% 10%, 70% 10%, 70% 30%, 90% 30%, 90% 50%, 100% 50%, 100% 100%);
+      opacity: 0.3;
+    }
+    .roof-ground {
+      position: absolute; bottom: 0; width: 100%; height: 8%;
+      background: #888; border-top: 2px solid #aaa;
+    }
+    .railing {
+      position: absolute; bottom: 8%; width: 100%; height: 40px;
+      background: repeating-linear-gradient(90deg, transparent 0, transparent 40px, rgba(255,255,255,0.5) 40px, rgba(255,255,255,0.5) 42px);
+      border-top: 4px solid rgba(255,255,255,0.5);
+    }
+    .plant {
+      position: absolute; bottom: 8%; transform-origin: bottom center;
+      animation: sway 6s infinite alternate ease-in-out;
+    }
+    .plant::before { content: ''; position: absolute; bottom: 0; width: 4px; height: 80px; background: #3e2723; }
+    .plant::after { content: ''; position: absolute; bottom: 60px; left: -20px; width: 44px; height: 44px; background: #2e7d32; border-radius: 50%; }
+    @keyframes sway { from { transform: rotate(-3deg); } to { transform: rotate(3deg); } }
+
+    /* 5 - Office */
+    #f-5 .p-bg { background: #f0f4f8; }
+    .windows {
+      position: absolute; width: 100%; height: 100%; display: flex;
+    }
+    .window {
+      flex: 1; border: 4px solid #fff; background: rgba(135,206,250,0.3);
+      position: relative; overflow: hidden;
+    }
+    .blinds {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      background: repeating-linear-gradient(180deg, #ddd 0, #ddd 10px, transparent 10px, transparent 20px);
+      transform: scaleY(1); transform-origin: top; transition: transform 2s ease;
+    }
+    #f-5.active .blinds { transform: scaleY(0.1); }
+    .office-desk {
+      position: absolute; bottom: 15%; left: 30%; width: 300px; height: 15px;
+      background: #333; border-radius: 4px; box-shadow: 0 20px 30px rgba(0,0,0,0.2);
+    }
+    .office-desk::after { content: ''; position: absolute; top: 15px; right: 20px; width: 10px; height: 100px; background: #222; }
+    .office-chair {
+      position: absolute; bottom: 15%; left: 40%; width: 50px; height: 60px;
+    }
+    .office-chair::before { content: ''; position: absolute; bottom: 30px; width: 100%; height: 50px; background: #111; border-radius: 10px; }
+    .office-chair::after { content: ''; position: absolute; bottom: 0; left: 20px; width: 10px; height: 30px; background: #444; }
+    .papers {
+      position: absolute; bottom: calc(15% + 15px); left: 35%; width: 40px; height: 10px;
+    }
+    .papers::before { content: ''; position: absolute; width: 25px; height: 5px; background: #fff; transform: rotate(-10deg); box-shadow: 2px 2px 5px rgba(0,0,0,0.1); }
+    .papers::after { content: ''; position: absolute; left: 10px; width: 25px; height: 5px; background: #fff; transform: rotate(5deg); box-shadow: 2px 2px 5px rgba(0,0,0,0.1); }
+
+    /* 4 - Library */
+    #f-4 .p-bg { background: #1a0f05; }
+    .bookshelf {
+      position: absolute; top: 10%; width: 100%; height: 80%;
+      display: flex; flex-direction: column; justify-content: space-between;
+    }
+    .shelf-row {
+      width: 100%; height: 4px; background: #3e2723; position: relative;
+    }
+    .book {
+      position: absolute; bottom: 4px; width: 12px; height: 35px; background: #a25;
+      transform: translateX(-100px); opacity: 0; transition: transform 1s ease, opacity 1s;
+    }
+    #f-4.active .book { transform: translateX(0); opacity: 1; }
+    .library-chair {
+      position: absolute; bottom: 10%; right: 20%; width: 80px; height: 80px;
+    }
+    .library-chair::before { content: ''; position: absolute; bottom: 30px; right: 0; width: 60px; height: 80px; background: #5c3a21; border-radius: 30px 30px 0 0; }
+    .library-chair::after { content: ''; position: absolute; bottom: 10px; right: 0; width: 80px; height: 30px; background: #4a2e1b; border-radius: 10px; }
+    .lamp {
+      position: absolute; bottom: 10%; right: 15%; width: 4px; height: 150px; background: #222;
+    }
+    .lamp::before {
+      content: ''; position: absolute; top: -20px; left: -25px; width: 54px; height: 30px; background: #111; clip-path: polygon(20% 0, 80% 0, 100% 100%, 0 100%);
+    }
+    .lamp-glow {
+      position: absolute; bottom: 10%; right: 5%; width: 300px; height: 300px;
+      background: radial-gradient(ellipse, rgba(255,180,60,0.15), transparent 70%); pointer-events: none;
+    }
+
+    /* 3 - Brutalist */
+    #f-3 .p-bg { background: #3d3d3d; }
+    #f-3 .p-tex { background: repeating-linear-gradient(45deg, transparent, transparent 2px, rgba(0,0,0,0.02) 2px, rgba(0,0,0,0.02) 4px); }
+    .pipes {
+      position: absolute; top: 20%; left: 0; width: 100%; height: 30px; background: #2a2a2a; border-radius: 15px; box-shadow: inset 0 10px 10px rgba(0,0,0,0.5);
+    }
+    .bulb-wire { position: absolute; top: 0; left: 50%; width: 2px; height: 150px; background: #111; }
+    .bulb {
+      position: absolute; top: 150px; left: calc(50% - 10px); width: 22px; height: 22px;
+      background: #fff7cc; border-radius: 50%; box-shadow: 0 0 80px 40px rgba(255,247,204,0.3);
+    }
+    .beam { position: absolute; top: 0; width: 60px; height: 100%; background: #333; box-shadow: 10px 0 20px rgba(0,0,0,0.5); }
+    .graffiti {
+      position: absolute; top: 40%; left: 20%; font-size: 8rem; color: #000; opacity: 0.1; font-weight: bold; font-family: sans-serif;
+    }
+
+    /* 2 - Pool */
+    #f-2 .p-bg { background: #006994; }
+    .pool-area {
+      position: absolute; bottom: 10%; left: 15%; width: 70%; height: 60%;
+      background: rgba(0,150,200,0.6); border: 10px solid #ddd;
+      box-shadow: inset 0 20px 50px rgba(0,0,0,0.3); perspective: 1000px;
+    }
+    .pool-tiles {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      background: repeating-linear-gradient(90deg, transparent 0, transparent 10px, rgba(255,255,255,0.2) 10px, rgba(255,255,255,0.2) 12px),
+                  repeating-linear-gradient(180deg, transparent 0, transparent 10px, rgba(255,255,255,0.2) 10px, rgba(255,255,255,0.2) 12px);
+    }
+    .water-surface {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      background: radial-gradient(circle at 50% 50%, rgba(255,255,255,0.2), transparent);
+      animation: waterShift 4s infinite alternate; transform-origin: center;
+      transition: transform 0.5s;
+    }
+    @keyframes waterShift { from { opacity: 0.5; } to { opacity: 0.8; } }
+    .lane-divider {
+      position: absolute; top: 30%; left: 0; width: 100%; height: 4px;
+      background: repeating-linear-gradient(90deg, #f00 0, #f00 20px, #fff 20px, #fff 40px);
+    }
+
+    /* 1 - Lobby */
+    #f-1 .p-bg { background: #f5f5f0; }
+    #f-1 .p-tex { background: repeating-linear-gradient(45deg, transparent, transparent 100px, rgba(0,0,0,0.03) 100px, rgba(0,0,0,0.03) 105px); }
+    .desk {
+      position: absolute; bottom: 10%; left: 50%; transform: translateX(-50%);
+      width: 400px; height: 120px; background: #222; border-top: 15px solid #eee; border-radius: 10px 10px 0 0;
+    }
+    .desk-ref {
+      position: absolute; top: 90%; left: 50%; transform: translateX(-50%) scaleY(-1);
+      width: 400px; height: 120px; background: #222; border-bottom: 15px solid #eee; opacity: 0.15;
+    }
+    .rev-door {
+      position: absolute; bottom: 10%; right: 10%; width: 150px; height: 250px;
+      border: 4px solid #ccc; border-radius: 75px 75px 0 0;
+    }
+    .door-pane {
+      position: absolute; top: 0; left: 50%; width: 2px; height: 100%; background: #ccc;
+      animation: spin 10s linear infinite; transform-origin: center;
+    }
+    @keyframes spin { from { transform: rotateY(0deg); } to { transform: rotateY(360deg); } }
+    .clock {
+      position: absolute; top: 20%; left: 50%; transform: translateX(-50%);
+      width: 120px; height: 120px; border: 4px solid #333; border-radius: 50%;
+    }
+    .hand-h, .hand-m {
+      position: absolute; bottom: 50%; left: 50%; background: #333; transform-origin: bottom;
+    }
+    .hand-h { width: 4px; height: 35px; margin-left: -2px; }
+    .hand-m { width: 2px; height: 45px; margin-left: -1px; }
+    .stairs {
+      position: absolute; bottom: 10%; left: 10%; width: 200px; height: 150px;
+      background: repeating-linear-gradient(180deg, #ddd 0, #ddd 15px, #bbb 15px, #bbb 30px);
+      clip-path: polygon(0 100%, 100% 0, 100% 100%);
+    }
+
+    /* B - Basement */
+    #f-B .p-bg { background: #0a0808; }
+    .boiler {
+      position: absolute; bottom: 0; left: 20%; width: 150px; height: 300px;
+      background: linear-gradient(90deg, #222, #444, #222); border-radius: 75px 75px 0 0;
+    }
+    .gauge {
+      position: absolute; top: 50px; left: 50px; width: 40px; height: 40px;
+      background: #fff; border: 4px solid #333; border-radius: 50%;
+    }
+    .gauge::after { content: ''; position: absolute; bottom: 50%; left: 50%; width: 2px; height: 15px; background: #f00; transform-origin: bottom; transform: rotate(45deg); }
+    .warning-light {
+      position: absolute; top: 20%; right: 20%; width: 20px; height: 20px;
+      background: #f00; border-radius: 50%; box-shadow: 0 0 20px #f00;
+      animation: blink 1s infinite alternate;
+    }
+    @keyframes blink { from { opacity: 0.2; } to { opacity: 1; } }
+    .steam-vent {
+      position: absolute; top: 30%; left: 30%; width: 50px; height: 100px;
+      background: rgba(255,255,255,0.1); filter: blur(10px); animation: ventRise 2s infinite ease-out;
+    }
+    @keyframes ventRise { from { transform: translateY(0); opacity: 0.8; } to { transform: translateY(-50px); opacity: 0; } }
+    .exit-sign {
+      position: absolute; top: 10%; right: 10%; background: #f00; color: #fff; padding: 5px 15px; font-weight: bold; border-radius: 4px; box-shadow: 0 0 10px #f00;
+    }
+    .drip {
+      position: absolute; top: 0; left: 60%; width: 2px; height: 10px; background: rgba(255,255,255,0.5);
+      animation: drop 2s infinite;
+    }
+    @keyframes drop { 0% { top: 0; opacity: 1; } 100% { top: 80%; opacity: 0; } }
+
+    /* Mute */
+    .mute-btn { position: fixed; bottom: 20px; right: 20px; font-size: 1.5rem; z-index: 100; cursor: pointer; opacity: 0.5; color: white; }
+    .mute-btn:hover { opacity: 1; }
+    .start-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; color: #fff; display: flex; justify-content: center; align-items: center; z-index: 1000; cursor: pointer; font-size: 1.5rem; }
+  </style>
+</head>
+<body>
+  <div class="start-screen" id="start-btn">Enter Building</div>
+  <div class="mute-btn" id="mute-btn">🏗️</div>
+
+  <div class="elevator-panel" id="panel">
+    <div class="arrow">▲</div>
+    <div class="floor-btn" data-f="0">R</div>
+    <div class="floor-btn" data-f="1">5</div>
+    <div class="floor-btn" data-f="2">4</div>
+    <div class="floor-btn" data-f="3">3</div>
+    <div class="floor-btn" data-f="4">2</div>
+    <div class="floor-btn" data-f="5">1</div>
+    <div class="floor-btn" data-f="6">B</div>
+    <div class="arrow">▼</div>
+  </div>
+
+  <div id="scroll-container">
+    <div class="floor" id="f-r" data-parallax="true">
+      <div class="p-bg">
+        <div class="sun" data-dist="0.15"></div>
+      </div>
+      <div class="p-dist city-bg" data-dist="0.15"></div>
+      <div class="p-furn">
+        <div class="cloud" style="top: 20%; width:100px; height:40px; animation-duration: 20s"></div>
+        <div class="cloud" style="top: 40%; width:150px; height:50px; animation-duration: 35s"></div>
+        <div class="plant" style="left: 20%"></div>
+        <div class="plant" style="left: 40%"></div>
+        <div class="plant" style="left: 70%"></div>
+      </div>
+      <div class="p-tex roof-ground" data-dist="1.0"></div>
+      <div class="p-tex railing" data-dist="1.0"></div>
+    </div>
+
+    <div class="floor" id="f-5" data-parallax="true">
+      <div class="p-bg windows">
+        <div class="window"><div class="blinds"></div></div>
+        <div class="window"><div class="blinds"></div></div>
+        <div class="window"><div class="blinds"></div></div>
+        <div class="window"><div class="blinds"></div></div>
+        <div class="window"><div class="blinds"></div></div>
+      </div>
+      <div class="p-furn">
+        <div class="office-desk"></div>
+        <div class="office-chair"></div>
+        <div class="papers"></div>
+        <div class="plant" style="left: 10%; bottom: 15%;"></div>
+      </div>
+    </div>
+
+    <div class="floor" id="f-4" data-parallax="true">
+      <div class="p-bg"></div>
+      <div class="p-furn bookshelf" id="shelf"></div>
+      <div class="p-furn">
+        <div class="library-chair"></div>
+        <div class="lamp"></div>
+        <div class="lamp-glow"></div>
+      </div>
+    </div>
+
+    <div class="floor" id="f-3" data-parallax="true">
+      <div class="p-bg"></div>
+      <div class="p-tex"></div>
+      <div class="p-furn">
+        <div class="pipes"></div>
+        <div class="bulb-wire"></div>
+        <div class="bulb"></div>
+        <div class="beam" style="left: 20%"></div>
+        <div class="beam" style="right: 20%"></div>
+        <div class="graffiti">SYSTEM</div>
+      </div>
+    </div>
+
+    <div class="floor" id="f-2" data-parallax="true">
+      <div class="p-bg"></div>
+      <div class="p-furn">
+        <div class="pool-area">
+          <div class="pool-tiles"></div>
+          <div class="water-surface" id="water"></div>
+          <div class="lane-divider"></div>
+          <div class="lane-divider" style="top: 60%"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="floor" id="f-1" data-parallax="true">
+      <div class="p-bg"></div>
+      <div class="p-tex"></div>
+      <div class="p-furn">
+        <div class="desk"></div>
+        <div class="desk-ref"></div>
+        <div class="rev-door">
+          <div class="door-pane"></div>
+          <div class="door-pane" style="animation-delay: -2.5s"></div>
+        </div>
+        <div class="clock">
+          <div class="hand-h" id="hand-h"></div>
+          <div class="hand-m" id="hand-m"></div>
+        </div>
+        <div class="stairs"></div>
+      </div>
+    </div>
+
+    <div class="floor" id="f-B" data-parallax="true">
+      <div class="p-bg"></div>
+      <div class="p-furn">
+        <div class="boiler">
+          <div class="gauge"></div>
+          <div class="gauge" style="top: 120px"></div>
+        </div>
+        <div class="pipes" style="top: 10%"></div>
+        <div class="pipes" style="top: 30%; width: 20%; border-radius:0;"></div>
+        <div class="warning-light"></div>
+        <div class="steam-vent"></div>
+        <div class="drip"></div>
+        <div class="exit-sign">EXIT</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Setup Library Books
+    const shelf = document.getElementById('shelf');
+    const colors = ['#a25', '#52a', '#25a', '#2a5', '#a52', '#555', '#842'];
+    for(let r=0; r<8; r++) {
+      const row = document.createElement('div');
+      row.className = 'shelf-row';
+      for(let b=0; b<15; b++) {
+        const book = document.createElement('div');
+        book.className = 'book';
+        book.style.left = `${b * 16 + 10}px`;
+        book.style.height = `${30 + Math.random()*15}px`;
+        book.style.background = colors[Math.floor(Math.random() * colors.length)];
+        book.style.transitionDelay = `${Math.random()*0.5}s`;
+        row.appendChild(book);
+      }
+      shelf.appendChild(row);
+    }
+
+    // Scroll Logic
+    let currentY = 0;
+    let targetY = 0;
+    let maxScroll = 0;
+    const ease = 0.09;
+    let isStarted = false;
+    let currentFloor = 0;
+
+    function resize() {
+      maxScroll = document.getElementById('scroll-container').offsetHeight - window.innerHeight;
+    }
+    window.addEventListener('resize', resize);
+    
+    window.addEventListener('wheel', e => {
+      if(!isStarted) return;
+      e.preventDefault();
+      targetY += e.deltaY;
+      targetY = Math.max(0, Math.min(targetY, maxScroll));
+    }, {passive: false});
+
+    let touchY = 0;
+    window.addEventListener('touchstart', e => touchY = e.touches[0].clientY);
+    window.addEventListener('touchmove', e => {
+      if(!isStarted) return;
+      e.preventDefault();
+      targetY += (touchY - e.touches[0].clientY) * 1.5;
+      targetY = Math.max(0, Math.min(targetY, maxScroll));
+      touchY = e.touches[0].clientY;
+    }, {passive: false});
+
+    // Elevator logic
+    const btns = document.querySelectorAll('.floor-btn');
+    btns.forEach(b => {
+      b.addEventListener('click', () => {
+        const f = parseInt(b.getAttribute('data-f'));
+        targetY = f * window.innerHeight;
+      });
+    });
+
+    // Clock
+    setInterval(() => {
+      const d = new Date();
+      document.getElementById('hand-h').style.transform = `rotate(${d.getHours()*30 + d.getMinutes()*0.5}deg)`;
+      document.getElementById('hand-m').style.transform = `rotate(${d.getMinutes()*6}deg)`;
+    }, 1000);
+
+    // Audio
+    let audioCtx, masterGain;
+    let floorSounds = [];
+    
+    function initAudio() {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      audioCtx = new AudioContext();
+      masterGain = audioCtx.createGain();
+      masterGain.gain.value = 1;
+      masterGain.connect(audioCtx.destination);
+
+      const fCnt = 7;
+      for(let i=0; i<fCnt; i++) {
+        const g = audioCtx.createGain();
+        g.gain.value = 0;
+        g.connect(masterGain);
+        floorSounds.push({ gainNode: g, nodes: [] });
+      }
+
+      const t = audioCtx.currentTime;
+
+      // Roof: wind
+      const windOsc = audioCtx.createOscillator();
+      windOsc.type = 'triangle'; windOsc.frequency.value = 400;
+      windOsc.connect(floorSounds[0].gainNode); windOsc.start();
+
+      // Office: AC hum
+      const acOsc = audioCtx.createOscillator();
+      acOsc.type = 'sine'; acOsc.frequency.value = 180;
+      acOsc.connect(floorSounds[1].gainNode); acOsc.start();
+
+      // Library: Silence/subtle
+      // Brutalist: Rumble
+      const rumble = audioCtx.createOscillator();
+      rumble.type = 'sawtooth'; rumble.frequency.value = 60;
+      const bFilter = audioCtx.createBiquadFilter(); bFilter.type = 'lowpass'; bFilter.frequency.value = 150;
+      rumble.connect(bFilter).connect(floorSounds[3].gainNode); rumble.start();
+
+      // Pool: Water hum
+      const waterOsc = audioCtx.createOscillator();
+      waterOsc.type = 'sine'; waterOsc.frequency.value = 300;
+      waterOsc.connect(floorSounds[4].gainNode); waterOsc.start();
+
+      // Lobby: Muzak
+      const muzak = audioCtx.createOscillator();
+      muzak.type = 'triangle'; muzak.frequency.value = 329; // E
+      muzak.connect(floorSounds[5].gainNode); muzak.start();
+
+      // Basement: Machinery
+      const mach = audioCtx.createOscillator();
+      mach.type = 'square'; mach.frequency.value = 80;
+      const mFilter = audioCtx.createBiquadFilter(); mFilter.type = 'lowpass'; mFilter.frequency.value = 300;
+      mach.connect(mFilter).connect(floorSounds[6].gainNode); mach.start();
+    }
+
+    function playDing() {
+      if(!audioCtx) return;
+      const osc = audioCtx.createOscillator();
+      const g = audioCtx.createGain();
+      osc.frequency.value = 600;
+      osc.connect(g).connect(masterGain);
+      osc.start(audioCtx.currentTime);
+      g.gain.setValueAtTime(0.5, audioCtx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
+      osc.stop(audioCtx.currentTime + 0.15);
+    }
+
+    function loop() {
+      if(isStarted) {
+        currentY += (targetY - currentY) * ease;
+        document.getElementById('scroll-container').style.transform = `translateY(${-currentY}px)`;
+
+        // Detect floor
+        const oldFloor = currentFloor;
+        currentFloor = Math.max(0, Math.min(6, Math.round(currentY / window.innerHeight)));
+        
+        if(currentFloor !== oldFloor) {
+          btns.forEach(b => b.classList.remove('active'));
+          btns[currentFloor].classList.add('active');
+          playDing();
+
+          // Animations
+          document.querySelectorAll('.floor').forEach((f, i) => {
+            if(i === currentFloor) f.classList.add('active');
+            else f.classList.remove('active');
+          });
+
+          // Audio crossfade
+          if(audioCtx) {
+            floorSounds.forEach((fs, i) => {
+              const target = (i === currentFloor) ? 0.05 : 0;
+              fs.gainNode.gain.linearRampToValueAtTime(target, audioCtx.currentTime + 0.5);
+            });
+          }
+        }
+
+        // Parallax & Reactions
+        const velocity = targetY - currentY;
+        const poolWater = document.getElementById('water');
+        poolWater.style.transform = `rotateX(${velocity * 0.1}deg)`;
+
+        requestAnimationFrame(loop);
+      }
+    }
+
+    document.getElementById('start-btn').addEventListener('click', function() {
+      initAudio();
+      this.style.display = 'none';
+      isStarted = true;
+      resize();
+      btns[0].classList.add('active');
+      document.getElementById('f-r').classList.add('active');
+      if(audioCtx) floorSounds[0].gainNode.gain.value = 0.05;
+      loop();
+    });
+
+    let isMuted = false;
+    document.getElementById('mute-btn').addEventListener('click', function() {
+      if(!audioCtx) return;
+      isMuted = !isMuted;
+      masterGain.gain.linearRampToValueAtTime(isMuted ? 0 : 1, audioCtx.currentTime + 0.3);
+      this.style.opacity = isMuted ? 0.3 : 1;
+    });
+
+    window.onload = resize;
+  </script>
+</body>
+</html>
