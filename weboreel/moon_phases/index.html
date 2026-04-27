@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Moon Phases</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Cormorant+Garamond:ital,wght@1,400&family=DM+Sans:wght@400;500&family=Playfair+Display:wght@900&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body, html {
+      width: 100%; height: 100%; overflow: hidden;
+      background: #020208; color: #fff;
+      font-family: 'DM Sans', sans-serif; overscroll-behavior: none;
+    }
+
+    #canvas-container { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; pointer-events: none; }
+    
+    #scroll-container { position: absolute; top: 0; left: 0; width: 100%; will-change: transform; z-index: 2; }
+    
+    .phase-section {
+      width: 100%; height: 120vh; position: relative;
+      display: flex; flex-direction: column; justify-content: center; align-items: center;
+    }
+
+    /* Fixed Moon Setup */
+    #moon-container {
+      position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      width: 300px; height: 300px; z-index: 3; pointer-events: none;
+    }
+    
+    .moon {
+      position: absolute; width: 100%; height: 100%; border-radius: 50%;
+      background: #fff; box-shadow: 0 0 50px rgba(255,255,255,0.5), inset -20px 0 40px rgba(0,0,0,0.5);
+      overflow: hidden; transition: box-shadow 0.5s;
+    }
+    
+    .moon-shadow {
+      position: absolute; width: 100%; height: 100%; border-radius: 50%;
+      background: #020208;
+      /* Default shadow covers moon completely (New Moon) */
+      transform: translateX(0);
+      box-shadow: 0 0 10px rgba(0,0,0,0.9);
+    }
+    
+    .crater {
+      position: absolute; background: rgba(0,0,0,0.1); border-radius: 50%;
+      box-shadow: inset 2px 2px 5px rgba(0,0,0,0.2); pointer-events: none;
+    }
+
+    /* Typography */
+    .title {
+      font-family: 'Playfair Display', serif; font-size: clamp(3rem, 8vw, 6rem);
+      letter-spacing: 5px; opacity: 0; transform: translateY(20px); transition: opacity 1s, transform 1s;
+      position: absolute; z-index: 4; text-align: center; width: 100%; padding: 0 20px;
+    }
+    .phase-section.active .title { opacity: 1; transform: translateY(0); }
+    
+    .desc {
+      font-family: 'Cormorant Garamond', serif; font-style: italic; font-size: 1.5rem;
+      color: #aaa; margin-top: 150px; opacity: 0; transition: opacity 1s 0.5s;
+      text-align: center; z-index: 4; position: absolute; top: 60%;
+    }
+    .phase-section.active .desc { opacity: 1; }
+
+    .watermark {
+      position: absolute; font-family: 'Bebas Neue', cursive; font-size: 20rem;
+      color: rgba(255,255,255,0.02); z-index: 1; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      white-space: nowrap; pointer-events: none;
+    }
+
+    /* Top Phase Indicator */
+    .indicator-bar {
+      position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
+      display: flex; gap: 15px; z-index: 10;
+    }
+    .ind-moon {
+      width: 15px; height: 15px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.3);
+      background: #020208; position: relative; overflow: hidden; transition: border-color 0.3s;
+    }
+    .ind-moon.active { border-color: #fff; box-shadow: 0 0 10px #fff; }
+    .ind-shadow { position: absolute; width: 100%; height: 100%; background: #fff; border-radius: 50%; }
+
+    /* Mute */
+    .mute-btn { position: fixed; bottom: 20px; right: 20px; font-size: 1.5rem; z-index: 100; cursor: pointer; opacity: 0.5; color: white; }
+    .start-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #020208; color: #fff; display: flex; justify-content: center; align-items: center; z-index: 1000; cursor: pointer; font-family: 'Playfair Display'; font-size: 2rem; letter-spacing: 5px; text-transform: uppercase; }
+  </style>
+</head>
+<body>
+  <div class="start-screen" id="start-btn">Observe the cycle</div>
+  <div class="mute-btn" id="mute-btn">🌖</div>
+
+  <canvas id="canvas-container"></canvas>
+
+  <div class="indicator-bar">
+    <div class="ind-moon" id="ind-0"><div class="ind-shadow" style="transform:translateX(100%)"></div></div>
+    <div class="ind-moon" id="ind-1"><div class="ind-shadow" style="transform:translateX(75%)"></div></div>
+    <div class="ind-moon" id="ind-2"><div class="ind-shadow" style="transform:translateX(50%)"></div></div>
+    <div class="ind-moon" id="ind-3"><div class="ind-shadow" style="transform:translateX(25%)"></div></div>
+    <div class="ind-moon" id="ind-4"><div class="ind-shadow" style="transform:translateX(0)"></div></div>
+    <div class="ind-moon" id="ind-5"><div class="ind-shadow" style="transform:translateX(-25%)"></div></div>
+    <div class="ind-moon" id="ind-6"><div class="ind-shadow" style="transform:translateX(-50%)"></div></div>
+    <div class="ind-moon" id="ind-7"><div class="ind-shadow" style="transform:translateX(-75%)"></div></div>
+  </div>
+
+  <div id="moon-container">
+    <div class="moon" id="main-moon">
+      <div class="crater" style="top:20%; left:30%; width:40px; height:40px;"></div>
+      <div class="crater" style="top:50%; left:60%; width:60px; height:60px;"></div>
+      <div class="crater" style="top:70%; left:20%; width:30px; height:30px;"></div>
+      <div class="crater" style="top:30%; left:70%; width:20px; height:20px;"></div>
+      <div class="crater" style="top:60%; left:40%; width:50px; height:50px;"></div>
+      <div class="moon-shadow" id="moon-shadow"></div>
+    </div>
+  </div>
+
+  <div id="scroll-container">
+    <div class="phase-section" id="p0">
+      <div class="watermark">NEW</div>
+      <div class="title" style="top:20%">NEW MOON</div>
+      <div class="desc">The beginning of the cycle. Invisible, yet present.</div>
+    </div>
+    <div class="phase-section" id="p1">
+      <div class="watermark">WAXING</div>
+      <div class="title" style="top:20%">WAXING CRESCENT</div>
+      <div class="desc">A sliver of light emerges from the shadow.</div>
+    </div>
+    <div class="phase-section" id="p2">
+      <div class="watermark">QUARTER</div>
+      <div class="title" style="top:20%">FIRST QUARTER</div>
+      <div class="desc">Half illuminated, gathering strength.</div>
+    </div>
+    <div class="phase-section" id="p3">
+      <div class="watermark">GIBBOUS</div>
+      <div class="title" style="top:20%">WAXING GIBBOUS</div>
+      <div class="desc">Almost complete, swelling with light.</div>
+    </div>
+    <div class="phase-section" id="p4">
+      <div class="watermark">FULL</div>
+      <div class="title" style="top:20%">FULL MOON</div>
+      <div class="desc" id="full-desc">Maximum illumination. The peak.</div>
+    </div>
+    <div class="phase-section" id="p5">
+      <div class="watermark">WANING</div>
+      <div class="title" style="top:20%">WANING GIBBOUS</div>
+      <div class="desc">The light begins its slow retreat.</div>
+    </div>
+    <div class="phase-section" id="p6">
+      <div class="watermark">QUARTER</div>
+      <div class="title" style="top:20%">LAST QUARTER</div>
+      <div class="desc">Half in shadow, half in memory.</div>
+    </div>
+    <div class="phase-section" id="p7">
+      <div class="watermark">CRESCENT</div>
+      <div class="title" style="top:20%">WANING CRESCENT</div>
+      <div class="desc">Fading back into the dark void.</div>
+    </div>
+    <!-- Extra space to scroll past last phase -->
+    <div style="height: 50vh;"></div>
+  </div>
+
+  <script>
+    let currentY = 0; let targetY = 0; let maxScroll = 0; let isStarted = false; const ease = 0.065;
+    const scrollCont = document.getElementById('scroll-container');
+    const sections = document.querySelectorAll('.phase-section');
+    
+    function resize() { maxScroll = scrollCont.offsetHeight - window.innerHeight; }
+    window.addEventListener('resize', resize);
+    window.addEventListener('wheel', e => { if(!isStarted) return; e.preventDefault(); targetY += e.deltaY; targetY = Math.max(0, Math.min(targetY, maxScroll)); }, {passive: false});
+    let touchY = 0;
+    window.addEventListener('touchstart', e => touchY = e.touches[0].clientY);
+    window.addEventListener('touchmove', e => { if(!isStarted) return; e.preventDefault(); targetY += (touchY - e.touches[0].clientY) * 1.5; targetY = Math.max(0, Math.min(targetY, maxScroll)); touchY = e.touches[0].clientY; }, {passive: false});
+
+    // Starfield Canvas
+    const canvas = document.getElementById('canvas-container');
+    const ctx = canvas.getContext('2d');
+    let width, height;
+    const stars = [];
+    function initCanvas() {
+      width = window.innerWidth; height = window.innerHeight;
+      canvas.width = width; canvas.height = height;
+      for(let i=0; i<300; i++) {
+        stars.push({
+          x: Math.random() * width, y: Math.random() * height,
+          r: Math.random() * 1.5, a: Math.random(),
+          speed: Math.random() * 0.02
+        });
+      }
+    }
+    window.addEventListener('resize', initCanvas); initCanvas();
+
+    function renderCanvas() {
+      ctx.clearRect(0, 0, width, height);
+      
+      // Milky Way
+      const grad = ctx.createLinearGradient(0, 0, width, height);
+      grad.addColorStop(0, 'rgba(20, 20, 50, 0)');
+      grad.addColorStop(0.5, 'rgba(40, 30, 80, 0.1)');
+      grad.addColorStop(1, 'rgba(20, 20, 50, 0)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, width, height);
+
+      // Stars
+      stars.forEach(s => {
+        s.a += s.speed;
+        ctx.fillStyle = `rgba(255, 255, 255, ${Math.abs(Math.sin(s.a))})`;
+        ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, Math.PI*2); ctx.fill();
+        s.y -= (targetY - currentY) * 0.005 * s.r; // Parallax
+        if(s.y < 0) s.y = height;
+        if(s.y > height) s.y = 0;
+      });
+      requestAnimationFrame(renderCanvas);
+    }
+
+    // Audio
+    let audioCtx, masterGain;
+    const oscs = []; // 60, 220, 330, 440, 528(bowl), 880
+    function initAudio() {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      audioCtx = new AudioContext();
+      masterGain = audioCtx.createGain(); masterGain.gain.value = 0.5;
+      
+      // Reverb
+      const convolver = audioCtx.createConvolver();
+      const len = audioCtx.sampleRate * 3;
+      const imp = audioCtx.createBuffer(2, len, audioCtx.sampleRate);
+      for(let i=0; i<len; i++) {
+        const decay = Math.exp(-i / (audioCtx.sampleRate * 1.0));
+        imp.getChannelData(0)[i] = (Math.random() * 2 - 1) * decay;
+        imp.getChannelData(1)[i] = (Math.random() * 2 - 1) * decay;
+      }
+      convolver.buffer = imp;
+      masterGain.connect(convolver).connect(audioCtx.destination);
+
+      const freqs = [60, 220, 330, 440, 528, 880];
+      freqs.forEach((f, i) => {
+        const osc = audioCtx.createOscillator();
+        osc.type = i === 4 ? 'sine' : 'triangle'; // 528 is sine bowl
+        const g = audioCtx.createGain(); g.gain.value = 0;
+        osc.connect(g).connect(masterGain);
+        osc.start();
+        oscs.push({ osc, gainNode: g });
+      });
+    }
+
+    let activePhase = 0;
+
+    function loop() {
+      if(isStarted) {
+        currentY += (targetY - currentY) * ease;
+        scrollCont.style.transform = `translateY(${-currentY}px)`;
+
+        // Calculate continuous phase 0 to 1
+        const maxScrollReal = 7 * window.innerHeight; // 8 phases
+        const phaseRatio = Math.max(0, Math.min(1, currentY / maxScrollReal));
+        
+        // Shadow movement (-100% to 100%)
+        // 0% (New) -> right to left.
+        // Wait, shadow logic: 
+        // New: shadow covers everything (left: 0).
+        // Full: shadow is completely off (left: 100%).
+        // To make it continuous and spherical looking, we use scaleX.
+        
+        const moonShadow = document.getElementById('moon-shadow');
+        const mainMoon = document.getElementById('main-moon');
+        
+        // Phase 0->0.5 (Waxing): Shadow moves from left=0 to left=100%
+        // Phase 0.5->1 (Waning): Shadow comes from left=-100% to left=0
+        if(phaseRatio <= 0.5) {
+          // Waxing
+          const p = phaseRatio * 2; // 0 to 1
+          moonShadow.style.transform = `translateX(${p * 100}%)`;
+          // Add some spherical curve by scaling X
+          moonShadow.style.borderRadius = `${50 + (1-p)*50}%`;
+          moonShadow.style.left = '0';
+        } else {
+          // Waning
+          const p = (phaseRatio - 0.5) * 2; // 0 to 1
+          moonShadow.style.transform = `translateX(${p * 100}%)`;
+          moonShadow.style.left = '-100%';
+        }
+
+        // Full Moon pulse
+        if(phaseRatio > 0.45 && phaseRatio < 0.55) {
+          mainMoon.style.boxShadow = `0 0 ${50 + Math.sin(Date.now()*0.005)*20}px rgba(255,255,255,0.8), inset -20px 0 40px rgba(0,0,0,0.5)`;
+        } else {
+          mainMoon.style.boxShadow = `0 0 10px rgba(255,255,255,0.2), inset -20px 0 40px rgba(0,0,0,0.5)`;
+        }
+
+        // Section Triggers
+        const curIdx = Math.round(phaseRatio * 7);
+        if(curIdx !== activePhase) {
+          sections[activePhase].classList.remove('active');
+          document.getElementById(`ind-${activePhase}`).classList.remove('active');
+          activePhase = curIdx;
+          sections[activePhase].classList.add('active');
+          document.getElementById(`ind-${activePhase}`).classList.add('active');
+        }
+
+        // Audio blending based on phaseRatio
+        if(audioCtx) {
+          const t = audioCtx.currentTime;
+          // Base 60Hz always on
+          oscs[0].gainNode.gain.setTargetAtTime(0.2, t, 0.1);
+          
+          // Intensity peaks at 0.5 (Full Moon)
+          const intensity = 1 - Math.abs(phaseRatio - 0.5) * 2; // 0 at ends, 1 at middle
+          
+          oscs[1].gainNode.gain.setTargetAtTime(intensity > 0.2 ? 0.05 : 0, t, 0.5);
+          oscs[2].gainNode.gain.setTargetAtTime(intensity > 0.4 ? 0.05 : 0, t, 0.5);
+          oscs[3].gainNode.gain.setTargetAtTime(intensity > 0.6 ? 0.05 : 0, t, 0.5);
+          oscs[4].gainNode.gain.setTargetAtTime(intensity > 0.8 ? 0.1 : 0, t, 0.5); // Bowl
+          oscs[5].gainNode.gain.setTargetAtTime(intensity > 0.9 ? 0.02 : 0, t, 0.5); // High shimmer
+        }
+      }
+      requestAnimationFrame(loop);
+    }
+
+    document.getElementById('start-btn').addEventListener('click', function() {
+      initAudio(); this.style.display = 'none'; isStarted = true; resize(); renderCanvas();
+      sections[0].classList.add('active'); document.getElementById('ind-0').classList.add('active');
+      loop();
+    });
+
+    let isMuted = false;
+    document.getElementById('mute-btn').addEventListener('click', function() {
+      if(!audioCtx) return; isMuted = !isMuted;
+      masterGain.gain.linearRampToValueAtTime(isMuted ? 0 : 0.5, audioCtx.currentTime + 0.3);
+      this.style.opacity = isMuted ? 0.3 : 1;
+    });
+    window.onload = resize;
+  </script>
+</body>
+</html>
