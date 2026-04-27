@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>AI Timeline</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body, html {
+      width: 100%; height: 100%; overflow: hidden;
+      background: #050a05; color: #0f0; font-family: 'Space Mono', monospace;
+      overscroll-behavior: none; perspective: 1500px;
+    }
+
+    /* Scanline overlay */
+    .scanlines {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0) 50%, rgba(0,0,0,0.2) 50%, rgba(0,0,0,0.2));
+      background-size: 100% 4px; pointer-events: none; z-index: 100; opacity: 0.5;
+    }
+
+    #viewport {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      transform-style: preserve-3d; display: flex; justify-content: center; align-items: center;
+    }
+
+    /* The isometric grid world */
+    #world {
+      width: 1000px; height: 3000px; position: absolute;
+      transform-style: preserve-3d;
+      /* Isometric projection */
+      transform: rotateX(60deg) rotateZ(45deg) translateY(0px);
+      transition: transform 0.1s;
+    }
+
+    /* Moving background grid */
+    .grid-bg {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      background-image: 
+        linear-gradient(rgba(0,255,0,0.2) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,255,0,0.2) 1px, transparent 1px);
+      background-size: 50px 50px;
+      border: 2px solid rgba(0,255,0,0.5);
+    }
+
+    /* Nodes */
+    .node {
+      position: absolute; left: 50%; width: 200px; height: 200px;
+      transform: translateX(-50%); transform-style: preserve-3d;
+    }
+    
+    .node-label {
+      position: absolute; top: -50px; left: -100px; width: 400px; text-align: center;
+      font-size: 2rem; font-weight: bold; text-shadow: 0 0 10px #0f0;
+      /* Counter-rotate to face camera */
+      transform: rotateZ(-45deg) rotateX(-60deg) translateY(-50px);
+      opacity: 0.2; transition: opacity 0.5s;
+    }
+    .node.active .node-label { opacity: 1; }
+
+    /* Node 1: 1950 Turing Tape */
+    #n1 { top: 2500px; }
+    .tape-machine { position: absolute; width: 100px; height: 50px; background: rgba(0,255,0,0.1); border: 2px solid #0f0; left: 50px; top: 75px; }
+    .reel { position: absolute; top: -20px; width: 40px; height: 40px; border: 2px dashed #0f0; border-radius: 50%; }
+    .node.active .reel { animation: spin 2s linear infinite; }
+    @keyframes spin { 100% { transform: rotate(360deg); } }
+
+    /* Node 2: 1997 Deep Blue */
+    #n2 { top: 1900px; }
+    .chessboard { position: absolute; width: 160px; height: 160px; left: 20px; top: 20px; border: 2px solid #0f0; display: grid; grid-template-columns: repeat(8, 1fr); }
+    .cb-sq { background: rgba(0,255,0,0.2); }
+    .cb-sq:nth-child(even) { background: transparent; }
+
+    /* Node 3: 2012 AlexNet */
+    #n3 { top: 1300px; }
+    .nn { position: absolute; width: 100%; height: 100%; display: flex; justify-content: space-around; align-items: center; }
+    .nn-layer { display: flex; flex-direction: column; gap: 10px; }
+    .neuron { width: 15px; height: 15px; border-radius: 50%; border: 2px solid #0f0; background: #000; transition: background 0.2s; }
+    .node.active .neuron { animation: pulseNN 1s infinite alternate; }
+    @keyframes pulseNN { 0% { background: #000; box-shadow: 0 0 0 #0f0; } 100% { background: #0f0; box-shadow: 0 0 10px #0f0; } }
+
+    /* Node 4: 2022 LLMs */
+    #n4 { top: 700px; }
+    .chat-bubble { position: absolute; border: 2px solid #0f0; padding: 10px; font-size: 10px; background: rgba(0,20,0,0.8); }
+    .chat-bubble::after { content: '_'; animation: blink 1s infinite; }
+
+    /* Node 5: 2026 AGI */
+    #n5 { top: 100px; }
+    .agi-core {
+      position: absolute; left: 50px; top: 50px; width: 100px; height: 100px;
+      border: 4px solid #fff; border-radius: 50%; box-shadow: 0 0 50px #fff, inset 0 0 20px #fff;
+    }
+    .node.active .agi-core { animation: corePulse 0.5s infinite alternate; }
+    @keyframes corePulse { from { transform: scale(1); box-shadow: 0 0 20px #fff; } to { transform: scale(1.2); box-shadow: 0 0 80px #fff; } }
+
+    /* Mute */
+    .mute-btn { position: fixed; bottom: 20px; right: 20px; font-size: 1.5rem; z-index: 200; cursor: pointer; opacity: 0.5; }
+    .mute-btn:hover { opacity: 1; }
+    .start-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #050a05; display: flex; justify-content: center; align-items: center; z-index: 1000; cursor: pointer; font-size: 2rem; border: 4px solid #0f0; }
+    
+    .hud { position: fixed; top: 20px; left: 20px; font-size: 1rem; z-index: 200; pointer-events: none; }
+  </style>
+</head>
+<body>
+  <div class="start-screen" id="start-btn">[ INITIATE SEQUENCE ]</div>
+  <div class="mute-btn" id="mute-btn">🔊</div>
+  <div class="scanlines"></div>
+
+  <div class="hud" id="hud">SYS.YEAR: 1950<br>STATUS: COMPILING...</div>
+
+  <div id="viewport">
+    <div id="world">
+      <div class="grid-bg"></div>
+
+      <div class="node" id="n1">
+        <div class="node-label">1950: TURING TEST</div>
+        <div class="tape-machine">
+          <div class="reel" style="left: -10px"></div>
+          <div class="reel" style="right: -10px"></div>
+        </div>
+      </div>
+
+      <div class="node" id="n2">
+        <div class="node-label">1997: DEEP BLUE</div>
+        <div class="chessboard" id="board"></div>
+      </div>
+
+      <div class="node" id="n3">
+        <div class="node-label">2012: ALEXNET</div>
+        <div class="nn">
+          <div class="nn-layer"><div class="neuron"></div><div class="neuron"></div><div class="neuron"></div></div>
+          <div class="nn-layer"><div class="neuron"></div><div class="neuron"></div><div class="neuron"></div><div class="neuron"></div></div>
+          <div class="nn-layer"><div class="neuron"></div><div class="neuron"></div></div>
+        </div>
+      </div>
+
+      <div class="node" id="n4">
+        <div class="node-label">2022: LLMs</div>
+        <div class="chat-bubble" style="top: 20px; left: -50px;">Human: Write a poem.</div>
+        <div class="chat-bubble" style="top: 80px; left: 50px; border-color: #aa0; color:#aa0">AI: Generating...</div>
+      </div>
+
+      <div class="node" id="n5">
+        <div class="node-label" style="color:#fff; text-shadow:0 0 20px #fff">2026: AGI</div>
+        <div class="agi-core"></div>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    // Setup Chessboard
+    const board = document.getElementById('board');
+    for(let i=0; i<64; i++) {
+      const sq = document.createElement('div');
+      sq.className = 'cb-sq'; board.appendChild(sq);
+    }
+
+    let currentY = 0; let targetY = 0; let maxScroll = 2600; let isStarted = false; const ease = 0.08;
+    const world = document.getElementById('world');
+    const nodes = document.querySelectorAll('.node');
+    const hud = document.getElementById('hud');
+    
+    // Initial position to show 1950 at bottom
+    // world height 3000. 1950 is at 2500.
+    
+    window.addEventListener('wheel', e => {
+      if(!isStarted) return; e.preventDefault();
+      targetY += e.deltaY * 1.5;
+      targetY = Math.max(0, Math.min(targetY, maxScroll));
+    }, {passive: false});
+
+    let touchY = 0;
+    window.addEventListener('touchstart', e => touchY = e.touches[0].clientY);
+    window.addEventListener('touchmove', e => {
+      if(!isStarted) return; e.preventDefault();
+      targetY += (touchY - e.touches[0].clientY) * 2;
+      targetY = Math.max(0, Math.min(targetY, maxScroll));
+      touchY = e.touches[0].clientY;
+    }, {passive: false});
+
+    // Audio
+    let audioCtx, masterGain;
+    const sounds = [];
+    function initAudio() {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      audioCtx = new AudioContext();
+      masterGain = audioCtx.createGain(); masterGain.gain.value = 0.5;
+      masterGain.connect(audioCtx.destination);
+
+      for(let i=0; i<5; i++) {
+        const g = audioCtx.createGain(); g.gain.value = 0;
+        g.connect(masterGain); sounds.push(g);
+      }
+
+      // 1. Relays (Square wave blips)
+      const osc1 = audioCtx.createOscillator(); osc1.type = 'square'; osc1.frequency.value = 200;
+      // create LFO to pulse it
+      const lfo1 = audioCtx.createOscillator(); lfo1.frequency.value = 8;
+      const lfo1Gain = audioCtx.createGain(); lfo1Gain.gain.value = 200;
+      lfo1.connect(lfo1Gain).connect(osc1.frequency);
+      osc1.connect(sounds[0]); osc1.start(); lfo1.start();
+
+      // 2. Dial-up / Server (Sawtooth)
+      const osc2 = audioCtx.createOscillator(); osc2.type = 'sawtooth'; osc2.frequency.value = 120;
+      osc2.connect(sounds[1]); osc2.start();
+
+      // 3. Neural Net Processing (White noise + bandpass sweep)
+      const bSize = audioCtx.sampleRate; const nBuf = audioCtx.createBuffer(1, bSize, audioCtx.sampleRate);
+      for(let i=0; i<bSize; i++) nBuf.getChannelData(0)[i] = Math.random()*2-1;
+      const noise = audioCtx.createBufferSource(); noise.buffer = nBuf; noise.loop = true;
+      const bp = audioCtx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 1000;
+      noise.connect(bp).connect(sounds[2]); noise.start();
+
+      // 4. LLM Generation (High sine typing blips)
+      const osc4 = audioCtx.createOscillator(); osc4.type = 'sine'; osc4.frequency.value = 800;
+      const lfo4 = audioCtx.createOscillator(); lfo4.type = 'square'; lfo4.frequency.value = 15;
+      const lfo4Gain = audioCtx.createGain(); lfo4Gain.gain.value = 800;
+      lfo4.connect(lfo4Gain).connect(osc4.frequency);
+      osc4.connect(sounds[3]); osc4.start(); lfo4.start();
+
+      // 5. AGI (Crystalline pure sine cluster)
+      const osc5 = audioCtx.createOscillator(); osc5.type = 'sine'; osc5.frequency.value = 880;
+      const osc5b = audioCtx.createOscillator(); osc5b.type = 'sine'; osc5b.frequency.value = 1320;
+      osc5.connect(sounds[4]); osc5b.connect(sounds[4]); osc5.start(); osc5b.start();
+    }
+
+    const years = [1950, 1997, 2012, 2022, 2026];
+    let activeIndex = -1;
+
+    function loop() {
+      if(isStarted) {
+        currentY += (targetY - currentY) * ease;
+        
+        // Translate world. targetY=0 is bottom (1950). targetY=maxScroll is top (2026).
+        // 1950 node is at top: 2500px.
+        // We want to translate Y so the active node is centered.
+        // Offset mapping: targetY=0 -> translate Y -1500 (brings 2500 up).
+        // We'll just map currentY directly to translation.
+        world.style.transform = `rotateX(60deg) rotateZ(45deg) translateY(${currentY - 1500}px)`;
+
+        // Determine active node based on currentY
+        // Node distances: 2500, 1900, 1300, 700, 100
+        // Distances from bottom: 0, 600, 1200, 1800, 2400
+        const progress = currentY / 2400; // 0 to 1
+        const exactIdx = progress * 4;
+        const curIdx = Math.max(0, Math.min(4, Math.round(exactIdx)));
+
+        if(curIdx !== activeIndex) {
+          if(activeIndex >= 0) nodes[activeIndex].classList.remove('active');
+          nodes[curIdx].classList.add('active');
+          activeIndex = curIdx;
+          hud.innerHTML = `SYS.YEAR: ${years[curIdx]}<br>STATUS: ONLINE`;
+          if(curIdx === 4) {
+            document.body.style.background = '#fff'; setTimeout(() => document.body.style.background='#050a05', 100);
+            hud.innerHTML = `SYS.YEAR: 2026<br>STATUS: TRANSCENDENT`;
+            hud.style.color = '#fff';
+          } else {
+            hud.style.color = '#0f0';
+          }
+        }
+
+        // Audio blending
+        if(audioCtx) {
+          sounds.forEach((g, i) => {
+            const dist = Math.abs(exactIdx - i);
+            const vol = Math.max(0, 1 - dist);
+            g.gain.setTargetAtTime(vol * 0.2, audioCtx.currentTime, 0.1);
+          });
+        }
+      }
+      requestAnimationFrame(loop);
+    }
+
+    document.getElementById('start-btn').addEventListener('click', function() {
+      initAudio(); this.style.display = 'none'; isStarted = true; loop();
+    });
+
+    let isMuted = false;
+    document.getElementById('mute-btn').addEventListener('click', function() {
+      if(!audioCtx) return; isMuted = !isMuted;
+      masterGain.gain.linearRampToValueAtTime(isMuted ? 0 : 0.5, audioCtx.currentTime + 0.3);
+      this.style.opacity = isMuted ? 0.3 : 1;
+    });
+  </script>
+</body>
+</html>
