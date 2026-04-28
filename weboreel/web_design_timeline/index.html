@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web Design Timeline</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;700;900&display=swap');
+
+        /* CSS Variables will be controlled by JS for smooth transitions where possible */
+        :root {
+            --bg: #c0c0c0; /* Windows 95 gray */
+            --text: #000000;
+            --font: 'Times New Roman', serif;
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 300vh; /* 3 Eras */
+            background-color: var(--bg);
+            color: var(--text);
+            font-family: var(--font);
+            overflow-x: hidden;
+            transition: background-color 1s ease, color 1s ease;
+        }
+
+        .viewport {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            pointer-events: none;
+        }
+
+        /* The App Container that morphs */
+        .app {
+            width: 80%;
+            max-width: 800px;
+            height: 60%;
+            position: relative;
+            transition: all 1s ease;
+            pointer-events: auto;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* Elements inside App */
+        .header { transition: all 1s ease; display: flex; align-items: center; }
+        .nav { transition: all 1s ease; display: flex; }
+        .content { transition: all 1s ease; flex-grow: 1; padding: 20px; }
+        .btn { transition: all 1s ease; cursor: pointer; text-align: center; }
+
+        /* Era 1: Web 1.0 (Default) */
+        .app.era-1 {
+            border: 2px solid #fff;
+            border-bottom-color: #888;
+            border-right-color: #888;
+            background: #fff;
+        }
+        .app.era-1 .header {
+            background: #000080;
+            color: #fff;
+            padding: 5px;
+            font-weight: bold;
+            font-size: 14px;
+        }
+        .app.era-1 .nav {
+            background: #c0c0c0;
+            padding: 10px;
+            gap: 10px;
+            border-bottom: 2px solid #000;
+        }
+        .app.era-1 .nav a {
+            color: #0000ff;
+            text-decoration: underline;
+        }
+        .app.era-1 .content {
+            background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><circle cx="5" cy="5" r="1" fill="%23ccc"/></svg>');
+        }
+        .app.era-1 h1 { font-size: 24px; margin-top: 0; }
+        .app.era-1 .btn {
+            background: #c0c0c0;
+            border: 2px solid #fff;
+            border-bottom-color: #000;
+            border-right-color: #000;
+            padding: 5px 15px;
+            display: inline-block;
+            font-family: 'Times New Roman', serif;
+        }
+
+        /* Era 2: Web 2.0 (Glossy) */
+        .app.era-2 {
+            border: 1px solid #ccc;
+            border-radius: 10px;
+            background: #f9f9f9;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+            font-family: Arial, sans-serif;
+        }
+        .app.era-2 .header {
+            background: linear-gradient(180deg, #4da6ff 0%, #0066cc 50%, #004d99 51%, #0066cc 100%);
+            color: #fff;
+            padding: 20px;
+            font-size: 24px;
+            font-weight: bold;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+            border-radius: 10px 10px 0 0;
+        }
+        .app.era-2 .nav {
+            background: #e6e6e6;
+            padding: 10px 20px;
+            gap: 20px;
+            border-bottom: 1px solid #ccc;
+        }
+        .app.era-2 .nav a {
+            color: #0066cc;
+            text-decoration: none;
+            font-weight: bold;
+        }
+        .app.era-2 .content {
+            background: #fff;
+        }
+        .app.era-2 h1 { font-size: 28px; color: #333; margin-top: 0; }
+        .app.era-2 .btn {
+            background: linear-gradient(180deg, #7cfc00 0%, #32cd32 50%, #228b22 51%, #32cd32 100%);
+            border: 1px solid #1a661a;
+            border-radius: 20px;
+            padding: 10px 30px;
+            display: inline-block;
+            font-family: Arial, sans-serif;
+            color: white;
+            font-weight: bold;
+            text-shadow: 1px 1px 1px rgba(0,0,0,0.3);
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.5), 0 2px 2px rgba(0,0,0,0.2);
+        }
+
+        /* Era 3: Modern (Glass/Minimal) */
+        .app.era-3 {
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 24px;
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);
+            font-family: 'Inter', sans-serif;
+            color: #f8fafc;
+        }
+        .app.era-3 .header {
+            background: transparent;
+            color: #f8fafc;
+            padding: 30px;
+            font-size: 20px;
+            font-weight: 900;
+        }
+        .app.era-3 .nav {
+            background: transparent;
+            padding: 0 30px 20px 30px;
+            gap: 30px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        .app.era-3 .nav a {
+            color: #94a3b8;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .app.era-3 .content {
+            background: transparent;
+            padding: 30px;
+        }
+        .app.era-3 h1 { font-size: 36px; color: #f8fafc; margin-top: 0; font-weight: 800; letter-spacing: -1px; }
+        .app.era-3 .btn {
+            background: #3b82f6;
+            border: none;
+            border-radius: 12px;
+            padding: 15px 30px;
+            display: inline-block;
+            font-family: 'Inter', sans-serif;
+            color: white;
+            font-weight: 700;
+            box-shadow: 0 10px 15px -3px rgba(59, 130, 246, 0.3);
+            transition: transform 0.2s;
+        }
+        .app.era-3 .btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .scroll-hint {
+            position: fixed;
+            bottom: 30px;
+            width: 100%;
+            text-align: center;
+            font-family: 'Inter', sans-serif;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: #888;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 0.3; }
+            50% { opacity: 1; }
+        }
+        
+        .era-title {
+            position: fixed;
+            top: 30px;
+            left: 30px;
+            font-family: 'Inter', sans-serif;
+            font-weight: 900;
+            font-size: 48px;
+            color: rgba(255,255,255,0.1);
+            text-transform: uppercase;
+            z-index: -1;
+            transition: all 1s ease;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="era-title" id="era-title">WEB 1.0</div>
+
+    <div class="viewport">
+        <div class="app era-1" id="app">
+            <div class="header" id="header">Welcome to My Homepage</div>
+            <div class="nav" id="nav">
+                <a href="#">Home</a>
+                <a href="#">About Me</a>
+                <a href="#">Links</a>
+                <a href="#">Guestbook</a>
+            </div>
+            <div class="content">
+                <h1 id="content-h1">Hello World!</h1>
+                <p id="content-p">This is my very first website. I built it using HTML tables and notepad. Please sign my guestbook before you leave!</p>
+                <br>
+                <div class="btn" id="btn">Click Here</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="scroll-hint">Scroll through history</div>
+
+    <script>
+        const app = document.getElementById('app');
+        const eraTitle = document.getElementById('era-title');
+        const header = document.getElementById('header');
+        const contentH1 = document.getElementById('content-h1');
+        const contentP = document.getElementById('content-p');
+        const btn = document.getElementById('btn');
+        const root = document.documentElement;
+
+        let scrollY = 0;
+        let progress = 0;
+
+        window.addEventListener('scroll', () => {
+            scrollY = window.scrollY;
+            const maxScroll = document.body.scrollHeight - window.innerHeight;
+            progress = Math.min(Math.max(scrollY / maxScroll, 0), 1);
+            
+            updateEra();
+            updateAudio();
+        });
+
+        function updateEra() {
+            if (progress < 0.33) {
+                app.className = 'app era-1';
+                root.style.setProperty('--bg', '#008080'); // Classic Windows 95 Teal desktop
+                eraTitle.innerText = "WEB 1.0 (1995)";
+                eraTitle.style.color = "rgba(255,255,255,0.2)";
+                
+                header.innerText = "Welcome to My Homepage";
+                contentH1.innerText = "Hello World!";
+                contentP.innerText = "This is my very first website. I built it using HTML tables and notepad. Please sign my guestbook before you leave!";
+                btn.innerText = "Click Here";
+            }
+            else if (progress < 0.66) {
+                app.className = 'app era-2';
+                root.style.setProperty('--bg', '#e0e0e0');
+                eraTitle.innerText = "WEB 2.0 (2006)";
+                eraTitle.style.color = "rgba(0,0,0,0.1)";
+                
+                header.innerText = "SocialConnect Beta";
+                contentH1.innerText = "Connect with Friends";
+                contentP.innerText = "Join the conversation. Web 2.0 is all about user-generated content, rounded corners, drop shadows, and glossy gradients!";
+                btn.innerText = "Sign Up Now!";
+            }
+            else {
+                app.className = 'app era-3';
+                root.style.setProperty('--bg', '#0f172a');
+                eraTitle.innerText = "MODERN WEB (2024)";
+                eraTitle.style.color = "rgba(255,255,255,0.05)";
+                
+                header.innerText = "Nexus.";
+                contentH1.innerText = "The Future is Fluid.";
+                contentP.innerText = "Embracing minimalism, dark mode, typography-driven layouts, and glassmorphism. Content is king, and whitespace is its castle.";
+                btn.innerText = "Get Started";
+            }
+        }
+
+        // Audio System
+        let audioCtx;
+        let isAudioInit = false;
+        
+        // Synths for different eras
+        let oscWeb1;
+        let lfoWeb1;
+        
+        let oscWeb2;
+        let chordWeb2 = [];
+        
+        let padOsc;
+        let padGain;
+
+        let masterGain1, masterGain2, masterGain3;
+
+        function initAudio() {
+            if (isAudioInit) return;
+            isAudioInit = true;
+            
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            audioCtx = new AudioContext();
+            
+            // WEB 1.0: Dial-up / 8-bit Beep
+            masterGain1 = audioCtx.createGain();
+            masterGain1.connect(audioCtx.destination);
+            
+            oscWeb1 = audioCtx.createOscillator();
+            oscWeb1.type = 'square';
+            oscWeb1.frequency.value = 400;
+            
+            lfoWeb1 = audioCtx.createOscillator();
+            lfoWeb1.type = 'sawtooth';
+            lfoWeb1.frequency.value = 8;
+            const lfo1Gain = audioCtx.createGain();
+            lfo1Gain.gain.value = 100;
+            lfoWeb1.connect(lfo1Gain);
+            lfo1Gain.connect(oscWeb1.frequency);
+            
+            oscWeb1.connect(masterGain1);
+            oscWeb1.start();
+            lfoWeb1.start();
+
+            // WEB 2.0: Clean Synth Chord
+            masterGain2 = audioCtx.createGain();
+            masterGain2.gain.value = 0;
+            masterGain2.connect(audioCtx.destination);
+            
+            [261.63, 329.63, 392.00].forEach(freq => { // C Major
+                let osc = audioCtx.createOscillator();
+                osc.type = 'triangle';
+                osc.frequency.value = freq;
+                osc.connect(masterGain2);
+                osc.start();
+                chordWeb2.push(osc);
+            });
+
+            // MODERN: Deep Ambient Pad
+            masterGain3 = audioCtx.createGain();
+            masterGain3.gain.value = 0;
+            masterGain3.connect(audioCtx.destination);
+            
+            padOsc = audioCtx.createOscillator();
+            padOsc.type = 'sine';
+            padOsc.frequency.value = 65.41; // C2 (Low Bass)
+            
+            const padOsc2 = audioCtx.createOscillator();
+            padOsc2.type = 'sine';
+            padOsc2.frequency.value = 130.81; // C3
+            
+            padOsc.connect(masterGain3);
+            padOsc2.connect(masterGain3);
+            padOsc.start();
+            padOsc2.start();
+
+            updateAudio();
+        }
+
+        function updateAudio() {
+            if (!isAudioInit) return;
+            const now = audioCtx.currentTime;
+            
+            if (progress < 0.33) {
+                // Web 1
+                masterGain1.gain.setTargetAtTime(0.02, now, 0.1);
+                masterGain2.gain.setTargetAtTime(0, now, 0.1);
+                masterGain3.gain.setTargetAtTime(0, now, 0.1);
+            } else if (progress < 0.66) {
+                // Web 2
+                masterGain1.gain.setTargetAtTime(0, now, 0.1);
+                masterGain2.gain.setTargetAtTime(0.05, now, 0.1);
+                masterGain3.gain.setTargetAtTime(0, now, 0.1);
+            } else {
+                // Modern
+                masterGain1.gain.setTargetAtTime(0, now, 0.1);
+                masterGain2.gain.setTargetAtTime(0, now, 0.1);
+                masterGain3.gain.setTargetAtTime(0.1, now, 0.1);
+            }
+        }
+
+        ['mousedown', 'touchstart', 'wheel', 'mousemove'].forEach(evt => {
+            window.addEventListener(evt, () => {
+                if (!isAudioInit) {
+                    initAudio();
+                    if(audioCtx && audioCtx.state === 'suspended') {
+                        audioCtx.resume();
+                    }
+                }
+            }, { once: true });
+        });
+
+        // Init UI
+        updateEra();
+
+    </script>
+</body>
+</html>

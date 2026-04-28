@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UX Journey: Frustration to Flow</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
+
+        :root {
+            /* Bad UX Colors */
+            --bg-bad: #2a0808;
+            --text-bad: #ff3333;
+            --border-bad: #ff0000;
+            --btn-bad: #cc0000;
+            
+            /* Good UX Colors */
+            --bg-good: #0f172a;
+            --text-good: #f8fafc;
+            --border-good: #3b82f6;
+            --btn-good: #10b981;
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 300vh; /* Scroll space */
+            background-color: var(--bg-bad);
+            font-family: 'Inter', sans-serif;
+            overflow-x: hidden;
+            transition: background-color 1s ease;
+        }
+
+        /* Fixed container */
+        .viewport {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            pointer-events: none;
+        }
+
+        .form-container {
+            position: relative;
+            width: 400px;
+            height: 500px;
+            pointer-events: auto;
+        }
+
+        /* Elements */
+        .el {
+            position: absolute;
+            transition: all 0.5s cubic-bezier(0.25, 1, 0.5, 1);
+            display: flex;
+            align-items: center;
+        }
+
+        /* Title */
+        #title {
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%) rotate(-5deg);
+            color: var(--text-bad);
+            font-size: 28px;
+            font-weight: 900;
+            text-transform: uppercase;
+            text-shadow: 2px 2px 0px rgba(255,0,0,0.5);
+            width: 100%;
+            text-align: center;
+            justify-content: center;
+        }
+
+        /* Inputs */
+        .input-group {
+            width: 80%;
+            left: 10%;
+        }
+        #ig1 { top: 120px; transform: rotate(2deg); }
+        #ig2 { top: 200px; transform: translateX(-20px) rotate(-3deg); }
+        #ig3 { top: 280px; transform: translateX(10px); }
+
+        .label {
+            font-size: 12px;
+            color: var(--text-bad);
+            margin-bottom: 5px;
+            text-transform: uppercase;
+            font-weight: bold;
+        }
+        .input {
+            width: 100%;
+            padding: 5px;
+            background: transparent;
+            border: 3px solid var(--border-bad);
+            color: var(--text-bad);
+            outline: none;
+            font-family: 'Inter', sans-serif;
+            font-size: 16px;
+            transition: all 0.5s ease;
+        }
+
+        /* Error Messages */
+        .error {
+            position: absolute;
+            color: var(--text-bad);
+            font-size: 10px;
+            font-weight: bold;
+            opacity: 1;
+            transition: opacity 0.5s ease;
+        }
+        #err1 { top: 165px; left: 10%; }
+        #err2 { top: 245px; left: 15%; }
+
+        /* Button */
+        #submit-btn {
+            top: 400px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 5px 15px;
+            background: var(--btn-bad);
+            border: none;
+            color: white;
+            font-weight: 900;
+            cursor: pointer;
+            border-radius: 0;
+            box-shadow: 5px 5px 0px #550000;
+            font-size: 14px;
+        }
+
+        #submit-btn:hover {
+            transform: translateX(-30%) translateY(10px) rotate(10deg);
+        }
+
+        /* Scroll Hint */
+        .scroll-hint {
+            position: fixed;
+            bottom: 30px;
+            width: 100%;
+            text-align: center;
+            color: rgba(255,255,255,0.5);
+            font-size: 14px;
+            letter-spacing: 2px;
+            animation: bounce 2s infinite;
+        }
+
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+
+        /* Post-transform styles handled via JS classes/inline styles */
+        .good-ux .input {
+            padding: 15px 20px;
+            border: 1px solid var(--border-good);
+            border-radius: 8px;
+            background: rgba(255,255,255,0.05);
+            color: var(--text-good);
+        }
+        .good-ux .label {
+            color: #94a3b8;
+            font-size: 14px;
+            text-transform: none;
+            font-weight: normal;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="viewport">
+        <div class="form-container" id="form-container">
+            <div class="el" id="title">Register Now!!!</div>
+            
+            <div class="el input-group" id="ig1">
+                <div>
+                    <div class="label" id="lbl1">Your Name *</div>
+                    <input type="text" class="input" value="Invalid format" id="inp1" disabled>
+                </div>
+            </div>
+            <div class="error" id="err1">MUST CONTAIN AT LEAST 1 NUMBER</div>
+
+            <div class="el input-group" id="ig2">
+                <div>
+                    <div class="label" id="lbl2">Email Address *</div>
+                    <input type="text" class="input" value="user@domain" id="inp2" disabled>
+                </div>
+            </div>
+            <div class="error" id="err2">EMAIL ALREADY EXISTS</div>
+
+            <div class="el input-group" id="ig3">
+                <div>
+                    <div class="label" id="lbl3">Password *</div>
+                    <input type="password" class="input" value="123" id="inp3" disabled>
+                </div>
+            </div>
+
+            <button class="el" id="submit-btn">SUBMIT</button>
+        </div>
+    </div>
+
+    <div class="scroll-hint">Scroll to fix UX</div>
+
+    <script>
+        const body = document.body;
+        const container = document.getElementById('form-container');
+        const title = document.getElementById('title');
+        const ig1 = document.getElementById('ig1');
+        const ig2 = document.getElementById('ig2');
+        const ig3 = document.getElementById('ig3');
+        const btn = document.getElementById('submit-btn');
+        const errs = document.querySelectorAll('.error');
+        const inps = document.querySelectorAll('.input');
+        const lbls = document.querySelectorAll('.label');
+
+        let scrollY = 0;
+        let progress = 0;
+
+        window.addEventListener('scroll', () => {
+            scrollY = window.scrollY;
+            const maxScroll = document.body.scrollHeight - window.innerHeight;
+            progress = Math.min(Math.max(scrollY / maxScroll, 0), 1);
+            updateUI();
+            updateAudio();
+        });
+
+        function updateUI() {
+            // Background
+            if (progress > 0.5) {
+                body.style.backgroundColor = '#0f172a';
+                container.classList.add('good-ux');
+            } else {
+                body.style.backgroundColor = '#2a0808';
+                container.classList.remove('good-ux');
+            }
+
+            // Title morph
+            if (progress > 0.1) {
+                title.style.transform = `translateX(-50%) rotate(${lerp(-5, 0, progress*2)}deg)`;
+                title.style.color = progress > 0.5 ? '#f8fafc' : '#ff3333';
+                title.style.textShadow = progress > 0.5 ? 'none' : '2px 2px 0px rgba(255,0,0,0.5)';
+                title.innerText = progress > 0.8 ? "Welcome Back" : "Register Now!!!";
+                title.style.textTransform = progress > 0.8 ? 'none' : 'uppercase';
+            }
+
+            // Error fade out
+            errs.forEach(err => {
+                err.style.opacity = 1 - (progress * 3);
+            });
+
+            // Input Groups Alignment
+            ig1.style.transform = `translateX(0) rotate(${lerp(2, 0, progress*1.5)}deg)`;
+            ig2.style.transform = `translateX(${lerp(-20, 0, progress*1.5)}px) rotate(${lerp(-3, 0, progress*1.5)}deg)`;
+            ig3.style.transform = `translateX(${lerp(10, 0, progress*1.5)}px)`;
+
+            // Spacing
+            ig1.style.top = `${lerp(120, 100, progress)}px`;
+            ig2.style.top = `${lerp(200, 190, progress)}px`;
+            ig3.style.top = `${lerp(280, 280, progress)}px`;
+
+            // Inputs Value & state
+            if (progress > 0.7) {
+                inps[0].value = "";
+                inps[0].placeholder = "John Doe";
+                inps[1].value = "";
+                inps[1].placeholder = "john@example.com";
+                inps[2].value = "";
+                inps[2].placeholder = "••••••••";
+                
+                lbls[0].innerText = "Full Name";
+                lbls[1].innerText = "Email";
+                lbls[2].innerText = "Password";
+            } else {
+                inps[0].value = "Invalid format";
+                inps[1].value = "user@domain";
+                inps[2].value = "123";
+                
+                lbls[0].innerText = "Your Name *";
+                lbls[1].innerText = "Email Address *";
+                lbls[2].innerText = "Password *";
+            }
+
+            // Button Morph
+            btn.style.top = `${lerp(400, 380, progress)}px`;
+            btn.style.width = `${lerp(30, 100, progress)}%`;
+            btn.style.padding = `${lerp(5, 15, progress)}px`;
+            btn.style.borderRadius = `${lerp(0, 8, progress)}px`;
+            btn.style.boxShadow = progress > 0.5 ? '0 10px 15px -3px rgba(16, 185, 129, 0.3)' : '5px 5px 0px #550000';
+            btn.style.background = progress > 0.5 ? '#10b981' : '#cc0000';
+            btn.innerText = progress > 0.8 ? 'Create Account' : 'SUBMIT';
+            
+            // Remove the awful hover effect by resetting pointer events
+            if (progress > 0.2) {
+                btn.style.pointerEvents = 'none';
+            } else {
+                btn.style.pointerEvents = 'auto';
+            }
+        }
+
+        function lerp(start, end, t) {
+            t = Math.max(0, Math.min(1, t));
+            return start * (1 - t) + end * t;
+        }
+
+        // Web Audio API
+        let audioCtx;
+        let isAudioInit = false;
+        let oscBad1, oscBad2, oscGood1, oscGood2;
+        let gainBad, gainGood;
+
+        function initAudio() {
+            if (isAudioInit) return;
+            isAudioInit = true;
+            
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            audioCtx = new AudioContext();
+            
+            // Bad UX sound (Dissonant saw waves)
+            gainBad = audioCtx.createGain();
+            gainBad.gain.value = 0.05;
+            gainBad.connect(audioCtx.destination);
+            
+            oscBad1 = audioCtx.createOscillator();
+            oscBad1.type = 'sawtooth';
+            oscBad1.frequency.value = 110; // A2
+            oscBad1.connect(gainBad);
+            
+            oscBad2 = audioCtx.createOscillator();
+            oscBad2.type = 'sawtooth';
+            oscBad2.frequency.value = 116.5; // Bb2 (highly dissonant with A)
+            oscBad2.connect(gainBad);
+            
+            // Good UX sound (Harmonious sine waves)
+            gainGood = audioCtx.createGain();
+            gainGood.gain.value = 0;
+            gainGood.connect(audioCtx.destination);
+            
+            oscGood1 = audioCtx.createOscillator();
+            oscGood1.type = 'sine';
+            oscGood1.frequency.value = 261.63; // C4
+            oscGood1.connect(gainGood);
+            
+            oscGood2 = audioCtx.createOscillator();
+            oscGood2.type = 'sine';
+            oscGood2.frequency.value = 392.00; // G4 (Perfect 5th)
+            oscGood2.connect(gainGood);
+            
+            oscBad1.start();
+            oscBad2.start();
+            oscGood1.start();
+            oscGood2.start();
+        }
+
+        function updateAudio() {
+            if (!isAudioInit) return;
+            // Crossfade
+            gainBad.gain.setTargetAtTime(Math.max(0, 0.05 * (1 - progress*2)), audioCtx.currentTime, 0.1);
+            gainGood.gain.setTargetAtTime(0.05 * progress, audioCtx.currentTime, 0.1);
+        }
+
+        ['mousedown', 'touchstart', 'wheel', 'mousemove'].forEach(evt => {
+            window.addEventListener(evt, () => {
+                if (!isAudioInit) {
+                    initAudio();
+                    if(audioCtx && audioCtx.state === 'suspended') {
+                        audioCtx.resume();
+                    }
+                }
+            }, { once: true });
+        });
+
+        updateUI();
+    </script>
+</body>
+</html>

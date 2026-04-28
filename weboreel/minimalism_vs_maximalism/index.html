@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Minimalism vs Maximalism</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400&family=Syne:wght@800&display=swap');
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 300vh; /* Scrollable */
+            overflow-x: hidden;
+            background: #000;
+        }
+
+        .container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        /* Common Pane Styles */
+        .pane {
+            position: absolute;
+            top: 0;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .scroll-content {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 300vh; /* Match body height */
+            /* Scrolling handled by JS transforming Y */
+        }
+
+        /* --- MINIMALISM (Left) --- */
+        .min {
+            left: 0;
+            width: 50vw;
+            background: #fdfdfd;
+            border-right: 1px solid #eee;
+            font-family: 'Inter', sans-serif;
+            color: #333;
+        }
+        .min .scroll-content {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding-top: 20vh;
+            gap: 80vh;
+        }
+        .min h1 { font-weight: 300; font-size: 14px; letter-spacing: 5px; text-transform: uppercase; }
+        .min p { font-size: 12px; max-width: 200px; text-align: center; line-height: 2; color: #888; }
+        .min .box { width: 50px; height: 50px; border: 1px solid #ddd; }
+
+        /* --- MAXIMALISM (Right) --- */
+        .max {
+            right: 0;
+            width: 50vw; /* Initial */
+            background: #ff00ff;
+            font-family: 'Syne', sans-serif;
+            color: #fff;
+            z-index: 1; /* Above minimal when resizing */
+        }
+        /* Max content needs a fixed width wrapper so it doesn't reflow on drag */
+        .max .content-wrapper {
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 100vw;
+            height: 300vh;
+            background: linear-gradient(45deg, #ff00ff, #00ffff, #ffff00);
+            background-size: 400% 400%;
+            animation: gradient 5s ease infinite;
+        }
+        @keyframes gradient {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        .max h1 {
+            font-size: 15vw;
+            line-height: 0.8;
+            margin: 0;
+            color: #000;
+            text-shadow: 5px 5px 0px #fff;
+            mix-blend-mode: overlay;
+        }
+        .max .marquee {
+            width: 100%;
+            overflow: hidden;
+            white-space: nowrap;
+            background: #000;
+            color: #00ffff;
+            padding: 20px 0;
+            font-size: 4vw;
+            margin-top: 50vh;
+            transform: rotate(-5deg);
+        }
+        .max .marquee span {
+            display: inline-block;
+            animation: scroll-left 10s linear infinite;
+        }
+        @keyframes scroll-left {
+            0% { transform: translateX(0%); }
+            100% { transform: translateX(-50%); }
+        }
+        .max img {
+            width: 80%;
+            border: 20px solid yellow;
+            margin: 50vh 10%;
+            filter: contrast(150%) saturate(200%);
+            mix-blend-mode: hard-light;
+        }
+
+        /* --- DIVIDER --- */
+        .divider {
+            position: absolute;
+            top: 0;
+            left: 50vw;
+            width: 40px;
+            height: 100vh;
+            transform: translateX(-20px);
+            z-index: 10;
+            cursor: ew-resize;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .divider .line {
+            width: 4px;
+            height: 100%;
+            background: #111;
+        }
+        .divider .knob {
+            position: absolute;
+            width: 40px;
+            height: 40px;
+            background: #111;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .divider .knob::before, .divider .knob::after {
+            content: '';
+            border-top: 5px solid transparent;
+            border-bottom: 5px solid transparent;
+            position: absolute;
+        }
+        .divider .knob::before { border-right: 6px solid #fff; left: 8px; }
+        .divider .knob::after { border-left: 6px solid #fff; right: 8px; }
+
+        .hint {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 100;
+            color: #fff;
+            mix-blend-mode: difference;
+            font-family: sans-serif;
+            text-transform: uppercase;
+            font-size: 12px;
+            pointer-events: none;
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="container" id="container">
+        
+        <!-- MINIMALISM -->
+        <div class="pane min">
+            <div class="scroll-content" id="scroll-min">
+                <div>
+                    <h1>Minimalism</h1>
+                    <p>Less is more. Focus on the essential.</p>
+                </div>
+                <div class="box"></div>
+                <p>Whitespace is active space.</p>
+            </div>
+        </div>
+
+        <!-- MAXIMALISM -->
+        <div class="pane max" id="pane-max">
+            <div class="content-wrapper scroll-content" id="scroll-max">
+                <h1>MORE<br>IS<br>MORE</h1>
+                <div class="marquee">
+                    <span>MAXIMALISM CHAOS COLOR TEXTURE OVERLOAD MAXIMALISM CHAOS COLOR TEXTURE OVERLOAD</span>
+                </div>
+                <img src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='400' height='400'><rect width='400' height='400' fill='blue'/><circle cx='200' cy='200' r='150' fill='red'/><polygon points='200,50 350,350 50,350' fill='lime'/></svg>" alt="Shapes">
+            </div>
+        </div>
+
+        <div class="divider" id="divider">
+            <div class="line"></div>
+            <div class="knob"></div>
+        </div>
+
+        <div class="hint">Drag & Scroll</div>
+
+    </div>
+
+    <script>
+        const container = document.getElementById('container');
+        const divider = document.getElementById('divider');
+        const paneMax = document.getElementById('pane-max');
+        const scrollMin = document.getElementById('scroll-min');
+        const scrollMax = document.getElementById('scroll-max');
+
+        let isDragging = false;
+        let pct = 50; // 0 to 100
+
+        // Handle Scroll Parallax
+        window.addEventListener('scroll', () => {
+            const sy = window.scrollY;
+            scrollMin.style.transform = `translateY(${-sy}px)`;
+            // Max scroll slightly faster for parallax disconnect
+            scrollMax.style.transform = `translateY(${-sy * 1.2}px)`; 
+        });
+
+        // Handle Drag
+        function updateDrag(clientX) {
+            const w = window.innerWidth;
+            pct = Math.max(0, Math.min(100, (clientX / w) * 100));
+            
+            divider.style.left = `${pct}vw`;
+            paneMax.style.width = `${100 - pct}vw`;
+            
+            updateAudioPan(pct);
+        }
+
+        divider.addEventListener('mousedown', () => isDragging = true);
+        window.addEventListener('mouseup', () => isDragging = false);
+        window.addEventListener('mousemove', (e) => {
+            if (isDragging) updateDrag(e.clientX);
+        });
+
+        divider.addEventListener('touchstart', () => isDragging = true);
+        window.addEventListener('touchend', () => isDragging = false);
+        window.addEventListener('touchmove', (e) => {
+            if (isDragging) updateDrag(e.touches[0].clientX);
+        });
+
+        // Audio System
+        let audioCtx;
+        let isAudioInit = false;
+        let pannerMin, pannerMax;
+        let gainMin, gainMax;
+
+        function initAudio() {
+            if (isAudioInit) return;
+            isAudioInit = true;
+            
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            audioCtx = new AudioContext();
+            
+            // Minimalism Audio (Left Ear)
+            pannerMin = audioCtx.createStereoPanner();
+            gainMin = audioCtx.createGain();
+            gainMin.gain.value = 0.1;
+            
+            pannerMin.connect(gainMin);
+            gainMin.connect(audioCtx.destination);
+            
+            const minOsc = audioCtx.createOscillator();
+            minOsc.type = 'sine';
+            minOsc.frequency.value = 440;
+            
+            const minLfo = audioCtx.createOscillator();
+            minLfo.type = 'square';
+            minLfo.frequency.value = 1; // 1 blip per sec
+            const minLfoGain = audioCtx.createGain();
+            minLfoGain.gain.value = 1;
+            minLfo.connect(minLfoGain);
+            // This setup makes it turn on/off sharply
+            // But we'll just use a simple pulse
+            
+            minOsc.connect(pannerMin);
+            minOsc.start();
+
+            // Maximalism Audio (Right Ear)
+            pannerMax = audioCtx.createStereoPanner();
+            gainMax = audioCtx.createGain();
+            gainMax.gain.value = 0.05;
+            
+            pannerMax.connect(gainMax);
+            gainMax.connect(audioCtx.destination);
+            
+            const maxOsc1 = audioCtx.createOscillator();
+            maxOsc1.type = 'sawtooth';
+            maxOsc1.frequency.value = 110;
+            
+            const maxOsc2 = audioCtx.createOscillator();
+            maxOsc2.type = 'square';
+            maxOsc2.frequency.value = 115; // Dissonant
+            
+            const maxLfo = audioCtx.createOscillator();
+            maxLfo.type = 'sawtooth';
+            maxLfo.frequency.value = 8; // Fast Arp/Grit
+            const maxLfoGain = audioCtx.createGain();
+            maxLfoGain.gain.value = 200;
+            maxLfo.connect(maxLfoGain);
+            maxLfoGain.connect(maxOsc1.frequency);
+            
+            maxOsc1.connect(pannerMax);
+            maxOsc2.connect(pannerMax);
+            maxOsc1.start();
+            maxOsc2.start();
+            maxLfo.start();
+
+            updateAudioPan(pct);
+        }
+
+        function updateAudioPan(p) {
+            if (!isAudioInit) return;
+            
+            // P = 0 -> Divider is far left -> Screen is 100% Maximalism
+            // P = 100 -> Divider is far right -> Screen is 100% Minimalism
+            
+            // Volume
+            const volMin = (p / 100) * 0.1; // Louder when P is high
+            const volMax = ((100 - p) / 100) * 0.05; // Louder when P is low
+            
+            gainMin.gain.setTargetAtTime(volMin, audioCtx.currentTime, 0.1);
+            gainMax.gain.setTargetAtTime(volMax, audioCtx.currentTime, 0.1);
+            
+            // Panning: Hard pan them unless screen is completely taken over
+            pannerMin.pan.setTargetAtTime(-0.8, audioCtx.currentTime, 0.1); // Left
+            pannerMax.pan.setTargetAtTime(0.8, audioCtx.currentTime, 0.1); // Right
+        }
+
+        ['mousedown', 'touchstart', 'wheel', 'mousemove'].forEach(evt => {
+            window.addEventListener(evt, () => {
+                if (!isAudioInit) {
+                    initAudio();
+                    if(audioCtx && audioCtx.state === 'suspended') {
+                        audioCtx.resume();
+                    }
+                }
+            }, { once: true });
+        });
+
+    </script>
+</body>
+</html>

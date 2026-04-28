@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Motion Design Showcase</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;700;900&display=swap');
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 500vh; /* Long scroll for multiple triggers */
+            background-color: #0f172a;
+            color: #f8fafc;
+            font-family: 'Outfit', sans-serif;
+            overflow-x: hidden;
+        }
+
+        .viewport {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            pointer-events: none;
+        }
+
+        .header {
+            position: absolute;
+            top: 40px;
+            left: 40px;
+        }
+        h1 { margin: 0; font-size: 24px; text-transform: uppercase; letter-spacing: 2px; }
+
+        .progress-bar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 5px;
+            background: #3b82f6;
+            width: 0%;
+            z-index: 100;
+        }
+
+        /* The Triggers / Scenes */
+        .scene {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            opacity: 0; /* Hidden by default */
+        }
+
+        .label {
+            font-size: 14px;
+            color: #94a3b8;
+            letter-spacing: 4px;
+            text-transform: uppercase;
+            margin-bottom: 40px;
+        }
+
+        /* Scene 1: Linear vs Easing */
+        .track { width: 600px; height: 60px; background: rgba(255,255,255,0.05); margin: 10px; position: relative; border-radius: 30px; }
+        .dot { width: 60px; height: 60px; border-radius: 50%; position: absolute; left: 0; top: 0; }
+        #dot-linear { background: #ef4444; }
+        #dot-ease { background: #10b981; }
+
+        /* Scene 2: Spring / Elastic */
+        .spring-box {
+            width: 100px;
+            height: 100px;
+            background: #8b5cf6;
+            border-radius: 20px;
+            transform-origin: bottom center;
+        }
+
+        /* Scene 3: Staggered List */
+        .list { display: flex; flex-direction: column; gap: 10px; }
+        .list-item {
+            width: 300px;
+            height: 50px;
+            background: #3b82f6;
+            border-radius: 10px;
+            opacity: 0;
+            transform: translateX(-100px);
+        }
+
+        /* Scene 4: Parallax / Depth */
+        .card-stack { position: relative; width: 300px; height: 400px; perspective: 1000px; }
+        .p-card {
+            position: absolute;
+            width: 100%; height: 100%;
+            border-radius: 20px;
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.2);
+            display: flex; justify-content: center; align-items: center;
+            font-size: 40px; font-weight: 900;
+        }
+
+        .scroll-hint {
+            position: absolute;
+            bottom: 40px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: #64748b;
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="progress-bar" id="pbar"></div>
+
+    <div class="viewport">
+        <div class="header">
+            <h1>Principles of Motion</h1>
+        </div>
+
+        <!-- Scene 1: Linear vs Ease -->
+        <div class="scene" id="scene1">
+            <div class="label">Linear vs Easing</div>
+            <div class="track"><div class="dot" id="dot-linear"></div></div>
+            <div class="track"><div class="dot" id="dot-ease"></div></div>
+        </div>
+
+        <!-- Scene 2: Spring -->
+        <div class="scene" id="scene2">
+            <div class="label">Anticipation & Overshoot (Spring)</div>
+            <div class="spring-box" id="spring-box"></div>
+        </div>
+
+        <!-- Scene 3: Stagger -->
+        <div class="scene" id="scene3">
+            <div class="label">Staggered Entrance</div>
+            <div class="list" id="stagger-list">
+                <div class="list-item"></div>
+                <div class="list-item"></div>
+                <div class="list-item"></div>
+                <div class="list-item"></div>
+            </div>
+        </div>
+
+        <!-- Scene 4: Parallax Depth -->
+        <div class="scene" id="scene4">
+            <div class="label">Spatial Depth (Parallax)</div>
+            <div class="card-stack">
+                <div class="p-card" id="pc3" style="background:#ef4444">3</div>
+                <div class="p-card" id="pc2" style="background:#10b981">2</div>
+                <div class="p-card" id="pc1" style="background:#3b82f6">1</div>
+            </div>
+        </div>
+
+        <div class="scroll-hint">Scroll down slowly</div>
+    </div>
+
+    <script>
+        const pbar = document.getElementById('pbar');
+        
+        // Scene 1
+        const s1 = document.getElementById('scene1');
+        const dotLinear = document.getElementById('dot-linear');
+        const dotEase = document.getElementById('dot-ease');
+        
+        // Scene 2
+        const s2 = document.getElementById('scene2');
+        const springBox = document.getElementById('spring-box');
+        
+        // Scene 3
+        const s3 = document.getElementById('scene3');
+        const listItems = document.querySelectorAll('.list-item');
+        
+        // Scene 4
+        const s4 = document.getElementById('scene4');
+        const pc1 = document.getElementById('pc1');
+        const pc2 = document.getElementById('pc2');
+        const pc3 = document.getElementById('pc3');
+
+        let scrollY = 0;
+        let progress = 0;
+
+        // Custom easing function (cubic bezier approximation)
+        function easeInOutCubic(x) {
+            return x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+        }
+
+        // Elastic ease out
+        function easeOutElastic(x) {
+            const c4 = (2 * Math.PI) / 3;
+            return x === 0 ? 0 : x === 1 ? 1 : Math.pow(2, -10 * x) * Math.sin((x * 10 - 0.75) * c4) + 1;
+        }
+
+        window.addEventListener('scroll', () => {
+            scrollY = window.scrollY;
+            const maxScroll = document.body.scrollHeight - window.innerHeight;
+            progress = Math.min(Math.max(scrollY / maxScroll, 0), 1);
+            
+            pbar.style.width = `${progress * 100}%`;
+            
+            updateScenes();
+            updateAudio();
+        });
+
+        function updateScenes() {
+            // Hide all first
+            [s1, s2, s3, s4].forEach(s => s.style.opacity = 0);
+
+            // Scene 1: 0.0 to 0.25
+            if (progress < 0.25) {
+                s1.style.opacity = 1;
+                let localP = progress * 4; // 0 to 1
+                
+                // Linear
+                dotLinear.style.transform = `translateX(${localP * 540}px)`; // 600 - 60
+                
+                // Easing
+                let eased = easeInOutCubic(localP);
+                dotEase.style.transform = `translateX(${eased * 540}px)`;
+            }
+            // Scene 2: 0.25 to 0.50
+            else if (progress < 0.50) {
+                s2.style.opacity = 1;
+                let localP = (progress - 0.25) * 4; // 0 to 1
+                
+                // Scale up with elastic overshoot
+                let scale = easeOutElastic(localP);
+                springBox.style.transform = `scale(${scale})`;
+            }
+            // Scene 3: 0.50 to 0.75
+            else if (progress < 0.75) {
+                s3.style.opacity = 1;
+                let localP = (progress - 0.50) * 4; // 0 to 1
+                
+                listItems.forEach((item, i) => {
+                    // Offset the start time for each item
+                    let itemStart = i * 0.15;
+                    let itemP = Math.max(0, Math.min(1, (localP - itemStart) * 2)); // 2x speed for pop
+                    
+                    let eased = easeOutElastic(itemP);
+                    item.style.opacity = itemP;
+                    item.style.transform = `translateX(${(1 - eased) * -100}px)`;
+                });
+            }
+            // Scene 4: 0.75 to 1.0
+            else {
+                s4.style.opacity = 1;
+                let localP = (progress - 0.75) * 4; // 0 to 1
+                
+                // Move cards apart on Z axis based on scroll
+                pc1.style.transform = `translateZ(${localP * 100}px) translateY(${localP * 50}px)`;
+                pc2.style.transform = `translateZ(${localP * 0}px)`;
+                pc3.style.transform = `translateZ(${localP * -100}px) translateY(${localP * -50}px)`;
+            }
+        }
+
+        // Web Audio API 
+        let audioCtx;
+        let isAudioInit = false;
+        
+        let lastScene = -1;
+
+        function initAudio() {
+            if (isAudioInit) return;
+            isAudioInit = true;
+            
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            audioCtx = new AudioContext();
+            
+            // Start a subtle background drone
+            const droneOsc = audioCtx.createOscillator();
+            const droneGain = audioCtx.createGain();
+            droneOsc.type = 'sine';
+            droneOsc.frequency.value = 55;
+            droneGain.gain.value = 0.05;
+            droneOsc.connect(droneGain);
+            droneGain.connect(audioCtx.destination);
+            droneOsc.start();
+        }
+
+        function playSound(type) {
+            if (!isAudioInit) return;
+            const time = audioCtx.currentTime;
+            
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            
+            if (type === 'whoosh') {
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(200, time);
+                osc.frequency.exponentialRampToValueAtTime(800, time + 0.3);
+                gain.gain.setValueAtTime(0.1, time);
+                gain.gain.exponentialRampToValueAtTime(0.01, time + 0.3);
+            } 
+            else if (type === 'boing') {
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(400, time);
+                // Frequency wobble for "boing"
+                osc.frequency.linearRampToValueAtTime(600, time + 0.05);
+                osc.frequency.linearRampToValueAtTime(300, time + 0.1);
+                osc.frequency.linearRampToValueAtTime(500, time + 0.2);
+                osc.frequency.linearRampToValueAtTime(400, time + 0.3);
+                
+                gain.gain.setValueAtTime(0.2, time);
+                gain.gain.exponentialRampToValueAtTime(0.01, time + 0.4);
+            }
+            else if (type === 'pop') {
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(800, time);
+                osc.frequency.exponentialRampToValueAtTime(100, time + 0.1);
+                gain.gain.setValueAtTime(0.1, time);
+                gain.gain.exponentialRampToValueAtTime(0.01, time + 0.1);
+            }
+            else if (type === 'deep') {
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(150, time);
+                osc.frequency.exponentialRampToValueAtTime(50, time + 0.5);
+                gain.gain.setValueAtTime(0.1, time);
+                gain.gain.exponentialRampToValueAtTime(0.01, time + 0.5);
+            }
+
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            
+            osc.start(time);
+            osc.stop(time + 0.5);
+        }
+
+        function updateAudio() {
+            if (!isAudioInit) return;
+            
+            let currentScene = 0;
+            if (progress > 0.75) currentScene = 3;
+            else if (progress > 0.50) currentScene = 2;
+            else if (progress > 0.25) currentScene = 1;
+            else currentScene = 0;
+            
+            if (currentScene !== lastScene) {
+                lastScene = currentScene;
+                
+                if (currentScene === 0) playSound('whoosh');
+                if (currentScene === 1) playSound('boing');
+                if (currentScene === 2) {
+                    // Stagger sounds
+                    playSound('pop');
+                    setTimeout(() => playSound('pop'), 150);
+                    setTimeout(() => playSound('pop'), 300);
+                    setTimeout(() => playSound('pop'), 450);
+                }
+                if (currentScene === 3) playSound('deep');
+            }
+        }
+
+        ['mousedown', 'touchstart', 'wheel', 'mousemove'].forEach(evt => {
+            window.addEventListener(evt, () => {
+                if (!isAudioInit) {
+                    initAudio();
+                    if(audioCtx && audioCtx.state === 'suspended') {
+                        audioCtx.resume();
+                    }
+                }
+            }, { once: true });
+        });
+
+        // Init
+        updateScenes();
+
+    </script>
+</body>
+</html>

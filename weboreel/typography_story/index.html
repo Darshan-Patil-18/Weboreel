@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Typography Story</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=UnifrakturMaguntia&family=Playfair+Display:ital@0;1&family=Helvetica+Neue:wght@400;700&family=Inter:wght@100..900&display=swap');
+
+        :root {
+            --bg: #f4ebd8; /* Parchment */
+            --text: #2b2b2b; /* Ink */
+            --font: 'UnifrakturMaguntia', cursive;
+            --size-title: 6vw;
+            --size-p: 24px;
+            --line-height: 1.2;
+            --letter-spacing: 0px;
+            --text-align: justify;
+            --max-width: 600px;
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 400vh;
+            background-color: var(--bg);
+            color: var(--text);
+            font-family: var(--font);
+            transition: all 1s ease;
+            overflow-x: hidden;
+        }
+
+        .viewport {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 40px;
+            box-sizing: border-box;
+            transition: all 1s ease;
+        }
+
+        .content {
+            width: 100%;
+            max-width: var(--max-width);
+            text-align: var(--text-align);
+            transition: all 1s ease;
+        }
+
+        h1 {
+            font-size: var(--size-title);
+            line-height: 1;
+            margin: 0 0 20px 0;
+            letter-spacing: var(--letter-spacing);
+            transition: all 1s ease;
+            font-weight: normal; /* Variable fonts handled via JS */
+        }
+
+        p {
+            font-size: var(--size-p);
+            line-height: var(--line-height);
+            margin: 0;
+            transition: all 1s ease;
+        }
+
+        .era-label {
+            position: absolute;
+            top: 40px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-family: sans-serif;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 4px;
+            color: #888;
+        }
+
+        .scroll-hint {
+            position: absolute;
+            bottom: 40px;
+            font-family: sans-serif;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: #888;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 0.3; }
+            50% { opacity: 1; }
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="viewport">
+        <div class="era-label" id="era">1450: Blackletter</div>
+        
+        <div class="content" id="content">
+            <h1 id="title">The Art of Typography</h1>
+            <p>In the beginning, type was designed to mimic the handwritten manuscripts of scribes. It was dense, intricate, and required careful attention to read. The page was treated as a solid block of texture.</p>
+        </div>
+
+        <div class="scroll-hint">Scroll through time</div>
+    </div>
+
+    <script>
+        const root = document.documentElement;
+        const era = document.getElementById('era');
+        const title = document.getElementById('title');
+        
+        let scrollY = 0;
+        let progress = 0;
+
+        window.addEventListener('scroll', () => {
+            scrollY = window.scrollY;
+            const maxScroll = document.body.scrollHeight - window.innerHeight;
+            progress = Math.min(Math.max(scrollY / maxScroll, 0), 1);
+            
+            updateTypography();
+            updateAudio();
+        });
+
+        function updateTypography() {
+            // Stage 0: Blackletter (1450)
+            // Stage 1: Serif (1700s)
+            // Stage 2: Sans-Serif Swiss (1950s)
+            // Stage 3: Modern Variable Web (2020s)
+
+            if (progress < 0.25) {
+                era.innerText = "1450: Blackletter";
+                root.style.setProperty('--bg', '#f4ebd8');
+                root.style.setProperty('--text', '#2b2b2b');
+                root.style.setProperty('--font', "'UnifrakturMaguntia', cursive");
+                root.style.setProperty('--line-height', '1.1');
+                root.style.setProperty('--text-align', 'justify');
+                root.style.setProperty('--letter-spacing', '0px');
+                root.style.setProperty('--max-width', '500px');
+                title.style.fontWeight = 'normal';
+                title.style.fontVariationSettings = 'normal';
+            }
+            else if (progress < 0.50) {
+                era.innerText = "1750: Transitional Serif";
+                root.style.setProperty('--bg', '#faf9f6');
+                root.style.setProperty('--text', '#1a1a1a');
+                root.style.setProperty('--font', "'Playfair Display', serif");
+                root.style.setProperty('--line-height', '1.6');
+                root.style.setProperty('--text-align', 'center');
+                root.style.setProperty('--letter-spacing', '2px');
+                root.style.setProperty('--max-width', '700px');
+                title.style.fontWeight = 'normal';
+                title.style.fontVariationSettings = 'normal';
+            }
+            else if (progress < 0.75) {
+                era.innerText = "1957: Swiss Sans-Serif";
+                root.style.setProperty('--bg', '#eeeeee');
+                root.style.setProperty('--text', '#000000');
+                root.style.setProperty('--font', "'Helvetica Neue', Helvetica, sans-serif");
+                root.style.setProperty('--line-height', '1.4');
+                root.style.setProperty('--text-align', 'left');
+                root.style.setProperty('--letter-spacing', '-1px');
+                root.style.setProperty('--max-width', '800px');
+                title.style.fontWeight = '700';
+                title.style.fontVariationSettings = 'normal';
+            }
+            else {
+                era.innerText = "2024: Variable & Responsive";
+                root.style.setProperty('--bg', '#0f172a');
+                root.style.setProperty('--text', '#f8fafc');
+                root.style.setProperty('--font', "'Inter', sans-serif");
+                root.style.setProperty('--line-height', '1.8');
+                root.style.setProperty('--text-align', 'left');
+                root.style.setProperty('--letter-spacing', '-2px');
+                root.style.setProperty('--max-width', '900px');
+                
+                // Animate font weight based on sub-progress
+                let localP = (progress - 0.75) * 4; // 0 to 1
+                let weight = 100 + (localP * 800); // 100 to 900
+                title.style.fontWeight = weight;
+                // title.style.fontVariationSettings = `"wght" ${weight}`; // Requires variable font support properly loaded, using standard fontWeight for safety
+            }
+        }
+
+        // Audio System
+        let audioCtx;
+        let isAudioInit = false;
+        let oscs = [];
+        let masterGain;
+
+        function initAudio() {
+            if (isAudioInit) return;
+            isAudioInit = true;
+            
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            audioCtx = new AudioContext();
+            
+            masterGain = audioCtx.createGain();
+            masterGain.gain.value = 0.05;
+            masterGain.connect(audioCtx.destination);
+            
+            // 3 Oscillators for chords
+            for(let i=0; i<3; i++) {
+                let osc = audioCtx.createOscillator();
+                osc.connect(masterGain);
+                osc.start();
+                oscs.push(osc);
+            }
+        }
+
+        function updateAudio() {
+            if (!isAudioInit) return;
+            const now = audioCtx.currentTime;
+            
+            // Chords
+            // 0: C Minor (Gothic/Dark)
+            // 1: C Major (Classical/Bright)
+            // 2: C5 Power Chord (Modern/Clean)
+            // 3: Cmaj9 Arp cluster (Futuristic/Complex)
+            
+            if (progress < 0.25) {
+                oscs[0].frequency.setTargetAtTime(130.81, now, 0.1); // C3
+                oscs[1].frequency.setTargetAtTime(155.56, now, 0.1); // Eb3
+                oscs[2].frequency.setTargetAtTime(196.00, now, 0.1); // G3
+                oscs.forEach(o => o.type = 'sawtooth');
+            } else if (progress < 0.5) {
+                oscs[0].frequency.setTargetAtTime(261.63, now, 0.1); // C4
+                oscs[1].frequency.setTargetAtTime(329.63, now, 0.1); // E4
+                oscs[2].frequency.setTargetAtTime(392.00, now, 0.1); // G4
+                oscs.forEach(o => o.type = 'sine');
+            } else if (progress < 0.75) {
+                oscs[0].frequency.setTargetAtTime(130.81, now, 0.1); // C3
+                oscs[1].frequency.setTargetAtTime(261.63, now, 0.1); // C4
+                oscs[2].frequency.setTargetAtTime(392.00, now, 0.1); // G4
+                oscs.forEach(o => o.type = 'triangle');
+            } else {
+                oscs[0].frequency.setTargetAtTime(261.63, now, 0.1); // C4
+                oscs[1].frequency.setTargetAtTime(392.00, now, 0.1); // G4
+                oscs[2].frequency.setTargetAtTime(493.88, now, 0.1); // B4
+                oscs.forEach((o,i) => o.type = i%2===0?'square':'sine');
+            }
+        }
+
+        ['mousedown', 'touchstart', 'wheel', 'mousemove'].forEach(evt => {
+            window.addEventListener(evt, () => {
+                if (!isAudioInit) {
+                    initAudio();
+                    if(audioCtx && audioCtx.state === 'suspended') {
+                        audioCtx.resume();
+                    }
+                }
+            }, { once: true });
+        });
+
+        // Init
+        updateTypography();
+
+    </script>
+</body>
+</html>

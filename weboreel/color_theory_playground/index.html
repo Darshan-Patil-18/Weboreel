@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Color Theory Playground</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;700;900&display=swap');
+
+        :root {
+            /* Initial Monochrome */
+            --bg: #1a1a1a;
+            --primary: #4d4d4d;
+            --secondary: #808080;
+            --accent: #b3b3b3;
+            --text: #ffffff;
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 400vh;
+            background-color: var(--bg);
+            color: var(--text);
+            font-family: 'Outfit', sans-serif;
+            overflow-x: hidden;
+            transition: all 1.5s cubic-bezier(0.25, 1, 0.5, 1);
+        }
+
+        canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 0;
+            pointer-events: none;
+            opacity: 0.8;
+            transition: opacity 1s ease;
+        }
+
+        .content {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 1;
+            pointer-events: none;
+            text-align: center;
+        }
+
+        .title {
+            font-size: 6vw;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 5px;
+            margin: 0;
+            transition: color 1.5s ease, transform 1.5s ease;
+            color: var(--primary);
+            text-shadow: 0px 10px 20px rgba(0,0,0,0.3);
+        }
+
+        .subtitle {
+            font-size: 24px;
+            font-weight: 300;
+            letter-spacing: 10px;
+            text-transform: uppercase;
+            margin-top: -10px;
+            color: var(--accent);
+            transition: color 1.5s ease;
+        }
+
+        .ui-box {
+            margin-top: 50px;
+            width: 300px;
+            height: 200px;
+            background: var(--secondary);
+            border-radius: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+            transition: background 1.5s ease, transform 0.5s ease;
+            pointer-events: auto;
+            cursor: pointer;
+        }
+
+        .ui-box:hover {
+            transform: scale(1.05) translateY(-10px);
+        }
+
+        .ui-btn {
+            padding: 15px 40px;
+            background: var(--accent);
+            color: var(--bg);
+            border: none;
+            border-radius: 10px;
+            font-size: 18px;
+            font-weight: 700;
+            text-transform: uppercase;
+            transition: all 1.5s ease;
+        }
+
+        .scroll-hint {
+            position: absolute;
+            bottom: 40px;
+            font-size: 14px;
+            letter-spacing: 2px;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 0.3; }
+            50% { opacity: 1; }
+        }
+
+    </style>
+</head>
+<body>
+
+    <canvas id="canvas"></canvas>
+
+    <div class="content">
+        <h1 class="title" id="theory-title">Monochromatic</h1>
+        <div class="subtitle" id="theory-subtitle">Calm & Unified</div>
+        
+        <div class="ui-box">
+            <div class="ui-btn">Interact</div>
+        </div>
+        
+        <div class="scroll-hint">Scroll to change mood</div>
+    </div>
+
+    <script>
+        const root = document.documentElement;
+        const title = document.getElementById('theory-title');
+        const subtitle = document.getElementById('theory-subtitle');
+
+        const palettes = [
+            {
+                name: "Monochromatic",
+                sub: "Calm & Unified",
+                bg: "#1a1a1a",
+                primary: "#4d4d4d",
+                secondary: "#808080",
+                accent: "#b3b3b3",
+                text: "#ffffff",
+                speed: 1
+            },
+            {
+                name: "Analogous",
+                sub: "Harmonious Flow",
+                bg: "#112233", // Deep Blue
+                primary: "#2b4b7c", // Blue
+                secondary: "#3a7ca5", // Light Blue
+                accent: "#81c3d7", // Cyan
+                text: "#ffffff",
+                speed: 2
+            },
+            {
+                name: "Complementary",
+                sub: "High Contrast Energy",
+                bg: "#2b0f24", // Deep Purple
+                primary: "#6a1b41", // Magenta
+                secondary: "#b33951", // Red Pink
+                accent: "#00d084", // Vivid Green (Complement)
+                text: "#ffffff",
+                speed: 4
+            },
+            {
+                name: "Triadic",
+                sub: "Vibrant & Playful",
+                bg: "#f4f1de", // Eggshell
+                primary: "#e07a5f", // Orange Red
+                secondary: "#3d405b", // Navy
+                accent: "#81b29a", // Sage Green
+                text: "#3d405b",
+                speed: 6
+            }
+        ];
+
+        let currentStage = 0;
+        let scrollY = 0;
+        let progress = 0;
+
+        window.addEventListener('scroll', () => {
+            scrollY = window.scrollY;
+            const maxScroll = document.body.scrollHeight - window.innerHeight;
+            progress = Math.min(Math.max(scrollY / maxScroll, 0), 1);
+            
+            let newStage = Math.floor(progress * 3.99); // 0 to 3
+            if (newStage !== currentStage) {
+                currentStage = newStage;
+                updatePalette();
+            }
+        });
+
+        function updatePalette() {
+            const p = palettes[currentStage];
+            root.style.setProperty('--bg', p.bg);
+            root.style.setProperty('--primary', p.primary);
+            root.style.setProperty('--secondary', p.secondary);
+            root.style.setProperty('--accent', p.accent);
+            root.style.setProperty('--text', p.text);
+            
+            title.innerText = p.name;
+            subtitle.innerText = p.sub;
+            
+            // Audio change
+            updateAudioState(currentStage);
+        }
+
+        // Web Audio API
+        let audioCtx;
+        let isAudioInit = false;
+        let oscs = [];
+        let masterGain;
+        let lfo;
+
+        function initAudio() {
+            if (isAudioInit) return;
+            isAudioInit = true;
+            
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            audioCtx = new AudioContext();
+            
+            masterGain = audioCtx.createGain();
+            masterGain.gain.value = 0.1;
+            masterGain.connect(audioCtx.destination);
+            
+            // Create 3 oscillators
+            for(let i=0; i<3; i++) {
+                let osc = audioCtx.createOscillator();
+                let panner = audioCtx.createStereoPanner();
+                panner.pan.value = (i - 1) * 0.8; // Left, Center, Right
+                osc.connect(panner);
+                panner.connect(masterGain);
+                oscs.push(osc);
+            }
+            
+            // LFO for volume pulsing
+            lfo = audioCtx.createOscillator();
+            lfo.type = 'sine';
+            lfo.frequency.value = 0.2; // 5 seconds
+            
+            let lfoGain = audioCtx.createGain();
+            lfoGain.gain.value = 0.05;
+            
+            lfo.connect(lfoGain);
+            lfoGain.connect(masterGain.gain);
+            
+            oscs.forEach(osc => osc.start());
+            lfo.start();
+            
+            updateAudioState(0);
+        }
+
+        function updateAudioState(stage) {
+            if (!isAudioInit) return;
+            const now = audioCtx.currentTime;
+            
+            if (stage === 0) { // Mono: Octaves, Slow
+                oscs[0].frequency.setTargetAtTime(110, now, 1);
+                oscs[1].frequency.setTargetAtTime(220, now, 1);
+                oscs[2].frequency.setTargetAtTime(440, now, 1);
+                lfo.frequency.setTargetAtTime(0.2, now, 1);
+                oscs.forEach(o => o.type = 'sine');
+            } else if (stage === 1) { // Analogous: Minor 7 chord
+                oscs[0].frequency.setTargetAtTime(130.81, now, 1); // C3
+                oscs[1].frequency.setTargetAtTime(155.56, now, 1); // Eb3
+                oscs[2].frequency.setTargetAtTime(196.00, now, 1); // G3
+                lfo.frequency.setTargetAtTime(0.5, now, 1);
+                oscs.forEach(o => o.type = 'triangle');
+            } else if (stage === 2) { // Complementary: Dissonant / Edge
+                oscs[0].frequency.setTargetAtTime(146.83, now, 1); // D3
+                oscs[1].frequency.setTargetAtTime(207.65, now, 1); // G#3 (Tritone)
+                oscs[2].frequency.setTargetAtTime(293.66, now, 1); // D4
+                lfo.frequency.setTargetAtTime(2.0, now, 1);
+                oscs.forEach(o => o.type = 'sawtooth');
+            } else { // Triadic: Major chord, fast modulation
+                oscs[0].frequency.setTargetAtTime(130.81, now, 1); // C3
+                oscs[1].frequency.setTargetAtTime(164.81, now, 1); // E3
+                oscs[2].frequency.setTargetAtTime(196.00, now, 1); // G3
+                lfo.frequency.setTargetAtTime(4.0, now, 1);
+                oscs.forEach(o => o.type = 'square');
+            }
+        }
+
+        ['mousedown', 'touchstart', 'wheel', 'mousemove'].forEach(evt => {
+            window.addEventListener(evt, () => {
+                if (!isAudioInit) {
+                    initAudio();
+                    if(audioCtx && audioCtx.state === 'suspended') {
+                        audioCtx.resume();
+                    }
+                }
+            }, { once: true });
+        });
+
+        // Canvas Particle System
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        let width, height;
+        const particles = [];
+
+        function resize() {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        for(let i=0; i<150; i++) {
+            particles.push({
+                x: Math.random() * width,
+                y: Math.random() * height,
+                vx: (Math.random() - 0.5),
+                vy: (Math.random() - 0.5),
+                size: Math.random() * 5 + 1
+            });
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, width, height);
+            
+            const pInfo = palettes[currentStage];
+            const speedMult = pInfo.speed;
+            
+            ctx.fillStyle = pInfo.accent;
+            
+            particles.forEach(p => {
+                p.x += p.vx * speedMult;
+                p.y += p.vy * speedMult;
+                
+                if (p.x < 0) p.x = width;
+                if (p.x > width) p.x = 0;
+                if (p.y < 0) p.y = height;
+                if (p.y > height) p.y = 0;
+                
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                ctx.fill();
+            });
+            
+            requestAnimationFrame(draw);
+        }
+        draw();
+        updatePalette();
+
+    </script>
+</body>
+</html>

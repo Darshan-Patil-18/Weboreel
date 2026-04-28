@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Experiment Lab</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap');
+
+        :root {
+            --bg: #050505;
+            --text: #ffffff;
+            --accent: #00ffcc;
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100vw;
+            height: 100vh;
+            background-color: var(--bg);
+            color: var(--text);
+            font-family: 'Space Mono', monospace;
+            overflow: hidden; /* No scroll, purely hover based */
+            cursor: none; /* Custom cursor */
+        }
+
+        /* Custom Cursor */
+        .cursor {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 20px;
+            height: 20px;
+            background: var(--accent);
+            border-radius: 50%;
+            pointer-events: none;
+            transform: translate(-50%, -50%);
+            mix-blend-mode: difference;
+            z-index: 9999;
+            transition: width 0.3s, height 0.3s, background 0.3s, border-radius 0.3s;
+        }
+        .cursor.active-btn {
+            width: 60px;
+            height: 60px;
+            background: #fff;
+        }
+        .cursor.active-card {
+            width: 100px;
+            height: 100px;
+            border-radius: 10px;
+            background: rgba(255,255,255,0.2);
+            backdrop-filter: blur(5px);
+        }
+
+        /* Layout */
+        .container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100%;
+            gap: 50px;
+        }
+
+        /* Magnetic Button */
+        .magnetic-btn {
+            position: relative;
+            width: 150px;
+            height: 150px;
+            border-radius: 50%;
+            border: 1px solid rgba(255,255,255,0.2);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            text-transform: uppercase;
+            font-weight: 700;
+            letter-spacing: 2px;
+            color: var(--text);
+            background: transparent;
+            /* Will be animated via JS */
+        }
+        .magnetic-text {
+            position: relative;
+            pointer-events: none;
+        }
+
+        /* Liquid Card */
+        .liquid-card {
+            width: 300px;
+            height: 400px;
+            background: #111;
+            border-radius: 20px;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-weight: 700;
+            font-size: 24px;
+            letter-spacing: 5px;
+        }
+
+        /* The SVG filter for liquid effect */
+        .liquid-bg {
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, var(--accent) 0%, transparent 40%);
+            opacity: 0;
+            transition: opacity 0.3s;
+            pointer-events: none;
+            mix-blend-mode: overlay;
+        }
+        
+        .liquid-card:hover .liquid-bg {
+            opacity: 1;
+        }
+
+        /* Header */
+        .header {
+            position: absolute;
+            top: 40px;
+            left: 40px;
+        }
+        h1 { margin: 0; font-size: 16px; text-transform: uppercase; letter-spacing: 4px; }
+        p { font-size: 12px; color: #888; margin-top: 5px; }
+
+    </style>
+</head>
+<body>
+
+    <div class="cursor" id="cursor"></div>
+
+    <div class="header">
+        <h1>Experiment Lab</h1>
+        <p>Hover interactions & Theremin Audio</p>
+    </div>
+
+    <div class="container">
+        
+        <!-- Magnetic Button -->
+        <div class="magnetic-btn" id="mag-btn" data-cursor="active-btn">
+            <span class="magnetic-text" id="mag-text">Magnet</span>
+        </div>
+
+        <!-- Liquid Card -->
+        <div class="liquid-card" id="liq-card" data-cursor="active-card">
+            <div class="liquid-bg" id="liq-bg"></div>
+            <span>LIQUID</span>
+        </div>
+
+    </div>
+
+    <script>
+        const cursor = document.getElementById('cursor');
+        const magBtn = document.getElementById('mag-btn');
+        const magText = document.getElementById('mag-text');
+        const liqCard = document.getElementById('liq-card');
+        const liqBg = document.getElementById('liq-bg');
+
+        let mouseX = window.innerWidth / 2;
+        let mouseY = window.innerHeight / 2;
+        let cursorX = mouseX;
+        let cursorY = mouseY;
+
+        // Smooth cursor follow
+        function renderCursor() {
+            // Lerp
+            cursorX += (mouseX - cursorX) * 0.15;
+            cursorY += (mouseY - cursorY) * 0.15;
+            cursor.style.transform = `translate(${cursorX}px, ${cursorY}px) translate(-50%, -50%)`;
+            
+            // Audio update
+            updateAudio(mouseX, mouseY);
+            
+            requestAnimationFrame(renderCursor);
+        }
+        requestAnimationFrame(renderCursor);
+
+        window.addEventListener('mousemove', (e) => {
+            mouseX = e.clientX;
+            mouseY = e.clientY;
+
+            // Liquid Card logic
+            const cardRect = liqCard.getBoundingClientRect();
+            if (mouseX > cardRect.left && mouseX < cardRect.right &&
+                mouseY > cardRect.top && mouseY < cardRect.bottom) {
+                // Inside card
+                const x = mouseX - cardRect.left;
+                const y = mouseY - cardRect.top;
+                liqBg.style.transform = `translate(${x - cardRect.width}px, ${y - cardRect.height}px)`;
+            }
+        });
+
+        // Hover states for cursor
+        document.querySelectorAll('[data-cursor]').forEach(el => {
+            el.addEventListener('mouseenter', () => {
+                cursor.classList.add(el.getAttribute('data-cursor'));
+            });
+            el.addEventListener('mouseleave', () => {
+                cursor.classList.remove(el.getAttribute('data-cursor'));
+            });
+        });
+
+        // Magnetic Button Logic
+        magBtn.addEventListener('mousemove', (e) => {
+            const rect = magBtn.getBoundingClientRect();
+            const x = e.clientX - rect.left - rect.width / 2;
+            const y = e.clientY - rect.top - rect.height / 2;
+            
+            magBtn.style.transform = `translate(${x * 0.3}px, ${y * 0.3}px)`;
+            magText.style.transform = `translate(${x * 0.5}px, ${y * 0.5}px)`;
+        });
+
+        magBtn.addEventListener('mouseleave', () => {
+            magBtn.style.transform = `translate(0px, 0px)`;
+            magText.style.transform = `translate(0px, 0px)`;
+            // Spring back handled by simple CSS transition usually, but let's add it here dynamically
+            magBtn.style.transition = 'transform 0.5s cubic-bezier(0.25, 1, 0.5, 1)';
+            magText.style.transition = 'transform 0.5s cubic-bezier(0.25, 1, 0.5, 1)';
+            setTimeout(() => {
+                magBtn.style.transition = 'none';
+                magText.style.transition = 'none';
+            }, 500);
+        });
+
+        // Theremin Audio System
+        let audioCtx;
+        let isAudioInit = false;
+        let osc, lfo, gain;
+
+        function initAudio() {
+            if (isAudioInit) return;
+            isAudioInit = true;
+            
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            audioCtx = new AudioContext();
+            
+            gain = audioCtx.createGain();
+            gain.gain.value = 0; // Start silent
+            gain.connect(audioCtx.destination);
+            
+            osc = audioCtx.createOscillator();
+            osc.type = 'sine';
+            osc.frequency.value = 220; // A3
+            
+            // Vibrato
+            lfo = audioCtx.createOscillator();
+            lfo.type = 'sine';
+            lfo.frequency.value = 6;
+            const lfoGain = audioCtx.createGain();
+            lfoGain.gain.value = 5;
+            lfo.connect(lfoGain);
+            lfoGain.connect(osc.frequency);
+            
+            osc.connect(gain);
+            osc.start();
+            lfo.start();
+            
+            // Fade in
+            gain.gain.setTargetAtTime(0.05, audioCtx.currentTime, 1);
+        }
+
+        function updateAudio(x, y) {
+            if (!isAudioInit) return;
+            
+            const w = window.innerWidth;
+            const h = window.innerHeight;
+            
+            // Map X to frequency (e.g., 100Hz to 800Hz)
+            const freq = 100 + (x / w) * 700;
+            // Map Y to filter/volume or vibrato depth
+            // Let's map Y to volume (lower is louder, like a theremin)
+            const vol = 0.02 + ((h - y) / h) * 0.08; 
+            
+            osc.frequency.setTargetAtTime(freq, audioCtx.currentTime, 0.1);
+            gain.gain.setTargetAtTime(vol, audioCtx.currentTime, 0.1);
+        }
+
+        ['mousedown', 'touchstart', 'mousemove'].forEach(evt => {
+            window.addEventListener(evt, () => {
+                if (!isAudioInit) {
+                    initAudio();
+                    if(audioCtx && audioCtx.state === 'suspended') {
+                        audioCtx.resume();
+                    }
+                }
+            }, { once: true });
+        });
+
+    </script>
+</body>
+</html>

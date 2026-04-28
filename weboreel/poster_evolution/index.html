@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Poster Evolution | Swiss Design</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Helvetica+Neue:wght@400;700;900&display=swap');
+
+        :root {
+            --bg: #ffffff;
+            --text: #000000;
+            --accent: #ff0000;
+            --grid-color: rgba(0,0,0,0);
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 400vh;
+            background-color: #111;
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            overflow-x: hidden;
+        }
+
+        .viewport {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            perspective: 1500px;
+        }
+
+        /* The Poster Canvas */
+        .poster {
+            width: 450px;
+            height: 650px;
+            background: var(--bg);
+            position: relative;
+            transform-style: preserve-3d;
+            box-shadow: 0 0 0 rgba(0,0,0,0);
+            transition: transform 0.1s ease-out; /* Smooth JS driven transform */
+            overflow: hidden;
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            grid-template-rows: repeat(6, 1fr);
+        }
+
+        /* Grid Background pattern */
+        .poster::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-image: 
+                linear-gradient(var(--grid-color) 1px, transparent 1px),
+                linear-gradient(90deg, var(--grid-color) 1px, transparent 1px);
+            background-size: 112.5px 108.33px; /* Based on grid sizes */
+            z-index: 0;
+            pointer-events: none;
+            transition: all 1s ease;
+        }
+
+        /* Typography Elements */
+        .el {
+            position: absolute;
+            z-index: 1;
+            color: var(--text);
+            transition: all 1s cubic-bezier(0.25, 1, 0.5, 1);
+        }
+
+        /* Stage 0: Centered basic text */
+        .title {
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 32px;
+            font-weight: 400;
+            white-space: nowrap;
+        }
+        
+        .year {
+            top: 60%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 16px;
+        }
+
+        .desc {
+            top: 70%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 12px;
+            width: 200px;
+            text-align: center;
+        }
+
+        /* Block Elements */
+        .block-red {
+            position: absolute;
+            background: var(--accent);
+            opacity: 0;
+            z-index: 0;
+            transition: all 1s cubic-bezier(0.25, 1, 0.5, 1);
+        }
+
+        .scroll-hint {
+            position: absolute;
+            bottom: 40px;
+            color: #fff;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            font-size: 12px;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 0.3; }
+            50% { opacity: 1; }
+        }
+
+        /* Generated Layout Classes applied via JS */
+        
+        /* Stage 1: Grid Snap */
+        .poster.stage-1 .title {
+            top: 0; left: 0;
+            transform: translate(0, 0);
+            font-weight: 900;
+            font-size: 60px;
+            padding: 20px;
+            line-height: 0.9;
+        }
+        .poster.stage-1 .year {
+            top: 108.33px; left: 0;
+            transform: translate(0, 0);
+            padding: 20px;
+            font-weight: 700;
+            font-size: 40px;
+        }
+        .poster.stage-1 .desc {
+            top: auto; bottom: 0;
+            left: 0; right: auto;
+            transform: translate(0, 0);
+            text-align: left;
+            padding: 20px;
+            width: calc(100% - 40px);
+        }
+        
+        /* Stage 2: Color & Hierarchy */
+        .poster.stage-2 .title {
+            color: var(--accent);
+            font-size: 90px;
+            letter-spacing: -3px;
+        }
+        .poster.stage-2 .block-red {
+            opacity: 1;
+            top: 50%;
+            left: 50%;
+            width: 112.5px;
+            height: 216.66px;
+        }
+        .poster.stage-2 .desc {
+            background: var(--text);
+            color: var(--bg);
+            padding: 40px 20px;
+            width: 100%;
+        }
+
+        /* Stage 3: Complete & 3D (Transforms handled in JS for smooth scroll linking) */
+
+    </style>
+</head>
+<body>
+
+    <div class="viewport">
+        <div class="poster" id="poster">
+            <div class="block-red" id="block1"></div>
+            <div class="el title">INTERNATIONAL<br>STYLE</div>
+            <div class="el year">1957</div>
+            <div class="el desc">The Swiss Style is characterized by a reliance on grids, sans-serif typography, and an asymmetrical layout.</div>
+        </div>
+        
+        <div class="scroll-hint">Scroll to evolve</div>
+    </div>
+
+    <script>
+        const root = document.documentElement;
+        const poster = document.getElementById('poster');
+        
+        let scrollY = 0;
+        let progress = 0;
+
+        window.addEventListener('scroll', () => {
+            scrollY = window.scrollY;
+            const maxScroll = document.body.scrollHeight - window.innerHeight;
+            progress = Math.min(Math.max(scrollY / maxScroll, 0), 1);
+            
+            updateUI();
+            updateAudio();
+        });
+
+        function updateUI() {
+            // Stage 0: 0.0 - 0.25 (Basic)
+            // Stage 1: 0.25 - 0.50 (Grid & Structure)
+            // Stage 2: 0.50 - 0.75 (Color & Blocks)
+            // Stage 3: 0.75 - 1.0 (3D Animation)
+
+            if (progress < 0.25) {
+                poster.className = 'poster';
+                root.style.setProperty('--grid-color', 'rgba(0,0,0,0)');
+                poster.style.transform = `rotateX(0deg) rotateY(0deg) scale(1)`;
+                poster.style.boxShadow = `0 0 0 rgba(0,0,0,0)`;
+            } 
+            else if (progress < 0.5) {
+                poster.className = 'poster stage-1';
+                root.style.setProperty('--grid-color', 'rgba(0,0,0,0.1)');
+                poster.style.transform = `rotateX(0deg) rotateY(0deg) scale(1)`;
+                poster.style.boxShadow = `0 0 0 rgba(0,0,0,0)`;
+            }
+            else if (progress < 0.75) {
+                poster.className = 'poster stage-1 stage-2';
+                root.style.setProperty('--grid-color', 'rgba(0,0,0,0.2)');
+                poster.style.transform = `rotateX(0deg) rotateY(0deg) scale(1)`;
+                poster.style.boxShadow = `0 0 0 rgba(0,0,0,0)`;
+            }
+            else {
+                poster.className = 'poster stage-1 stage-2 stage-3';
+                root.style.setProperty('--grid-color', 'rgba(0,0,0,0.2)');
+                
+                // 3D rotation linked to scroll (0.75 to 1.0 mapped to 0 to 1)
+                let localP = (progress - 0.75) * 4;
+                
+                let rotX = localP * 25;
+                let rotY = localP * -35;
+                let scale = 1 + (localP * 0.1);
+                
+                poster.style.transform = `rotateX(${rotX}deg) rotateY(${rotY}deg) scale(${scale})`;
+                poster.style.boxShadow = `${localP * -20}px ${localP * 50}px ${localP * 50}px rgba(0,0,0,0.5)`;
+            }
+        }
+
+        // Audio Engine
+        let audioCtx;
+        let isAudioInit = false;
+        let clockOsc;
+        let clockGain;
+        let bassGain;
+        let nextClickTime = 0;
+        let clickInterval = 0.5; // Starts slow
+
+        function initAudio() {
+            if (isAudioInit) return;
+            isAudioInit = true;
+            
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            audioCtx = new AudioContext();
+            
+            // Metronome/Clock sound
+            clockGain = audioCtx.createGain();
+            clockGain.gain.value = 0.1;
+            clockGain.connect(audioCtx.destination);
+            
+            // Bass Drone
+            bassGain = audioCtx.createGain();
+            bassGain.gain.value = 0; // Starts silent
+            bassGain.connect(audioCtx.destination);
+            
+            const bassOsc1 = audioCtx.createOscillator();
+            bassOsc1.type = 'sawtooth';
+            bassOsc1.frequency.value = 55; // A1
+            bassOsc1.connect(bassGain);
+            
+            const bassOsc2 = audioCtx.createOscillator();
+            bassOsc2.type = 'square';
+            bassOsc2.frequency.value = 55.5; // Slight detune
+            bassOsc2.connect(bassGain);
+            
+            bassOsc1.start();
+            bassOsc2.start();
+            
+            nextClickTime = audioCtx.currentTime + 0.1;
+            scheduler();
+        }
+
+        function playClick(time) {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            
+            osc.type = 'square';
+            osc.frequency.setValueAtTime(800, time);
+            osc.frequency.exponentialRampToValueAtTime(100, time + 0.05);
+            
+            gain.gain.setValueAtTime(1, time);
+            gain.gain.exponentialRampToValueAtTime(0.01, time + 0.05);
+            
+            osc.connect(gain);
+            gain.connect(clockGain);
+            
+            osc.start(time);
+            osc.stop(time + 0.05);
+        }
+
+        function scheduler() {
+            while (nextClickTime < audioCtx.currentTime + 0.1) {
+                playClick(nextClickTime);
+                nextClickTime += clickInterval;
+            }
+            requestAnimationFrame(scheduler);
+        }
+
+        function updateAudio() {
+            if (!isAudioInit) return;
+            
+            // Speed up clicks as we progress
+            clickInterval = Math.max(0.05, 0.5 - (progress * 0.45));
+            
+            // Fade in bass in stages 2 and 3
+            if (progress > 0.5) {
+                let bassVol = (progress - 0.5) * 2 * 0.15; // Max 0.15 volume
+                bassGain.gain.setTargetAtTime(bassVol, audioCtx.currentTime, 0.1);
+            } else {
+                bassGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.1);
+            }
+        }
+
+        ['mousedown', 'touchstart', 'wheel', 'mousemove'].forEach(evt => {
+            window.addEventListener(evt, () => {
+                if (!isAudioInit) {
+                    initAudio();
+                    if(audioCtx && audioCtx.state === 'suspended') {
+                        audioCtx.resume();
+                    }
+                }
+            }, { once: true });
+        });
+
+    </script>
+</body>
+</html>

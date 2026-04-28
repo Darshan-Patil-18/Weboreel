@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sketch to UI</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;500;800&family=Caveat&display=swap');
+
+        :root {
+            --bg: #111;
+            --text: #eee;
+            --sketch-color: #666;
+            --wire-color: #88c0d0;
+            --final-bg: #eceff4;
+            --final-accent: #5e81ac;
+            --final-text: #2e3440;
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 300vh; /* 3 stages of scrolling */
+            background-color: var(--bg);
+            color: var(--text);
+            font-family: 'Outfit', sans-serif;
+            overflow-x: hidden;
+            transition: background-color 1s ease, color 1s ease;
+        }
+
+        .container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            pointer-events: none;
+        }
+
+        /* The Card Element */
+        .card {
+            width: 320px;
+            height: 480px;
+            position: relative;
+            transform-style: preserve-3d;
+            perspective: 1000px;
+        }
+
+        /* Layers */
+        .layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border-radius: 20px;
+            opacity: 0;
+            transition: opacity 0.5s ease, transform 1s cubic-bezier(0.25, 1, 0.5, 1);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        /* 1. Sketch Layer */
+        .sketch-layer {
+            border: 2px dashed var(--sketch-color);
+            background: transparent;
+            font-family: 'Caveat', cursive;
+            color: var(--sketch-color);
+            opacity: 1; /* Initial state */
+        }
+        .sketch-layer .box {
+            width: 80%;
+            height: 40%;
+            border: 1px solid var(--sketch-color);
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 24px;
+        }
+        .sketch-layer .line {
+            width: 70%;
+            height: 10px;
+            border-bottom: 1px solid var(--sketch-color);
+            margin: 10px 0;
+        }
+        .sketch-layer .btn {
+            width: 60%;
+            height: 40px;
+            border: 2px solid var(--sketch-color);
+            border-radius: 10px;
+            margin-top: 30px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 20px;
+        }
+
+        /* 2. Wireframe Layer */
+        .wire-layer {
+            border: 2px solid var(--wire-color);
+            background: rgba(136, 192, 208, 0.05);
+            color: var(--wire-color);
+        }
+        .wire-layer .box {
+            width: 100%;
+            height: 45%;
+            background: rgba(136, 192, 208, 0.2);
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+        .wire-layer .line {
+            width: 80%;
+            height: 14px;
+            background: rgba(136, 192, 208, 0.4);
+            margin: 8px 0;
+            border-radius: 4px;
+        }
+        .wire-layer .btn {
+            width: 100%;
+            height: 50px;
+            background: var(--wire-color);
+            color: #111;
+            border-radius: 8px;
+            margin-top: auto;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-weight: bold;
+            letter-spacing: 2px;
+        }
+
+        /* 3. Final UI Layer */
+        .final-layer {
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255,255,255,0.3);
+            box-shadow: 0 30px 60px rgba(0,0,0,0.1);
+            color: var(--final-text);
+            overflow: hidden;
+            pointer-events: auto; /* clickable now */
+            transform: translateY(50px) scale(0.9);
+        }
+        .final-layer .img-box {
+            width: 100%;
+            height: 45%;
+            background: linear-gradient(135deg, #a1c4fd 0%, #c2e9fb 100%);
+            border-radius: 12px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.05);
+        }
+        .final-layer h2 {
+            margin: 0 0 10px 0;
+            font-weight: 800;
+            font-size: 24px;
+            width: 100%;
+            text-align: left;
+        }
+        .final-layer p {
+            margin: 0;
+            font-size: 14px;
+            color: #666;
+            width: 100%;
+            text-align: left;
+            line-height: 1.5;
+        }
+        .final-layer .btn {
+            width: 100%;
+            height: 50px;
+            background: var(--final-accent);
+            color: white;
+            border-radius: 12px;
+            margin-top: auto;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-weight: 800;
+            font-size: 16px;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 10px 20px rgba(94, 129, 172, 0.3);
+        }
+        .final-layer .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 15px 25px rgba(94, 129, 172, 0.4);
+        }
+
+        .scroll-hint {
+            position: fixed;
+            bottom: 40px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 14px;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            opacity: 0.5;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 0.3; transform: translateX(-50%) translateY(0); }
+            50% { opacity: 0.8; transform: translateX(-50%) translateY(10px); }
+        }
+
+        /* Particle Canvas */
+        #bg-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: -1;
+            opacity: 0.3;
+        }
+    </style>
+</head>
+<body>
+
+    <canvas id="bg-canvas"></canvas>
+
+    <div class="container">
+        <div class="card" id="card">
+            <!-- Sketch -->
+            <div class="layer sketch-layer" id="sketch">
+                <div class="box">Image</div>
+                <div class="line"></div>
+                <div class="line" style="width: 50%"></div>
+                <div class="btn">Button</div>
+            </div>
+
+            <!-- Wireframe -->
+            <div class="layer wire-layer" id="wire">
+                <div class="box"></div>
+                <div class="line"></div>
+                <div class="line"></div>
+                <div class="line" style="width: 60%"></div>
+                <div class="btn">SUBMIT</div>
+            </div>
+
+            <!-- Final UI -->
+            <div class="layer final-layer" id="final">
+                <div class="img-box"></div>
+                <h2>Premium Experience</h2>
+                <p>Welcome to the final iteration. Smooth, elegant, and highly converting.</p>
+                <div class="btn">Get Started</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="scroll-hint">Scroll Down</div>
+
+    <script>
+        // DOM Elements
+        const sketch = document.getElementById('sketch');
+        const wire = document.getElementById('wire');
+        const final = document.getElementById('final');
+        const card = document.getElementById('card');
+        const body = document.body;
+        
+        // Scroll Logic
+        let scrollY = 0;
+        let progress = 0;
+
+        window.addEventListener('scroll', () => {
+            scrollY = window.scrollY;
+            const maxScroll = document.body.scrollHeight - window.innerHeight;
+            progress = Math.min(Math.max(scrollY / maxScroll, 0), 1);
+            
+            updateUI();
+        });
+
+        function updateUI() {
+            // Stage 0 to 0.5 (Sketch -> Wireframe)
+            if (progress < 0.5) {
+                let localP = progress * 2; // 0 to 1
+                sketch.style.opacity = 1 - localP;
+                sketch.style.transform = `scale(${1 + localP*0.1}) rotateY(${localP*20}deg)`;
+                
+                wire.style.opacity = localP;
+                wire.style.transform = `scale(${0.9 + localP*0.1}) rotateY(${(1-localP)*-20}deg)`;
+                
+                final.style.opacity = 0;
+                
+                body.style.backgroundColor = '#111';
+                body.style.color = '#eee';
+            } 
+            // Stage 0.5 to 1.0 (Wireframe -> Final)
+            else {
+                let localP = (progress - 0.5) * 2; // 0 to 1
+                
+                sketch.style.opacity = 0;
+                
+                wire.style.opacity = 1 - localP;
+                wire.style.transform = `scale(${1 + localP*0.1}) rotateX(${localP*15}deg)`;
+                
+                final.style.opacity = localP;
+                final.style.transform = `scale(${0.9 + localP*0.1}) rotateX(${(1-localP)*-15}deg) translateY(${(1-localP)*50}px)`;
+                
+                // Color transition
+                if (localP > 0.5) {
+                    body.style.backgroundColor = '#eceff4';
+                    body.style.color = '#2e3440';
+                } else {
+                    body.style.backgroundColor = '#111';
+                    body.style.color = '#eee';
+                }
+            }
+        }
+
+        // Web Audio API & Canvas Particles
+        let audioCtx;
+        let oscillators = [];
+        let isAudioInit = false;
+
+        function initAudio() {
+            if (isAudioInit) return;
+            isAudioInit = true;
+            
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            audioCtx = new AudioContext();
+            
+            // Create a generative ambient drone
+            const frequencies = [220, 277.18, 329.63, 440]; // A Major 7 chord components
+            const masterGain = audioCtx.createGain();
+            masterGain.gain.value = 0.05;
+            masterGain.connect(audioCtx.destination);
+            
+            frequencies.forEach((freq, i) => {
+                const osc = audioCtx.createOscillator();
+                osc.type = 'sine';
+                osc.frequency.value = freq;
+                
+                const lfo = audioCtx.createOscillator();
+                lfo.type = 'sine';
+                lfo.frequency.value = 0.1 + (i * 0.05); // Slow modulation
+                
+                const lfoGain = audioCtx.createGain();
+                lfoGain.gain.value = 50;
+                
+                lfo.connect(lfoGain);
+                lfoGain.connect(osc.frequency);
+                
+                const panner = audioCtx.createStereoPanner();
+                panner.pan.value = (i % 2 === 0 ? 1 : -1) * 0.5;
+                
+                osc.connect(panner);
+                panner.connect(masterGain);
+                
+                osc.start();
+                lfo.start();
+                oscillators.push(osc);
+            });
+        }
+
+        // Initialize audio on first user interaction to bypass autoplay restrictions
+        ['mousedown', 'touchstart', 'wheel', 'keydown', 'mousemove'].forEach(evt => {
+            window.addEventListener(evt, () => {
+                if (!isAudioInit) {
+                    initAudio();
+                    if(audioCtx && audioCtx.state === 'suspended') {
+                        audioCtx.resume();
+                    }
+                }
+            }, { once: true });
+        });
+
+        // Simple Canvas Particles
+        const canvas = document.getElementById('bg-canvas');
+        const ctx = canvas.getContext('2d');
+        let width, height;
+        const particles = [];
+
+        function resize() {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        for(let i=0; i<50; i++) {
+            particles.push({
+                x: Math.random() * width,
+                y: Math.random() * height,
+                vx: (Math.random() - 0.5) * 0.5,
+                vy: (Math.random() - 0.5) * 0.5,
+                size: Math.random() * 2 + 1
+            });
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, width, height);
+            ctx.fillStyle = progress > 0.75 ? '#5e81ac' : '#88c0d0';
+            
+            particles.forEach(p => {
+                p.x += p.vx;
+                p.y += p.vy;
+                
+                if (p.x < 0) p.x = width;
+                if (p.x > width) p.x = 0;
+                if (p.y < 0) p.y = height;
+                if (p.y > height) p.y = 0;
+                
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                ctx.fill();
+            });
+            
+            requestAnimationFrame(draw);
+        }
+        draw();
+        updateUI(); // Init state
+
+    </script>
+</body>
+</html>

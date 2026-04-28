@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Responsive Magic</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;500;800&display=swap');
+
+        :root {
+            --bg: #1e1e2f;
+            --browser-bg: #ffffff;
+            --text: #333333;
+            --primary: #6c5ce7;
+            --secondary: #00cec9;
+            --radius: 12px;
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 300vh;
+            background-color: var(--bg);
+            font-family: 'Outfit', sans-serif;
+            overflow-x: hidden;
+            color: #fff;
+        }
+
+        .viewport {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            pointer-events: none;
+        }
+
+        .title-box {
+            position: absolute;
+            top: 40px;
+            text-align: center;
+        }
+        
+        .title-box h1 {
+            margin: 0;
+            font-size: 24px;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+        
+        #bp-label {
+            font-size: 14px;
+            color: #a29bfe;
+            margin-top: 5px;
+            font-weight: 500;
+        }
+
+        /* Simulated Browser Window */
+        .browser {
+            width: 1000px; /* Starts as desktop */
+            height: 600px;
+            background: var(--browser-bg);
+            border-radius: var(--radius);
+            box-shadow: 0 30px 60px rgba(0,0,0,0.4);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            transition: width 0.1s linear, height 0.1s linear; /* Fast follow for scroll */
+            position: relative;
+        }
+
+        /* Browser Chrome (Fake OS buttons) */
+        .chrome {
+            height: 40px;
+            background: #f1f2f6;
+            display: flex;
+            align-items: center;
+            padding: 0 20px;
+            border-bottom: 1px solid #dfe4ea;
+        }
+        .dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        .dot.r { background: #ff7675; }
+        .dot.y { background: #ffeaa7; }
+        .dot.g { background: #55efc4; }
+
+        /* App Inside Browser */
+        .app-content {
+            flex-grow: 1;
+            padding: 40px;
+            display: grid;
+            gap: 20px;
+            transition: all 0.5s cubic-bezier(0.25, 1, 0.5, 1);
+            /* Default Desktop Grid */
+            grid-template-columns: 200px 1fr 300px;
+            grid-template-rows: 60px 1fr;
+            color: var(--text);
+        }
+
+        /* Simulated UI Elements */
+        .nav {
+            grid-column: 1 / 4;
+            grid-row: 1;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid #f1f2f6;
+            padding-bottom: 20px;
+            transition: all 0.5s ease;
+        }
+        .logo { font-weight: 800; font-size: 24px; color: var(--primary); }
+        .links { display: flex; gap: 20px; }
+        .link { font-weight: 500; color: #666; }
+        .hamburger { display: none; font-size: 24px; }
+
+        .sidebar {
+            grid-column: 1;
+            grid-row: 2;
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 20px;
+            transition: all 0.5s ease;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        .side-item { height: 20px; background: #dfe4ea; border-radius: 4px; }
+
+        .main {
+            grid-column: 2;
+            grid-row: 2;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            transition: all 0.5s ease;
+        }
+        .hero {
+            height: 200px;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            border-radius: 8px;
+            color: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 24px;
+            font-weight: 800;
+        }
+        .cards {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        .card {
+            height: 150px;
+            background: #fff;
+            border: 1px solid #dfe4ea;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.02);
+        }
+
+        .aside {
+            grid-column: 3;
+            grid-row: 2;
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 20px;
+            transition: all 0.5s ease;
+        }
+
+        /* --- BREAKPOINT CLASSES (Applied via JS) --- */
+
+        /* Tablet (e.g. < 800px) */
+        .tablet .app-content {
+            grid-template-columns: 1fr 300px;
+            grid-template-rows: 60px 1fr;
+            padding: 20px;
+        }
+        .tablet .nav { grid-column: 1 / 3; }
+        .tablet .sidebar { display: none; /* hide sidebar */ }
+        .tablet .main { grid-column: 1; }
+        .tablet .aside { grid-column: 2; }
+        .tablet .cards { grid-template-columns: 1fr; } /* Stack cards */
+
+        /* Mobile (e.g. < 500px) */
+        .mobile .app-content {
+            grid-template-columns: 1fr;
+            grid-template-rows: 60px 1fr;
+            padding: 15px;
+        }
+        .mobile .nav { grid-column: 1; }
+        .mobile .links { display: none; /* Hide links */ }
+        .mobile .hamburger { display: block; /* Show hamburger */ }
+        .mobile .sidebar { display: none; }
+        .mobile .aside { display: none; /* hide aside */ }
+        .mobile .main { grid-column: 1; }
+        .mobile .cards { grid-template-columns: 1fr; }
+        .mobile .hero { height: 150px; font-size: 18px; text-align: center;}
+
+        .scroll-hint {
+            position: fixed;
+            bottom: 30px;
+            font-size: 12px;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            animation: pulse 2s infinite;
+            color: rgba(255,255,255,0.5);
+        }
+        @keyframes pulse {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(5px); }
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="viewport">
+        
+        <div class="title-box">
+            <h1>Responsive Flow</h1>
+            <div id="bp-label">1000px - Desktop</div>
+        </div>
+
+        <div class="browser" id="browser">
+            <div class="chrome">
+                <div class="dot r"></div>
+                <div class="dot y"></div>
+                <div class="dot g"></div>
+            </div>
+            
+            <div class="app-content" id="app-content">
+                <div class="nav">
+                    <div class="logo">Nexus</div>
+                    <div class="links">
+                        <div class="link">Features</div>
+                        <div class="link">Pricing</div>
+                        <div class="link">Contact</div>
+                    </div>
+                    <div class="hamburger">☰</div>
+                </div>
+                
+                <div class="sidebar">
+                    <div class="side-item" style="width: 80%"></div>
+                    <div class="side-item" style="width: 60%"></div>
+                    <div class="side-item" style="width: 90%"></div>
+                    <div class="side-item" style="width: 70%"></div>
+                </div>
+                
+                <div class="main">
+                    <div class="hero">Fluidity in Motion</div>
+                    <div class="cards">
+                        <div class="card"></div>
+                        <div class="card"></div>
+                    </div>
+                </div>
+                
+                <div class="aside">
+                    <div class="side-item" style="height: 100px; width: 100%; margin-bottom: 20px;"></div>
+                    <div class="side-item" style="width: 100%; margin-bottom: 10px;"></div>
+                    <div class="side-item" style="width: 80%;"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="scroll-hint">Scroll to resize</div>
+    </div>
+
+    <script>
+        const browser = document.getElementById('browser');
+        const appContent = document.getElementById('app-content');
+        const bpLabel = document.getElementById('bp-label');
+
+        let scrollY = 0;
+        let progress = 0;
+        let lastState = 'desktop';
+
+        window.addEventListener('scroll', () => {
+            scrollY = window.scrollY;
+            const maxScroll = document.body.scrollHeight - window.innerHeight;
+            progress = Math.min(Math.max(scrollY / maxScroll, 0), 1);
+            
+            updateSize();
+        });
+
+        function updateSize() {
+            // Width goes from 1000px down to 375px
+            const currentWidth = 1000 - (progress * 625);
+            // Height adjusts slightly
+            const currentHeight = 600 + (progress * 100); 
+
+            browser.style.width = `${currentWidth}px`;
+            browser.style.height = `${currentHeight}px`;
+
+            let state = 'desktop';
+            if (currentWidth <= 500) {
+                appContent.className = 'app-content mobile';
+                bpLabel.innerText = `${Math.round(currentWidth)}px - Mobile`;
+                state = 'mobile';
+            } else if (currentWidth <= 800) {
+                appContent.className = 'app-content tablet';
+                bpLabel.innerText = `${Math.round(currentWidth)}px - Tablet`;
+                state = 'tablet';
+            } else {
+                appContent.className = 'app-content';
+                bpLabel.innerText = `${Math.round(currentWidth)}px - Desktop`;
+                state = 'desktop';
+            }
+
+            if (state !== lastState) {
+                lastState = state;
+                playSnapSound();
+            }
+        }
+
+        // Audio System
+        let audioCtx;
+        let isAudioInit = false;
+        
+        let kickGain, hatGain;
+        let nextNoteTime = 0;
+        let tempo = 100;
+        let lookahead = 25; // ms
+        let scheduleAheadTime = 0.1; // s
+        let currentNote = 0;
+
+        function initAudio() {
+            if (isAudioInit) return;
+            isAudioInit = true;
+            
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            audioCtx = new AudioContext();
+            
+            nextNoteTime = audioCtx.currentTime + 0.1;
+            scheduler();
+        }
+
+        // Lo-fi background beat
+        function scheduler() {
+            while (nextNoteTime < audioCtx.currentTime + scheduleAheadTime) {
+                scheduleNote(currentNote, nextNoteTime);
+                nextNote();
+            }
+            requestAnimationFrame(scheduler);
+        }
+
+        function nextNote() {
+            const secondsPerBeat = 60.0 / tempo;
+            nextNoteTime += 0.25 * secondsPerBeat; // 16th notes
+            currentNote++;
+        }
+
+        function scheduleNote(beatNumber, time) {
+            // Kick on 0 and 8
+            if (beatNumber % 16 === 0 || beatNumber % 16 === 8) {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                
+                osc.frequency.setValueAtTime(120, time);
+                osc.frequency.exponentialRampToValueAtTime(0.01, time + 0.3);
+                gain.gain.setValueAtTime(0.1, time);
+                gain.gain.exponentialRampToValueAtTime(0.01, time + 0.3);
+                
+                osc.start(time);
+                osc.stop(time + 0.3);
+            }
+            
+            // Hi-hat on every 2nd 16th note
+            if (beatNumber % 2 === 0) {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                // Fake noise with high freq square
+                osc.type = 'square';
+                osc.frequency.value = 8000;
+                
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                
+                gain.gain.setValueAtTime(0.02, time);
+                gain.gain.exponentialRampToValueAtTime(0.001, time + 0.05);
+                
+                osc.start(time);
+                osc.stop(time + 0.05);
+            }
+        }
+
+        // Sound effect for breakpoint snap
+        function playSnapSound() {
+            if (!isAudioInit) return;
+            const time = audioCtx.currentTime;
+            
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(800, time);
+            osc.frequency.exponentialRampToValueAtTime(1200, time + 0.1);
+            
+            gain.gain.setValueAtTime(0.2, time);
+            gain.gain.exponentialRampToValueAtTime(0.01, time + 0.1);
+            
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            
+            osc.start(time);
+            osc.stop(time + 0.1);
+        }
+
+        ['mousedown', 'touchstart', 'wheel', 'mousemove'].forEach(evt => {
+            window.addEventListener(evt, () => {
+                if (!isAudioInit) {
+                    initAudio();
+                    if(audioCtx && audioCtx.state === 'suspended') {
+                        audioCtx.resume();
+                    }
+                }
+            }, { once: true });
+        });
+
+    </script>
+</body>
+</html>

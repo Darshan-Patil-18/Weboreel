@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bad vs Good Design</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;600;800&family=Comic+Neue:wght@700&display=swap');
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: #000;
+        }
+
+        .container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        /* Common Page Layout */
+        .page {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+        }
+
+        .card {
+            width: 400px;
+            height: 600px;
+            position: relative;
+        }
+
+        /* BAD DESIGN */
+        .page-bad {
+            background-color: #ffff00;
+            z-index: 1;
+        }
+        .page-bad .card {
+            background: #ff00ff;
+            border: 10px solid #00ff00;
+            font-family: 'Comic Neue', cursive;
+            padding: 10px;
+        }
+        .page-bad h1 {
+            color: #0000ff;
+            font-size: 40px;
+            text-align: right;
+            margin: -20px 0 0 -50px;
+            text-shadow: 5px 5px #ff0000;
+        }
+        .page-bad p {
+            color: #ffff00;
+            background: #000;
+            font-size: 12px;
+            line-height: 1;
+            margin-top: 50px;
+            letter-spacing: -1px;
+        }
+        .page-bad img {
+            width: 120%;
+            height: 200px;
+            object-fit: fill; /* Stretched intentionally */
+            margin-left: -10%;
+            border: 5px dotted #00ffff;
+        }
+        .page-bad .btn {
+            position: absolute;
+            bottom: 50px;
+            right: -20px;
+            background: red;
+            color: yellow;
+            font-size: 30px;
+            padding: 5px;
+            border: 10px dashed blue;
+            cursor: pointer;
+            text-decoration: blink; /* Fake blink */
+            animation: badBlink 0.5s infinite;
+        }
+
+        @keyframes badBlink {
+            0% { opacity: 1; transform: rotate(5deg) scale(1.1); }
+            50% { opacity: 0; }
+            100% { opacity: 1; transform: rotate(-5deg) scale(0.9); }
+        }
+
+        /* GOOD DESIGN */
+        .page-good {
+            background-color: #f8fafc;
+            z-index: 2;
+            width: 50vw; /* Initial clip */
+            border-right: 2px solid #fff;
+            box-shadow: 5px 0 30px rgba(0,0,0,0.1);
+        }
+        /* Ensure content doesn't shrink when wrapper is clipped */
+        .page-good .content-wrapper {
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .page-good .card {
+            background: #ffffff;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.05);
+            font-family: 'Inter', sans-serif;
+            padding: 40px;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .page-good h1 {
+            color: #0f172a;
+            font-size: 32px;
+            font-weight: 800;
+            margin: 0;
+            letter-spacing: -1px;
+        }
+        .page-good p {
+            color: #64748b;
+            font-size: 16px;
+            line-height: 1.6;
+            margin: 0;
+        }
+        .page-good .img-placeholder {
+            width: 100%;
+            height: 200px;
+            background: linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%);
+            border-radius: 12px;
+        }
+        .page-good .btn {
+            margin-top: auto;
+            background: #3b82f6;
+            color: white;
+            font-weight: 600;
+            font-size: 16px;
+            padding: 16px;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-align: center;
+        }
+        .page-good .btn:hover {
+            background: #2563eb;
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(59, 130, 246, 0.3);
+        }
+
+        /* Slider Handle */
+        .slider-handle {
+            position: absolute;
+            top: 0;
+            left: 50vw;
+            width: 50px;
+            height: 100vh;
+            background: transparent;
+            z-index: 10;
+            transform: translateX(-25px);
+            cursor: ew-resize;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .slider-handle .line {
+            width: 4px;
+            height: 100%;
+            background: #3b82f6;
+            box-shadow: 0 0 10px rgba(59,130,246,0.5);
+        }
+        .slider-handle .knob {
+            position: absolute;
+            width: 40px;
+            height: 40px;
+            background: #3b82f6;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+        .slider-handle .knob::before, .slider-handle .knob::after {
+            content: '';
+            width: 0;
+            height: 0;
+            border-top: 6px solid transparent;
+            border-bottom: 6px solid transparent;
+            position: absolute;
+        }
+        .slider-handle .knob::before {
+            border-right: 8px solid white;
+            left: 8px;
+        }
+        .slider-handle .knob::after {
+            border-left: 8px solid white;
+            right: 8px;
+        }
+
+        .instructions {
+            position: absolute;
+            bottom: 30px;
+            width: 100%;
+            text-align: center;
+            color: #64748b;
+            font-family: 'Inter', sans-serif;
+            font-size: 14px;
+            z-index: 100;
+            pointer-events: none;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            font-weight: 600;
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="container" id="container">
+        
+        <!-- BAD DESIGN -->
+        <div class="page page-bad">
+            <div class="card">
+                <h1>SUPER<br>DESIGN!</h1>
+                <img src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100'><rect width='100' height='100' fill='cyan'/></svg>" alt="Stretched image">
+                <p>Welcome to my awesome website. It is very cool and I designed it myself. You should click the button below to buy my stuff because it is the best stuff ever made in the history of the world!!!</p>
+                <div class="btn">BUY NOW!!!!</div>
+            </div>
+        </div>
+
+        <!-- GOOD DESIGN -->
+        <div class="page page-good" id="good-page">
+            <div class="content-wrapper">
+                <div class="card">
+                    <div class="img-placeholder"></div>
+                    <h1>Elevated Experience</h1>
+                    <p>Welcome to a thoughtfully crafted interface. Typography, whitespace, and visual hierarchy work together to create clarity and focus.</p>
+                    <div class="btn">Get Started</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SLIDER -->
+        <div class="slider-handle" id="slider">
+            <div class="line"></div>
+            <div class="knob"></div>
+        </div>
+
+        <div class="instructions">Drag to compare</div>
+    </div>
+
+    <script>
+        const container = document.getElementById('container');
+        const slider = document.getElementById('slider');
+        const goodPage = document.getElementById('good-page');
+        
+        let isDragging = false;
+        let percentage = 50;
+
+        function updateSlider(clientX) {
+            const rect = container.getBoundingClientRect();
+            let x = clientX - rect.left;
+            x = Math.max(0, Math.min(x, rect.width));
+            percentage = (x / rect.width) * 100;
+            
+            slider.style.left = `${percentage}vw`;
+            goodPage.style.width = `${percentage}vw`;
+            
+            updateAudio(percentage);
+        }
+
+        // Mouse Events
+        slider.addEventListener('mousedown', () => isDragging = true);
+        window.addEventListener('mouseup', () => isDragging = false);
+        window.addEventListener('mousemove', (e) => {
+            if (isDragging) updateSlider(e.clientX);
+        });
+
+        // Touch Events
+        slider.addEventListener('touchstart', () => isDragging = true);
+        window.addEventListener('touchend', () => isDragging = false);
+        window.addEventListener('touchmove', (e) => {
+            if (isDragging) updateSlider(e.touches[0].clientX);
+        });
+
+        // Web Audio API
+        let audioCtx;
+        let isAudioInit = false;
+        let badGain, goodGain;
+        let lfoBad;
+
+        function initAudio() {
+            if (isAudioInit) return;
+            isAudioInit = true;
+            
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            audioCtx = new AudioContext();
+            
+            // Bad Audio (Discordant, fast modulation)
+            badGain = audioCtx.createGain();
+            badGain.connect(audioCtx.destination);
+            badGain.gain.value = 0.05;
+            
+            const badOsc1 = audioCtx.createOscillator();
+            badOsc1.type = 'sawtooth';
+            badOsc1.frequency.value = 130;
+            badOsc1.connect(badGain);
+            
+            const badOsc2 = audioCtx.createOscillator();
+            badOsc2.type = 'square';
+            badOsc2.frequency.value = 145; // Clash
+            badOsc2.connect(badGain);
+            
+            lfoBad = audioCtx.createOscillator();
+            lfoBad.type = 'sawtooth';
+            lfoBad.frequency.value = 10; // Fast annoying flutter
+            const lfoBadGain = audioCtx.createGain();
+            lfoBadGain.gain.value = 50;
+            lfoBad.connect(lfoBadGain);
+            lfoBadGain.connect(badOsc1.frequency);
+            
+            badOsc1.start();
+            badOsc2.start();
+            lfoBad.start();
+            
+            // Good Audio (Warm pad)
+            goodGain = audioCtx.createGain();
+            goodGain.connect(audioCtx.destination);
+            goodGain.gain.value = 0.05;
+            
+            const goodOsc1 = audioCtx.createOscillator();
+            goodOsc1.type = 'sine';
+            goodOsc1.frequency.value = 261.63; // C4
+            goodOsc1.connect(goodGain);
+            
+            const goodOsc2 = audioCtx.createOscillator();
+            goodOsc2.type = 'sine';
+            goodOsc2.frequency.value = 392.00; // G4
+            goodOsc2.connect(goodGain);
+            
+            goodOsc1.start();
+            goodOsc2.start();
+            
+            updateAudio(percentage);
+        }
+
+        function updateAudio(pct) {
+            if (!isAudioInit) return;
+            
+            // pct is 0 to 100
+            // When pct = 100, Good side is fully revealed
+            // When pct = 0, Bad side is fully revealed
+            
+            const badVol = Math.max(0, 0.05 * (1 - (pct / 100)));
+            const goodVol = Math.max(0, 0.05 * (pct / 100));
+            
+            badGain.gain.setTargetAtTime(badVol, audioCtx.currentTime, 0.1);
+            goodGain.gain.setTargetAtTime(goodVol, audioCtx.currentTime, 0.1);
+        }
+
+        ['mousedown', 'touchstart'].forEach(evt => {
+            window.addEventListener(evt, () => {
+                if (!isAudioInit) {
+                    initAudio();
+                    if(audioCtx && audioCtx.state === 'suspended') {
+                        audioCtx.resume();
+                    }
+                }
+            }, { once: true });
+        });
+
+    </script>
+</body>
+</html>

@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Design System Builder</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Space+Mono&family=Inter:wght@400;600;800&display=swap');
+
+        :root {
+            --bg: #ffffff;
+            --surface: #ffffff;
+            --text-main: #000000;
+            --text-muted: #000000;
+            --primary: #000000;
+            --radius: 0px;
+            --padding-card: 0px;
+            --gap: 0px;
+            --font-main: 'Space Mono', monospace;
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 400vh;
+            background-color: var(--bg);
+            color: var(--text-main);
+            font-family: var(--font-main);
+            transition: all 1s ease;
+            overflow-x: hidden;
+        }
+
+        .viewport {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 40px;
+            box-sizing: border-box;
+        }
+
+        /* Status UI */
+        .status {
+            position: absolute;
+            top: 40px;
+            left: 40px;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            font-weight: 800;
+        }
+
+        /* Dashboard Layout */
+        .dashboard {
+            width: 100%;
+            max-width: 1000px;
+            height: 600px;
+            display: grid;
+            grid-template-columns: 250px 1fr;
+            grid-template-rows: 80px 1fr;
+            gap: var(--gap);
+            transition: all 1s ease;
+        }
+
+        /* Elements */
+        .sidebar {
+            grid-column: 1;
+            grid-row: 1 / 3;
+            background: var(--surface);
+            padding: var(--padding-card);
+            border-radius: var(--radius);
+            border: 1px solid var(--text-muted);
+            transition: all 1s ease;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .header {
+            grid-column: 2;
+            grid-row: 1;
+            background: var(--surface);
+            padding: var(--padding-card);
+            border-radius: var(--radius);
+            border: 1px solid var(--text-muted);
+            transition: all 1s ease;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .content {
+            grid-column: 2;
+            grid-row: 2;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: 150px 1fr;
+            gap: var(--gap);
+            transition: all 1s ease;
+        }
+
+        .card {
+            background: var(--surface);
+            padding: var(--padding-card);
+            border-radius: var(--radius);
+            border: 1px solid var(--text-muted);
+            transition: all 1s ease;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        
+        .card.main {
+            grid-column: 1 / 3;
+        }
+
+        /* Mock UI Elements inside */
+        .nav-item {
+            width: 100%;
+            height: 40px;
+            background: rgba(0,0,0,0.1);
+            border-radius: calc(var(--radius) / 2);
+            transition: all 1s ease;
+        }
+        .btn {
+            padding: 10px 20px;
+            background: var(--primary);
+            color: var(--bg);
+            border-radius: var(--radius);
+            border: none;
+            font-family: inherit;
+            font-weight: 600;
+            transition: all 1s ease;
+        }
+        .stat-value {
+            font-size: 32px;
+            font-weight: 800;
+        }
+
+        .scroll-hint {
+            position: absolute;
+            bottom: 40px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 14px;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="viewport">
+        <div class="status" id="status">Stage 1: Raw HTML</div>
+
+        <div class="dashboard" id="dash">
+            <div class="sidebar">
+                <div style="font-weight: 800; font-size: 20px; margin-bottom: 20px;">Logo</div>
+                <div class="nav-item"></div>
+                <div class="nav-item" style="background: var(--primary);"></div>
+                <div class="nav-item"></div>
+            </div>
+            
+            <div class="header">
+                <div>Overview</div>
+                <button class="btn">Action</button>
+            </div>
+            
+            <div class="content">
+                <div class="card">
+                    <div style="font-size: 14px; color: var(--text-muted)">Revenue</div>
+                    <div class="stat-value">$12,400</div>
+                </div>
+                <div class="card">
+                    <div style="font-size: 14px; color: var(--text-muted)">Users</div>
+                    <div class="stat-value">1,245</div>
+                </div>
+                <div class="card main">
+                    <div style="width: 100%; height: 100%; background: linear-gradient(90deg, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0.1) 100%); border-radius: calc(var(--radius)/2);"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="scroll-hint">Scroll to build</div>
+    </div>
+
+    <script>
+        const statusEl = document.getElementById('status');
+        const root = document.documentElement;
+
+        let scrollY = 0;
+        let progress = 0;
+
+        window.addEventListener('scroll', () => {
+            scrollY = window.scrollY;
+            const maxScroll = document.body.scrollHeight - window.innerHeight;
+            progress = Math.min(Math.max(scrollY / maxScroll, 0), 1);
+            
+            updateSystem();
+            updateAudio();
+        });
+
+        function updateSystem() {
+            // Stage 1: Raw (0 - 0.25)
+            // Stage 2: Colors (0.25 - 0.5)
+            // Stage 3: Typography (0.5 - 0.75)
+            // Stage 4: Spacing & Radius (0.75 - 1.0)
+
+            if (progress < 0.25) {
+                statusEl.innerText = "Stage 1: Raw Structure";
+                root.style.setProperty('--bg', '#ffffff');
+                root.style.setProperty('--surface', '#ffffff');
+                root.style.setProperty('--text-main', '#000000');
+                root.style.setProperty('--text-muted', '#000000');
+                root.style.setProperty('--primary', '#000000');
+                root.style.setProperty('--font-main', "'Space Mono', monospace");
+                root.style.setProperty('--gap', '0px');
+                root.style.setProperty('--padding-card', '10px');
+                root.style.setProperty('--radius', '0px');
+                document.querySelectorAll('.card, .sidebar, .header').forEach(el => {
+                    el.style.border = '1px solid #000';
+                });
+            } 
+            else if (progress < 0.5) {
+                statusEl.innerText = "Stage 2: Color Tokens";
+                root.style.setProperty('--bg', '#0f172a');
+                root.style.setProperty('--surface', '#1e293b');
+                root.style.setProperty('--text-main', '#f8fafc');
+                root.style.setProperty('--text-muted', '#94a3b8');
+                root.style.setProperty('--primary', '#3b82f6');
+                root.style.setProperty('--font-main', "'Space Mono', monospace");
+                root.style.setProperty('--gap', '0px');
+                root.style.setProperty('--padding-card', '10px');
+                root.style.setProperty('--radius', '0px');
+                document.querySelectorAll('.card, .sidebar, .header').forEach(el => {
+                    el.style.border = 'none';
+                });
+            }
+            else if (progress < 0.75) {
+                statusEl.innerText = "Stage 3: Typography";
+                root.style.setProperty('--bg', '#0f172a');
+                root.style.setProperty('--surface', '#1e293b');
+                root.style.setProperty('--text-main', '#f8fafc');
+                root.style.setProperty('--text-muted', '#94a3b8');
+                root.style.setProperty('--primary', '#3b82f6');
+                root.style.setProperty('--font-main', "'Inter', sans-serif");
+                root.style.setProperty('--gap', '0px');
+                root.style.setProperty('--padding-card', '10px');
+                root.style.setProperty('--radius', '0px');
+            }
+            else {
+                statusEl.innerText = "Stage 4: Spacing & Radius";
+                root.style.setProperty('--bg', '#0f172a');
+                root.style.setProperty('--surface', '#1e293b');
+                root.style.setProperty('--text-main', '#f8fafc');
+                root.style.setProperty('--text-muted', '#94a3b8');
+                root.style.setProperty('--primary', '#3b82f6');
+                root.style.setProperty('--font-main', "'Inter', sans-serif");
+                root.style.setProperty('--gap', '24px');
+                root.style.setProperty('--padding-card', '32px');
+                root.style.setProperty('--radius', '16px');
+                
+                // Add shadows
+                document.querySelectorAll('.card, .sidebar, .header').forEach(el => {
+                    el.style.boxShadow = '0 10px 25px -5px rgba(0,0,0,0.5)';
+                });
+            }
+        }
+
+        // Audio System
+        let audioCtx;
+        let isAudioInit = false;
+        let masterGain;
+        
+        let kickOsc, bassOsc, arpOsc;
+        let nextNoteTime = 0;
+        let currentNote = 0;
+        let tempo = 120;
+        let scheduleAheadTime = 0.1;
+
+        // Minor pentatonic: A, C, D, E, G
+        const scale = [220.00, 261.63, 293.66, 329.63, 392.00];
+
+        function initAudio() {
+            if (isAudioInit) return;
+            isAudioInit = true;
+            
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            audioCtx = new AudioContext();
+            
+            masterGain = audioCtx.createGain();
+            masterGain.gain.value = 0.1;
+            masterGain.connect(audioCtx.destination);
+            
+            nextNoteTime = audioCtx.currentTime + 0.1;
+            scheduler();
+        }
+
+        function playKick(time) {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(masterGain);
+            
+            osc.frequency.setValueAtTime(150, time);
+            osc.frequency.exponentialRampToValueAtTime(0.01, time + 0.5);
+            
+            gain.gain.setValueAtTime(1, time);
+            gain.gain.exponentialRampToValueAtTime(0.01, time + 0.5);
+            
+            osc.start(time);
+            osc.stop(time + 0.5);
+        }
+
+        function playBass(time, noteIndex) {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'square';
+            osc.connect(gain);
+            gain.connect(masterGain);
+            
+            osc.frequency.value = scale[noteIndex % scale.length] / 2; // Octave down
+            
+            gain.gain.setValueAtTime(0.3, time);
+            gain.gain.exponentialRampToValueAtTime(0.01, time + 0.2);
+            
+            osc.start(time);
+            osc.stop(time + 0.2);
+        }
+
+        function playArp(time, noteIndex) {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'sine';
+            osc.connect(gain);
+            gain.connect(masterGain);
+            
+            // Random octave up
+            osc.frequency.value = scale[noteIndex % scale.length] * (Math.random() > 0.5 ? 2 : 4);
+            
+            gain.gain.setValueAtTime(0.2, time);
+            gain.gain.exponentialRampToValueAtTime(0.01, time + 0.1);
+            
+            osc.start(time);
+            osc.stop(time + 0.1);
+        }
+
+        function scheduler() {
+            while (nextNoteTime < audioCtx.currentTime + scheduleAheadTime) {
+                scheduleNote(currentNote, nextNoteTime);
+                nextNote();
+            }
+            requestAnimationFrame(scheduler);
+        }
+
+        function nextNote() {
+            const secondsPerBeat = 60.0 / tempo;
+            nextNoteTime += 0.25 * secondsPerBeat; // 16th notes
+            currentNote++;
+        }
+
+        function scheduleNote(beatNumber, time) {
+            // Stage 1: Just a metronome click (Kick on 4ths)
+            if (beatNumber % 4 === 0) {
+                playKick(time);
+            }
+            
+            // Stage 2: Add bassline
+            if (progress >= 0.25 && beatNumber % 2 === 0) {
+                playBass(time, [0, 0, 3, 4][(beatNumber/2) % 4]);
+            }
+            
+            // Stage 3: Add arpeggio
+            if (progress >= 0.5) {
+                playArp(time, beatNumber);
+            }
+            
+            // Stage 4: Tempo increase
+            if (progress >= 0.75) {
+                tempo = 140; // hype
+            } else {
+                tempo = 120;
+            }
+        }
+
+        ['mousedown', 'touchstart', 'wheel', 'mousemove'].forEach(evt => {
+            window.addEventListener(evt, () => {
+                if (!isAudioInit) {
+                    initAudio();
+                    if(audioCtx && audioCtx.state === 'suspended') {
+                        audioCtx.resume();
+                    }
+                }
+            }, { once: true });
+        });
+
+    </script>
+</body>
+</html>

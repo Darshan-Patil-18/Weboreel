@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Generated Design</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;700&family=Outfit:wght@300;600;900&display=swap');
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 300vh;
+            background-color: #0d0d0d;
+            color: #fff;
+            font-family: 'Outfit', sans-serif;
+            overflow-x: hidden;
+            transition: background-color 1s ease;
+        }
+
+        .viewport {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            pointer-events: none;
+        }
+
+        /* Console / Prompt UI */
+        .prompt-container {
+            width: 600px;
+            padding: 20px;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 12px;
+            font-family: 'Fira Code', monospace;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            transition: all 0.5s ease;
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            z-index: 100;
+        }
+
+        .prompt-container.top {
+            top: 40px;
+            transform: scale(0.8);
+            opacity: 0.5;
+        }
+
+        .cursor {
+            display: inline-block;
+            width: 10px;
+            height: 20px;
+            background: #00ffcc;
+            margin-left: 5px;
+            animation: blink 1s infinite;
+        }
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+
+        /* The Generated UI Canvas */
+        .canvas-frame {
+            width: 800px;
+            height: 500px;
+            background: transparent;
+            border-radius: 20px;
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%) scale(0.9);
+            opacity: 0;
+            transition: all 1s cubic-bezier(0.25, 1, 0.5, 1);
+            display: flex;
+            flex-direction: column;
+            padding: 40px;
+            box-sizing: border-box;
+            gap: 20px;
+            overflow: hidden;
+        }
+
+        .canvas-frame.show {
+            opacity: 1;
+            transform: translateY(-40%) scale(1);
+        }
+
+        /* Abstract UI Elements */
+        .el-nav { width: 100%; height: 40px; display: flex; justify-content: space-between; transition: all 1s ease; }
+        .el-logo { width: 120px; height: 100%; transition: all 1s ease; }
+        .el-links { width: 300px; height: 100%; transition: all 1s ease; }
+        
+        .el-hero { width: 100%; flex-grow: 1; display: flex; flex-direction: column; justify-content: center; transition: all 1s ease; position: relative;}
+        .el-h1 { width: 80%; height: 60px; margin-bottom: 20px; transition: all 1s ease; }
+        .el-p { width: 60%; height: 20px; margin-bottom: 40px; transition: all 1s ease; }
+        .el-btn { width: 150px; height: 50px; border-radius: 8px; transition: all 1s ease; }
+
+        /* --- Iteration 1: Wireframe --- */
+        .canvas-frame.iter-1 { border: 2px dashed #444; }
+        .canvas-frame.iter-1 .el-logo, .canvas-frame.iter-1 .el-links, .canvas-frame.iter-1 .el-h1, .canvas-frame.iter-1 .el-p, .canvas-frame.iter-1 .el-btn {
+            border: 1px solid #444;
+            background: transparent;
+        }
+
+        /* --- Iteration 2: Blocks --- */
+        .canvas-frame.iter-2 { border: 2px solid #333; background: #111; }
+        .canvas-frame.iter-2 .el-logo { background: #333; border: none; }
+        .canvas-frame.iter-2 .el-links { background: #222; border: none; }
+        .canvas-frame.iter-2 .el-h1 { background: #555; border: none; }
+        .canvas-frame.iter-2 .el-p { background: #333; border: none; }
+        .canvas-frame.iter-2 .el-btn { background: #00ffcc; border: none; }
+
+        /* --- Iteration 3: Final Polish --- */
+        .canvas-frame.iter-3 {
+            border: 1px solid rgba(255,255,255,0.1);
+            background: rgba(20, 20, 25, 0.6);
+            backdrop-filter: blur(20px);
+            box-shadow: 0 30px 60px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.1);
+        }
+        /* Gradient Mesh BG inside Hero */
+        .canvas-frame.iter-3 .el-hero::before {
+            content: ''; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%;
+            background: radial-gradient(circle at 50% 50%, rgba(108, 92, 231, 0.4) 0%, transparent 50%),
+                        radial-gradient(circle at 80% 20%, rgba(0, 206, 201, 0.3) 0%, transparent 40%);
+            z-index: -1; pointer-events: none;
+            filter: blur(40px);
+        }
+        
+        .canvas-frame.iter-3 .el-logo { background: transparent; color: #fff; font-size: 24px; font-weight: 900; }
+        .canvas-frame.iter-3 .el-logo::after { content: 'Nova.'; }
+        
+        .canvas-frame.iter-3 .el-links { background: transparent; display: flex; gap: 20px; align-items: center;}
+        .canvas-frame.iter-3 .el-links::after { content: 'Home   About   Contact'; color: #888; font-size: 14px; white-space: pre; }
+        
+        .canvas-frame.iter-3 .el-h1 { background: transparent; color: #fff; font-size: 48px; font-weight: 900; line-height: 1; height: auto;}
+        .canvas-frame.iter-3 .el-h1::after { content: 'Design Beyond Limits.'; }
+        
+        .canvas-frame.iter-3 .el-p { background: transparent; color: #aaa; font-size: 16px; height: auto; }
+        .canvas-frame.iter-3 .el-p::after { content: 'AI powered generation mapping directly to DOM elements.'; }
+        
+        .canvas-frame.iter-3 .el-btn { 
+            background: linear-gradient(135deg, #00ffcc, #6c5ce7);
+            color: #000; font-weight: 700; display: flex; justify-content: center; align-items: center;
+            box-shadow: 0 10px 20px rgba(0, 255, 204, 0.2);
+        }
+        .canvas-frame.iter-3 .el-btn::after { content: 'Generate'; }
+
+        .scroll-hint {
+            position: absolute;
+            bottom: 40px;
+            font-size: 12px;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            color: #666;
+            animation: pulse 2s infinite;
+            opacity: 0;
+            transition: opacity 1s;
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="viewport">
+        
+        <div class="prompt-container" id="prompt-box">
+            <span style="color: #00ffcc; margin-right: 10px;">></span>
+            <span id="typewriter"></span><span class="cursor"></span>
+        </div>
+
+        <div class="canvas-frame iter-1" id="canvas">
+            <div class="el-nav">
+                <div class="el-logo"></div>
+                <div class="el-links"></div>
+            </div>
+            <div class="el-hero">
+                <div class="el-h1"></div>
+                <div class="el-p"></div>
+                <div class="el-btn"></div>
+            </div>
+        </div>
+
+        <div class="scroll-hint" id="hint">Scroll to iterate</div>
+
+    </div>
+
+    <script>
+        const promptBox = document.getElementById('prompt-box');
+        const typewriter = document.getElementById('typewriter');
+        const canvas = document.getElementById('canvas');
+        const hint = document.getElementById('hint');
+        
+        const targetText = "Generate a premium landing page...";
+        let typeIdx = 0;
+        let isTypingDone = false;
+
+        // Auto Type on load
+        function typeText() {
+            if (typeIdx < targetText.length) {
+                typewriter.innerHTML += targetText.charAt(typeIdx);
+                typeIdx++;
+                playTypeSound();
+                setTimeout(typeText, Math.random() * 50 + 50);
+            } else {
+                isTypingDone = true;
+                setTimeout(() => {
+                    promptBox.classList.add('top');
+                    canvas.classList.add('show');
+                    hint.style.opacity = 1;
+                    playDing();
+                }, 1000);
+            }
+        }
+
+        let scrollY = 0;
+        let progress = 0;
+
+        window.addEventListener('scroll', () => {
+            if (!isTypingDone) return; // Prevent scroll actions until typing finishes
+            
+            scrollY = window.scrollY;
+            const maxScroll = document.body.scrollHeight - window.innerHeight;
+            progress = Math.min(Math.max(scrollY / maxScroll, 0), 1);
+            
+            updateCanvas();
+            updateAudioScroll();
+        });
+
+        function updateCanvas() {
+            // Stage 1: Wire (0 to 0.33)
+            // Stage 2: Block (0.33 to 0.66)
+            // Stage 3: Final (0.66 to 1.0)
+
+            if (progress < 0.33) {
+                canvas.className = 'canvas-frame show iter-1';
+            } else if (progress < 0.66) {
+                canvas.className = 'canvas-frame show iter-2';
+            } else {
+                canvas.className = 'canvas-frame show iter-3';
+            }
+        }
+
+        // Audio System
+        let audioCtx;
+        let isAudioInit = false;
+        
+        let droneGain, droneOsc;
+
+        function initAudio() {
+            if (isAudioInit) return;
+            isAudioInit = true;
+            
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            audioCtx = new AudioContext();
+            
+            // Background Drone (Processing hum)
+            droneGain = audioCtx.createGain();
+            droneGain.gain.value = 0; // Starts silent
+            droneGain.connect(audioCtx.destination);
+            
+            droneOsc = audioCtx.createOscillator();
+            droneOsc.type = 'sawtooth';
+            droneOsc.frequency.value = 55;
+            
+            // Add a subtle lowpass filter
+            const filter = audioCtx.createBiquadFilter();
+            filter.type = 'lowpass';
+            filter.frequency.value = 400;
+            
+            droneOsc.connect(filter);
+            filter.connect(droneGain);
+            droneOsc.start();
+        }
+
+        function playTypeSound() {
+            if (!isAudioInit) return;
+            const time = audioCtx.currentTime;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            
+            osc.type = 'square';
+            osc.frequency.setValueAtTime(400 + Math.random()*200, time);
+            
+            gain.gain.setValueAtTime(0.05, time);
+            gain.gain.exponentialRampToValueAtTime(0.001, time + 0.05);
+            
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start(time);
+            osc.stop(time + 0.05);
+        }
+
+        function playDing() {
+            if (!isAudioInit) return;
+            const time = audioCtx.currentTime;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(880, time); // A5
+            
+            gain.gain.setValueAtTime(0.2, time);
+            gain.gain.exponentialRampToValueAtTime(0.01, time + 1);
+            
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start(time);
+            osc.stop(time + 1);
+        }
+
+        function updateAudioScroll() {
+            if (!isAudioInit) return;
+            // Drone increases in volume and pitch as we scroll, blooming at the end
+            droneGain.gain.setTargetAtTime(Math.max(0.01, progress * 0.1), audioCtx.currentTime, 0.1);
+            droneOsc.frequency.setTargetAtTime(55 + (progress * 110), audioCtx.currentTime, 0.1); // Sweeps up
+        }
+
+        // Require interaction before starting the typing sequence to allow AudioContext
+        document.body.innerHTML += '<div id="start-overlay" style="position:fixed;top:0;left:0;width:100vw;height:100vh;background:#000;z-index:9999;display:flex;justify-content:center;align-items:center;cursor:pointer;font-family:monospace;font-size:24px;">Click to Initialize AI</div>';
+        
+        document.getElementById('start-overlay').addEventListener('click', function() {
+            initAudio();
+            if(audioCtx && audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+            this.style.display = 'none';
+            setTimeout(typeText, 500); // Start typing sequence
+        });
+
+    </script>
+</body>
+</html>

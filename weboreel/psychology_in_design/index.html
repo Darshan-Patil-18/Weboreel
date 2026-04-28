@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Psychology in Design</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
+
+        :root {
+            --bg: #1a1a1a;
+            --text: #ffffff;
+            --box-color: #ff3333;
+            --gap: 2px;
+            --radius: 0px;
+            --padding: 5px;
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 400vh; /* Scroll length */
+            background-color: var(--bg);
+            color: var(--text);
+            font-family: 'Inter', sans-serif;
+            overflow-x: hidden;
+            transition: background-color 1s ease;
+        }
+
+        .viewport {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            pointer-events: none;
+        }
+
+        .header {
+            position: absolute;
+            top: 40px;
+            text-align: center;
+        }
+        
+        h1 {
+            font-size: 24px;
+            margin: 0;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        #mood-label {
+            font-size: 14px;
+            color: #888;
+            letter-spacing: 5px;
+            text-transform: uppercase;
+        }
+
+        /* The Box Grid */
+        .grid {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            align-content: center;
+            width: 80vw;
+            max-width: 800px;
+            height: 60vh;
+            gap: var(--gap);
+        }
+
+        .box {
+            background-color: var(--box-color);
+            border-radius: var(--radius);
+            padding: var(--padding);
+            flex: 1 1 calc(20% - var(--gap));
+            height: calc(20% - var(--gap));
+            transition: all 0.1s linear; /* Fast for jitter, smooth for rest */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 10px;
+            font-weight: bold;
+            color: rgba(255,255,255,0.5);
+            overflow: hidden;
+            box-sizing: border-box;
+        }
+
+        .scroll-hint {
+            position: absolute;
+            bottom: 40px;
+            font-size: 14px;
+            letter-spacing: 2px;
+            animation: pulse 2s infinite;
+            opacity: 0.5;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(5px); }
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="viewport">
+        <div class="header">
+            <h1>Psychology in Design</h1>
+            <div id="mood-label">Claustrophobia & Tension</div>
+        </div>
+
+        <div class="grid" id="grid">
+            <!-- Populated via JS -->
+        </div>
+
+        <div class="scroll-hint">Scroll down to breathe</div>
+    </div>
+
+    <script>
+        const root = document.documentElement;
+        const grid = document.getElementById('grid');
+        const moodLabel = document.getElementById('mood-label');
+        const body = document.body;
+
+        // Create 25 boxes
+        const boxes = [];
+        for(let i=0; i<25; i++) {
+            const b = document.createElement('div');
+            b.className = 'box';
+            b.innerText = `[${i}]`;
+            grid.appendChild(b);
+            boxes.push(b);
+        }
+
+        let scrollY = 0;
+        let progress = 0;
+        let time = 0;
+
+        window.addEventListener('scroll', () => {
+            scrollY = window.scrollY;
+            const maxScroll = document.body.scrollHeight - window.innerHeight;
+            progress = Math.min(Math.max(scrollY / maxScroll, 0), 1);
+            
+            updateAudio();
+        });
+
+        function updatePhysics() {
+            time += 0.05;
+            
+            // Progress 0.0: Claustrophobic. Gap=2px. Red. Jittery.
+            // Progress 0.5: Transitioning.
+            // Progress 1.0: Open, Calm. Gap=40px. Blue/Green. Floating.
+
+            // Visual properties
+            const gap = 2 + (progress * 40); // 2px to 42px
+            const radius = progress * 20; // 0px to 20px
+            const r = Math.floor(255 - (progress * 210)); // 255 to 45 (Red -> Blueish)
+            const g = Math.floor(50 + (progress * 100));  // 50 to 150
+            const b = Math.floor(50 + (progress * 200));  // 50 to 250
+            
+            root.style.setProperty('--gap', `${gap}px`);
+            root.style.setProperty('--radius', `${radius}px`);
+            root.style.setProperty('--box-color', `rgb(${r}, ${g}, ${b})`);
+            
+            if (progress > 0.5) {
+                body.style.backgroundColor = '#0a192f'; // Calm dark blue
+                moodLabel.innerText = "Openness & Calm";
+            } else {
+                body.style.backgroundColor = '#1a0505'; // Tense dark red
+                moodLabel.innerText = "Claustrophobia & Tension";
+            }
+
+            // Physics / Animation
+            const jitterAmount = Math.max(0, (0.5 - progress) * 10); // Decreases to 0 at mid-scroll
+            const floatAmount = progress * 10; // Increases as we scroll down
+            
+            boxes.forEach((box, i) => {
+                let dx = 0;
+                let dy = 0;
+                
+                if (jitterAmount > 0) {
+                    dx = (Math.random() - 0.5) * jitterAmount;
+                    dy = (Math.random() - 0.5) * jitterAmount;
+                    box.style.transition = 'none'; // Snappy jitter
+                } else {
+                    // Floating sine wave motion
+                    dx = Math.sin(time + i) * floatAmount;
+                    dy = Math.cos(time + i) * floatAmount;
+                    box.style.transition = 'all 0.1s linear';
+                }
+                
+                box.style.transform = `translate(${dx}px, ${dy}px) scale(${1 - jitterAmount*0.01})`;
+            });
+
+            requestAnimationFrame(updatePhysics);
+        }
+        updatePhysics(); // Start loop
+
+        // Audio System
+        let audioCtx;
+        let isAudioInit = false;
+        let oscTense, oscCalm;
+        let gainTense, gainCalm;
+        let lfoTense;
+
+        function initAudio() {
+            if (isAudioInit) return;
+            isAudioInit = true;
+            
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            audioCtx = new AudioContext();
+            
+            // Tense Audio (High pitched, fast modulation, dissonant)
+            gainTense = audioCtx.createGain();
+            gainTense.gain.value = 0.05;
+            gainTense.connect(audioCtx.destination);
+            
+            oscTense = audioCtx.createOscillator();
+            oscTense.type = 'sawtooth';
+            oscTense.frequency.value = 800;
+            oscTense.connect(gainTense);
+            
+            lfoTense = audioCtx.createOscillator();
+            lfoTense.type = 'square';
+            lfoTense.frequency.value = 15; // Fast jitter
+            const lfoTenseGain = audioCtx.createGain();
+            lfoTenseGain.gain.value = 50;
+            lfoTense.connect(lfoTenseGain);
+            lfoTenseGain.connect(oscTense.frequency);
+            
+            oscTense.start();
+            lfoTense.start();
+            
+            // Calm Audio (Low pad, slow sine wave)
+            gainCalm = audioCtx.createGain();
+            gainCalm.gain.value = 0;
+            gainCalm.connect(audioCtx.destination);
+            
+            oscCalm = audioCtx.createOscillator();
+            oscCalm.type = 'sine';
+            oscCalm.frequency.value = 130.81; // C3
+            oscCalm.connect(gainCalm);
+            
+            const lfoCalm = audioCtx.createOscillator();
+            lfoCalm.type = 'sine';
+            lfoCalm.frequency.value = 0.1; // Very slow breathe
+            const lfoCalmGain = audioCtx.createGain();
+            lfoCalmGain.gain.value = 10;
+            lfoCalm.connect(lfoCalmGain);
+            lfoCalmGain.connect(oscCalm.frequency);
+            
+            oscCalm.start();
+            lfoCalm.start();
+            
+            updateAudio();
+        }
+
+        function updateAudio() {
+            if (!isAudioInit) return;
+            
+            const volTense = Math.max(0, 0.05 * (1 - (progress * 1.5)));
+            const volCalm = Math.max(0, 0.05 * (progress));
+            
+            gainTense.gain.setTargetAtTime(volTense, audioCtx.currentTime, 0.1);
+            gainCalm.gain.setTargetAtTime(volCalm, audioCtx.currentTime, 0.1);
+            
+            // Also lower the pitch of the tense oscillator as we scroll
+            oscTense.frequency.setTargetAtTime(800 - (progress * 600), audioCtx.currentTime, 0.1);
+            lfoTense.frequency.setTargetAtTime(15 - (progress * 14), audioCtx.currentTime, 0.1);
+        }
+
+        ['mousedown', 'touchstart', 'wheel', 'mousemove'].forEach(evt => {
+            window.addEventListener(evt, () => {
+                if (!isAudioInit) {
+                    initAudio();
+                    if(audioCtx && audioCtx.state === 'suspended') {
+                        audioCtx.resume();
+                    }
+                }
+            }, { once: true });
+        });
+
+    </script>
+</body>
+</html>

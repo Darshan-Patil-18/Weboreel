@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Layout Playground</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;700&display=swap');
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 400vh;
+            background-color: #f0f0f0;
+            font-family: 'Space Grotesk', sans-serif;
+            overflow-x: hidden;
+            color: #111;
+        }
+
+        .viewport {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            padding: 40px;
+            box-sizing: border-box;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .header {
+            position: absolute;
+            top: 40px;
+            left: 40px;
+            z-index: 10;
+        }
+        
+        .header h1 {
+            margin: 0;
+            font-size: 20px;
+            text-transform: uppercase;
+        }
+        
+        #layout-name {
+            font-weight: 300;
+            color: #666;
+            letter-spacing: 2px;
+        }
+
+        /* The Grid Container */
+        .grid-container {
+            width: 100%;
+            max-width: 1200px;
+            height: 80vh;
+            position: relative;
+            transition: all 1s cubic-bezier(0.25, 1, 0.5, 1);
+        }
+
+        /* Base Box Styles */
+        .box {
+            position: absolute;
+            background: #fff;
+            border: 1px solid #ddd;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 24px;
+            font-weight: 700;
+            transition: all 1s cubic-bezier(0.25, 1, 0.5, 1);
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+
+        .box::after {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-image: linear-gradient(45deg, #f9f9f9 25%, transparent 25%, transparent 50%, #f9f9f9 50%, #f9f9f9 75%, transparent 75%, transparent);
+            background-size: 20px 20px;
+            opacity: 0;
+            transition: opacity 1s ease;
+        }
+
+        .scroll-hint {
+            position: absolute;
+            bottom: 40px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 0.3; }
+            50% { opacity: 1; }
+        }
+
+        /* Color palettes applied via JS */
+    </style>
+</head>
+<body>
+
+    <div class="viewport">
+        <div class="header">
+            <h1>Dynamic Grid</h1>
+            <div id="layout-name">1-Column Stack</div>
+        </div>
+
+        <div class="grid-container" id="grid">
+            <div class="box" id="b1">01</div>
+            <div class="box" id="b2">02</div>
+            <div class="box" id="b3">03</div>
+            <div class="box" id="b4">04</div>
+            <div class="box" id="b5">05</div>
+            <div class="box" id="b6">06</div>
+        </div>
+
+        <div class="scroll-hint">Scroll to reflow</div>
+    </div>
+
+    <script>
+        const layoutName = document.getElementById('layout-name');
+        const boxes = [
+            document.getElementById('b1'),
+            document.getElementById('b2'),
+            document.getElementById('b3'),
+            document.getElementById('b4'),
+            document.getElementById('b5'),
+            document.getElementById('b6')
+        ];
+
+        let scrollY = 0;
+        let progress = 0;
+
+        window.addEventListener('scroll', () => {
+            scrollY = window.scrollY;
+            const maxScroll = document.body.scrollHeight - window.innerHeight;
+            progress = Math.min(Math.max(scrollY / maxScroll, 0), 1);
+            
+            updateLayout();
+            updateAudio();
+        });
+
+        function updateLayout() {
+            // Stage 0: 1 Column Stack (Mobile)
+            // Stage 1: 2 Column Grid
+            // Stage 2: Masonry
+            // Stage 3: Abstract Overlap
+
+            if (progress < 0.25) {
+                layoutName.innerText = "1-Column Stack";
+                document.body.style.backgroundColor = '#f0f0f0';
+                
+                boxes.forEach((box, i) => {
+                    box.style.width = '100%';
+                    box.style.height = '15%';
+                    box.style.left = '0%';
+                    box.style.top = `${i * 17}%`;
+                    box.style.zIndex = 1;
+                    box.style.backgroundColor = '#fff';
+                    box.style.color = '#111';
+                    box.style.borderRadius = '0px';
+                });
+            }
+            else if (progress < 0.50) {
+                layoutName.innerText = "2-Column Balanced";
+                document.body.style.backgroundColor = '#e2e8f0';
+                
+                boxes.forEach((box, i) => {
+                    const row = Math.floor(i / 2);
+                    const col = i % 2;
+                    box.style.width = '48%';
+                    box.style.height = '30%';
+                    box.style.left = col === 0 ? '0%' : '52%';
+                    box.style.top = `${row * 35}%`;
+                    box.style.zIndex = 1;
+                    box.style.backgroundColor = '#fff';
+                    box.style.color = '#111';
+                    box.style.borderRadius = '8px';
+                });
+            }
+            else if (progress < 0.75) {
+                layoutName.innerText = "Editorial Masonry";
+                document.body.style.backgroundColor = '#1e293b';
+                
+                // Manual masonry coordinates
+                const coords = [
+                    { w: '60%', h: '60%', l: '0%', t: '0%', bg: '#3b82f6', c: '#fff' },
+                    { w: '38%', h: '28%', l: '62%', t: '0%', bg: '#fff', c: '#111' },
+                    { w: '38%', h: '60%', l: '62%', t: '30%', bg: '#fff', c: '#111' },
+                    { w: '28%', h: '28%', l: '0%', t: '62%', bg: '#fff', c: '#111' },
+                    { w: '30%', h: '28%', l: '30%', t: '62%', bg: '#fff', c: '#111' },
+                    { w: '38%', h: '8%', l: '62%', t: '92%', bg: '#f59e0b', c: '#fff' }
+                ];
+                
+                boxes.forEach((box, i) => {
+                    const c = coords[i];
+                    box.style.width = c.w;
+                    box.style.height = c.h;
+                    box.style.left = c.l;
+                    box.style.top = c.t;
+                    box.style.zIndex = 1;
+                    box.style.backgroundColor = c.bg;
+                    box.style.color = c.c;
+                    box.style.borderRadius = '0px';
+                });
+            }
+            else {
+                layoutName.innerText = "Avant-Garde Overlap";
+                document.body.style.backgroundColor = '#000000';
+                
+                // Abstract overlapping
+                const coords = [
+                    { w: '50%', h: '80%', l: '10%', t: '10%', bg: 'rgba(255,0,0,0.8)', z: 3 },
+                    { w: '40%', h: '40%', l: '50%', t: '20%', bg: 'rgba(0,0,255,0.8)', z: 2 },
+                    { w: '30%', h: '60%', l: '40%', t: '5%', bg: 'rgba(255,255,0,0.8)', z: 1 },
+                    { w: '20%', h: '20%', l: '20%', t: '70%', bg: '#fff', z: 4 },
+                    { w: '60%', h: '10%', l: '30%', t: '80%', bg: '#fff', z: 5 },
+                    { w: '10%', h: '90%', l: '85%', t: '5%', bg: '#fff', z: 6 }
+                ];
+                
+                boxes.forEach((box, i) => {
+                    const c = coords[i];
+                    box.style.width = c.w;
+                    box.style.height = c.h;
+                    box.style.left = c.l;
+                    box.style.top = c.t;
+                    box.style.zIndex = c.z;
+                    box.style.backgroundColor = c.bg;
+                    box.style.color = i < 3 ? '#fff' : '#000';
+                    box.style.borderRadius = i === 1 ? '50%' : '0px'; // Make one a circle
+                });
+            }
+        }
+
+        // Web Audio API
+        let audioCtx;
+        let isAudioInit = false;
+        let oscs = [];
+        let gainNodes = [];
+        let chordScale = [261.63, 329.63, 392.00, 523.25, 659.25, 783.99]; // C Major Pentatonic
+
+        function initAudio() {
+            if (isAudioInit) return;
+            isAudioInit = true;
+            
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            audioCtx = new AudioContext();
+            
+            for(let i=0; i<6; i++) {
+                let osc = audioCtx.createOscillator();
+                let gain = audioCtx.createGain();
+                let panner = audioCtx.createStereoPanner();
+                
+                osc.type = 'sine';
+                osc.frequency.value = chordScale[i];
+                
+                gain.gain.value = 0.02; // Initial low volume
+                panner.pan.value = (Math.random() * 2) - 1; // Random pan
+                
+                osc.connect(gain);
+                gain.connect(panner);
+                panner.connect(audioCtx.destination);
+                
+                osc.start();
+                oscs.push(osc);
+                gainNodes.push(gain);
+            }
+        }
+
+        function updateAudio() {
+            if (!isAudioInit) return;
+            
+            const now = audioCtx.currentTime;
+            
+            if (progress < 0.25) {
+                // Stack: Simple, harmonious, low volume
+                oscs.forEach(o => o.type = 'sine');
+                gainNodes.forEach((g, i) => {
+                    g.gain.setTargetAtTime(i < 3 ? 0.05 : 0.01, now, 0.1);
+                });
+            } else if (progress < 0.5) {
+                // 2 Col: Richer, more active
+                oscs.forEach(o => o.type = 'triangle');
+                gainNodes.forEach((g, i) => {
+                    g.gain.setTargetAtTime(0.03, now, 0.1);
+                });
+            } else if (progress < 0.75) {
+                // Masonry: Complex, some dissonance
+                oscs.forEach((o, i) => {
+                    o.type = i % 2 === 0 ? 'square' : 'triangle';
+                    // Shift some frequencies slightly for chorus/tension
+                    o.frequency.setTargetAtTime(chordScale[i] * (i===2 ? 1.05 : 1), now, 0.1); 
+                });
+                gainNodes.forEach(g => g.gain.setTargetAtTime(0.02, now, 0.1));
+            } else {
+                // Avant-Garde: Sawtooth, loud, chaotic
+                oscs.forEach((o, i) => {
+                    o.type = 'sawtooth';
+                    // Totally different intervals
+                    o.frequency.setTargetAtTime(chordScale[i] * (1 + (i*0.1)), now, 0.1);
+                });
+                gainNodes.forEach(g => g.gain.setTargetAtTime(0.04, now, 0.1));
+            }
+        }
+
+        ['mousedown', 'touchstart', 'wheel', 'mousemove'].forEach(evt => {
+            window.addEventListener(evt, () => {
+                if (!isAudioInit) {
+                    initAudio();
+                    if(audioCtx && audioCtx.state === 'suspended') {
+                        audioCtx.resume();
+                    }
+                }
+            }, { once: true });
+        });
+
+        // Init
+        updateLayout();
+
+    </script>
+</body>
+</html>
