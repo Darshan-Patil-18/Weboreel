@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ink Bleed</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Caveat&family=Cormorant+Garamond:ital,wght@1,300&family=DM+Sans&display=swap');
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body, html {
+      width: 100%; height: 100%;
+      background: #f5f0e8; /* Paper base */
+      color: #1a1a1a;
+      overflow-x: hidden;
+      font-family: 'Cormorant Garamond', serif;
+      overscroll-behavior: none;
+    }
+
+    /* Paper texture SVG */
+    #paper-texture {
+      position: fixed; top: 0; left: 0;
+      width: 100vw; height: 100vh;
+      pointer-events: none;
+      z-index: 1;
+      opacity: 0.03;
+    }
+    
+    #paper-shadow {
+      position: fixed; top: 0; left: 0;
+      width: 100vw; height: 100vh;
+      box-shadow: inset 0 0 100px rgba(0,0,0,0.08);
+      pointer-events: none;
+      z-index: 2;
+    }
+
+    #bg-gradient {
+      position: fixed; top: 0; left: 0;
+      width: 100vw; height: 100vh;
+      background: radial-gradient(circle at 50% 50%, #f5f0e8, #e8dfcd);
+      transition: background 2s ease;
+      z-index: 0;
+    }
+
+    #ink-canvas {
+      position: fixed; top: 0; left: 0;
+      width: 100vw; height: 100vh;
+      pointer-events: none;
+      z-index: 3;
+    }
+
+    .scroll-container {
+      position: fixed; top: 0; left: 0;
+      width: 100%;
+      will-change: transform;
+      z-index: 5;
+    }
+
+    .section {
+      position: relative;
+      width: 100%; height: 120vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 10vw;
+      text-align: center;
+    }
+
+    .poem-text {
+      font-size: 3rem;
+      font-style: italic;
+      font-weight: 300;
+      opacity: 0; /* JS handles reveal */
+      transition: opacity 1s, filter 3s;
+      max-width: 800px;
+      line-height: 1.4;
+    }
+    
+    .letter { display: inline-block; } /* For measuring positions */
+
+    /* Colors for sections */
+    .c1 { color: #1a1a1a; }
+    .c2 { color: #1a0066; }
+    .c3 { color: #333333; }
+    .c4 { color: #6b0033; }
+    .c5 { color: #d4a843; } /* Golden */
+
+    .whiteout {
+      position: fixed; top: 0; left: 0;
+      width: 100vw; height: 100vh;
+      background: #fff;
+      opacity: 0; pointer-events: none;
+      z-index: 20; transition: opacity 2s ease;
+    }
+    
+    .final-drop {
+      position: fixed; top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      width: 0px; height: 0px;
+      background: #000;
+      border-radius: 50%;
+      z-index: 21;
+      display: flex; align-items: center; justify-content: center;
+      transition: width 4s, height 4s;
+      overflow: hidden;
+    }
+    .final-text {
+      font-family: 'Caveat', cursive;
+      color: #fff;
+      font-size: 2rem;
+      white-space: nowrap;
+      opacity: 0;
+      transition: opacity 2s 2s; /* Delayed reveal */
+    }
+
+    .mute-btn {
+      position: fixed; bottom: 30px; right: 30px;
+      font-size: 2rem; cursor: pointer;
+      z-index: 100; user-select: none; opacity: 0.5;
+      font-family: 'DM Sans', sans-serif;
+    }
+    .mute-btn:hover { opacity: 1; }
+
+    @media (max-width: 768px) {
+      .poem-text { font-size: 2rem; }
+    }
+  </style>
+</head>
+<body>
+
+<svg id="paper-texture">
+  <filter id="noise">
+    <feTurbulence type="fractalNoise" baseFrequency="1" numOctaves="3" stitchTiles="stitch"/>
+  </filter>
+  <rect width="100%" height="100%" filter="url(#noise)"/>
+</svg>
+<div id="paper-shadow"></div>
+<div id="bg-gradient"></div>
+
+<canvas id="ink-canvas"></canvas>
+
+<div class="whiteout" id="whiteout"></div>
+<div class="final-drop" id="finalDrop">
+  <div class="final-text" id="finalText">begin again</div>
+</div>
+
+<div class="scroll-container" id="scroll-container">
+  <div class="section" id="s1"><div class="poem-text c1">I have been quiet for so long</div></div>
+  <div class="section" id="s2"><div class="poem-text c2">the things I could not say became the shape of me</div></div>
+  <div class="section" id="s3"><div class="poem-text c3">grief is not a hole it is a weight<br>you learn to carry differently</div></div>
+  <div class="section" id="s4"><div class="poem-text c4">you loved them like you were practicing<br>for someone <span id="permanent-word">permanent</span></div></div>
+  <div class="section" id="s5"><div class="poem-text c5" id="s5-text">the sun rises whether or not you asked it to</div></div>
+  <div class="section" id="s6" style="height: 150vh;">
+    <div class="poem-text c1" style="font-size:4rem; font-style:normal;">
+      <span id="w-begin">BEGIN</span> <span id="w-again">AGAIN</span>
+    </div>
+  </div>
+</div>
+
+<div class="mute-btn" id="muteBtn" title="Toggle Audio">🖋️</div>
+
+<script>
+// --- AUDIO ENGINE ---
+const AudioContext = window.AudioContext || window.webkitAudioContext;
+let actx, masterGain;
+let isMuted = true;
+
+function initAudio() {
+  if(actx) return;
+  actx = new AudioContext();
+  masterGain = actx.createGain();
+  masterGain.connect(actx.destination);
+  masterGain.gain.value = 0.5;
+  isMuted = false;
+  document.getElementById('muteBtn').style.opacity = '1';
+}
+
+document.getElementById('muteBtn').addEventListener('click', () => {
+  if(!actx) { initAudio(); return; }
+  isMuted = !isMuted;
+  masterGain.gain.setTargetAtTime(isMuted ? 0 : 0.5, actx.currentTime, 0.1);
+  document.getElementById('muteBtn').style.opacity = isMuted ? '0.5' : '1';
+});
+
+function playInkSpawn() {
+  if(!actx || isMuted) return;
+  let osc = actx.createOscillator(); let g = actx.createGain();
+  osc.frequency.setValueAtTime(440, actx.currentTime);
+  osc.frequency.exponentialRampToValueAtTime(220, actx.currentTime + 0.1);
+  osc.connect(g).connect(masterGain);
+  g.gain.setValueAtTime(0.01, actx.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.001, actx.currentTime + 0.1);
+  osc.start(); osc.stop(actx.currentTime + 0.12);
+}
+
+function playSpreadNoise(vel) {
+  if(!actx || isMuted || Math.abs(vel)<0.5) return;
+  let bs = actx.createBufferSource();
+  let b = actx.createBuffer(1, actx.sampleRate*0.1, actx.sampleRate);
+  let data = b.getChannelData(0);
+  for(let i=0;i<b.length;i++) data[i]=Math.random()*2-1;
+  bs.buffer = b;
+  let filter = actx.createBiquadFilter(); filter.type='lowpass'; filter.frequency.value=200;
+  let g = actx.createGain();
+  g.gain.setValueAtTime(Math.min(0.02, Math.abs(vel)*0.002), actx.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.001, actx.currentTime + 0.1);
+  bs.connect(filter).connect(g).connect(masterGain);
+  bs.start();
+}
+
+function playChord(freqs, time=2) {
+  if(!actx || isMuted) return;
+  freqs.forEach(f => {
+    let osc = actx.createOscillator(); let g = actx.createGain();
+    osc.frequency.value = f;
+    osc.connect(g).connect(masterGain);
+    g.gain.setValueAtTime(0, actx.currentTime);
+    g.gain.linearRampToValueAtTime(0.05, actx.currentTime + time*0.2);
+    g.gain.exponentialRampToValueAtTime(0.001, actx.currentTime + time);
+    osc.start(); osc.stop(actx.currentTime + time);
+  });
+}
+
+// Wrap letters
+document.querySelectorAll('.poem-text').forEach(el => {
+  let html = '';
+  // Don't wrap if it has internal spans we need to keep
+  if(el.children.length > 0 && el.id !== 's6') return;
+  if(el.id === 's6') return; // Handled separately
+  
+  let txt = el.innerText;
+  el.innerHTML = '';
+  for(let i=0; i<txt.length; i++) {
+    let span = document.createElement('span');
+    span.className = 'letter';
+    span.innerText = txt[i] === ' ' ? '\u00A0' : txt[i];
+    el.appendChild(span);
+  }
+});
+// Handle s4 specially
+let s4el = document.querySelector('#s4 .poem-text');
+s4el.innerHTML = "you loved them like you were practicing<br>for someone ".split('').map(c => `<span class="letter">${c===' '?'\u00A0':c}</span>`).join('') + `<span id="permanent-word" class="letter">permanent</span>`;
+
+let s6w1 = document.getElementById('w-begin');
+let s6w2 = document.getElementById('w-again');
+s6w1.innerHTML = s6w1.innerText.split('').map(c=>`<span class="letter">${c}</span>`).join('');
+s6w2.innerHTML = s6w2.innerText.split('').map(c=>`<span class="letter">${c}</span>`).join('');
+
+// --- SCROLL ENGINE ---
+let current = 0, target = 0, velocity = 0;
+const ease = 0.065;
+const container = document.getElementById('scroll-container');
+let maxScroll = 0, vh = 0;
+
+function resize() {
+  vh = window.innerHeight;
+  maxScroll = container.getBoundingClientRect().height - vh;
+  cw = canvas.width = window.innerWidth;
+  ch = canvas.height = window.innerHeight;
+}
+window.addEventListener('resize', resize);
+
+window.addEventListener('wheel', e => {
+  e.preventDefault();
+  target += e.deltaY * 0.8;
+  target = Math.max(0, Math.min(target, maxScroll));
+}, { passive: false });
+
+let tStart = 0;
+window.addEventListener('touchstart', e => tStart = e.touches[0].clientY, {passive:false});
+window.addEventListener('touchmove', e => {
+  e.preventDefault();
+  target += (tStart - e.touches[0].clientY) * 1.5;
+  target = Math.max(0, Math.min(target, maxScroll));
+  tStart = e.touches[0].clientY;
+}, {passive:false});
+
+function tickScroll() {
+  velocity = (target - current) * ease;
+  current += velocity;
+  container.style.transform = `translateY(${-current}px)`;
+  
+  playSpreadNoise(velocity);
+  checkSections();
+  requestAnimationFrame(tickScroll);
+}
+
+// --- INK PHYSICS ---
+const canvas = document.getElementById('ink-canvas');
+const ctx = canvas.getContext('2d');
+let cw, ch;
+let drops = [];
+let sectionStates = {};
+
+class InkDrop {
+  constructor(x, y, color, sectionIdx) {
+    this.x = x; this.y = y;
+    this.radius = 2;
+    this.targetRadius = 2 + Math.random() * 8;
+    this.color = color;
+    this.opacity = 0.85;
+    this.spreading = true;
+    this.tentacles = [];
+    this.sIdx = sectionIdx;
+
+    let count = isMuted ? 4 : (6 + Math.floor(Math.random() * 6)); // fewer on mobile
+    if(window.innerWidth < 768) count = 4;
+    
+    // Direction guiding
+    let baseAngle = -1;
+    if(sectionIdx === 3) baseAngle = Math.PI/2; // s3 gravity down
+    if(sectionIdx === 3.5) baseAngle = -Math.PI/2; // s3 carry up
+    if(sectionIdx === 5) baseAngle = -Math.PI/2; // s5 sun rise
+    
+    for(let i=0; i<count; i++) {
+      let angle = (i/count) * Math.PI * 2 + (Math.random()-0.5);
+      if(baseAngle !== -1) {
+        angle = baseAngle + (Math.random()-0.5) * 1.5;
+      }
+      this.tentacles.push({
+        angle, length: 0,
+        maxLength: 20 + Math.random() * 60,
+        speed: 0.5 + Math.random() * 1.5,
+        wobble: Math.random() * 0.3
+      });
+    }
+  }
+
+  update(scrollVel) {
+    if(this.spreading) {
+      let spreadRate = 0.04 + Math.abs(scrollVel)*0.005;
+      this.radius += (this.targetRadius - this.radius) * spreadRate;
+      this.tentacles.forEach(t => {
+        t.length = Math.min(t.length + t.speed + Math.abs(scrollVel)*0.1, t.maxLength);
+        t.angle += t.wobble * Math.sin(Date.now() * 0.001);
+      });
+    }
+  }
+
+  draw(ctx, currentY) {
+    let py = this.y - currentY * 0.1; // slow parallax for ink
+    
+    ctx.beginPath();
+    ctx.arc(this.x, py, this.radius, 0, Math.PI*2);
+    ctx.fillStyle = this.color;
+    ctx.globalAlpha = this.opacity;
+    ctx.fill();
+
+    this.tentacles.forEach(t => {
+      let ex = this.x + Math.cos(t.angle) * (this.radius + t.length);
+      let ey = py + Math.sin(t.angle) * (this.radius + t.length);
+      
+      let gradient = ctx.createLinearGradient(this.x, py, ex, ey);
+      gradient.addColorStop(0, this.color);
+      gradient.addColorStop(1, 'rgba(255,255,255,0)');
+      
+      ctx.beginPath();
+      ctx.moveTo(this.x + Math.cos(t.angle)*this.radius, py + Math.sin(t.angle)*this.radius);
+      ctx.lineTo(ex, ey);
+      ctx.strokeStyle = gradient;
+      ctx.lineWidth = Math.max(0.1, 3 - (t.length/t.maxLength) * 2.5);
+      ctx.stroke();
+    });
+    ctx.globalAlpha = 1.0;
+  }
+}
+
+function spawnLetterInk(textElement, color, sIdx) {
+  if(sectionStates[textElement.id]) return;
+  sectionStates[textElement.id] = true;
+  
+  textElement.style.opacity = '1';
+  
+  // Reveal text
+  let letters = textElement.querySelectorAll('.letter');
+  let delay = 0;
+  
+  if(sIdx===5) playChord([523,659,784], 3); // sunrise
+  
+  setTimeout(() => {
+    textElement.style.filter = 'blur(2px)';
+    letters.forEach((l, i) => {
+      if(l.id === 'permanent-word') return; // resists ink
+      if(l.id === 'w-begin') return; // resists
+      if(l.innerText === '\u00A0') return;
+      
+      let rect = l.getBoundingClientRect();
+      let absY = rect.y + current; // absolute page Y
+      
+      setTimeout(() => {
+        let subIdx = sIdx;
+        if(sIdx===3 && i > letters.length/2) subIdx = 3.5; // carry up
+        
+        drops.push(new InkDrop(rect.x + rect.width/2, absY + rect.height/2, color, subIdx));
+        playInkSpawn();
+        
+        if(sIdx===6 && i === letters.length-1) {
+          // final whiteout
+          setTimeout(triggerWhiteout, 2000);
+        }
+      }, i * 60);
+    });
+  }, 1500);
+}
+
+function triggerWhiteout() {
+  document.getElementById('whiteout').style.opacity = '1';
+  playChord([440], 4);
+  setTimeout(() => {
+    let fd = document.getElementById('finalDrop');
+    fd.style.width = '200px';
+    fd.style.height = '200px';
+    document.getElementById('finalText').style.opacity = '1';
+  }, 3000);
+}
+
+function checkSections() {
+  let s1 = document.getElementById('s1').querySelector('.poem-text');
+  let s2 = document.getElementById('s2').querySelector('.poem-text');
+  let s3 = document.getElementById('s3').querySelector('.poem-text');
+  let s4 = document.getElementById('s4').querySelector('.poem-text');
+  let s5 = document.getElementById('s5').querySelector('.poem-text');
+  let s6 = document.getElementById('s6').querySelector('.poem-text');
+
+  if(current > 0) spawnLetterInk(s1, '#1a1a1a', 1);
+  if(current > vh*0.8) spawnLetterInk(s2, '#1a0066', 2);
+  if(current > vh*2.0) spawnLetterInk(s3, '#333333', 3);
+  if(current > vh*3.2) spawnLetterInk(s4, '#6b0033', 4);
+  
+  if(current > vh*4.4) {
+    document.getElementById('bg-gradient').style.background = 'radial-gradient(circle at 50% 50%, #fff7d6, #e8cc88)';
+    spawnLetterInk(s5, '#d4a843', 5);
+  }
+  if(current > vh*5.6) spawnLetterInk(s6, '#fff', 6);
+}
+
+function tickPhysics() {
+  ctx.clearRect(0,0,cw,ch);
+  drops.forEach(d => {
+    d.update(velocity);
+    d.draw(ctx, current);
+  });
+  requestAnimationFrame(tickPhysics);
+}
+
+resize();
+requestAnimationFrame(tickScroll);
+requestAnimationFrame(tickPhysics);
+setTimeout(checkSections, 500);
+
+</script>
+</body>
+</html>

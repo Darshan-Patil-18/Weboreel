@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Color Memory</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,400;0,700;1,400&display=swap');
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body, html {
+      width: 100%; height: 100%;
+      background: #f0eed4; /* Childhood Yellow Base */
+      color: #1a1a1a;
+      overflow-x: hidden;
+      font-family: 'DM Sans', sans-serif;
+      overscroll-behavior: none;
+      transition: background 2s ease;
+    }
+
+    /* Blob Canvas */
+    #canvas-blobs {
+      position: fixed; top: 0; left: 0;
+      width: 100vw; height: 100vh;
+      pointer-events: none; z-index: 1;
+      filter: blur(40px); /* Creates organic blob effect */
+    }
+
+    .scroll-container {
+      position: fixed; top: 0; left: 0;
+      width: 100vw; will-change: transform; z-index: 5;
+    }
+
+    .section {
+      width: 100vw; height: 100vh;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      text-align: center; padding: 0 10vw;
+    }
+
+    .memory-text {
+      font-size: 4rem; font-weight: 700;
+      letter-spacing: -2px; max-width: 800px;
+      line-height: 1.1; opacity: 0;
+      transform: translateY(30px); transition: opacity 1s, transform 1s;
+    }
+    .memory-sub {
+      font-size: 1.5rem; font-style: italic; font-weight: 400;
+      margin-top: 20px; opacity: 0;
+      transform: translateY(20px); transition: opacity 1s 0.3s, transform 1s 0.3s;
+    }
+    .visible { opacity: 1; transform: translateY(0); }
+
+    .mute-btn {
+      position: fixed; bottom: 30px; right: 30px;
+      font-size: 2rem; cursor: pointer; z-index: 100; pointer-events: auto; opacity: 0.5;
+    }
+    .mute-btn:hover { opacity: 1; }
+
+    @media (max-width: 768px) {
+      .memory-text { font-size: 2.5rem; }
+      .memory-sub { font-size: 1.2rem; }
+    }
+  </style>
+</head>
+<body>
+
+<canvas id="canvas-blobs"></canvas>
+
+<div class="scroll-container" id="scroll-container">
+  <div class="section">
+    <div class="memory-text">The world used to be so bright.</div>
+    <div class="memory-sub">Summers lasted years. Grass stained everything.</div>
+  </div>
+  <div class="section">
+    <div class="memory-text">Then it got intense.</div>
+    <div class="memory-sub">Everything felt like the end of the world.</div>
+  </div>
+  <div class="section">
+    <div class="memory-text">Then it cooled down.</div>
+    <div class="memory-sub">Routine settled in. The sharp edges smoothed out.</div>
+  </div>
+  <div class="section">
+    <div class="memory-text">Now, it's golden.</div>
+    <div class="memory-sub">Precious. Fleeting. Warm.</div>
+  </div>
+  <div class="section">
+    <div class="memory-text">And it all starts again.</div>
+    <div class="memory-sub">A different iteration.</div>
+  </div>
+</div>
+
+<div class="mute-btn" id="muteBtn" title="Toggle Audio">🎨</div>
+
+<script>
+// --- AUDIO ENGINE ---
+const AudioContext = window.AudioContext || window.webkitAudioContext;
+let actx, masterGain;
+let isMuted = true;
+let currentChord = [];
+
+const chords = [
+  [261.63, 329.63, 392.00], // C Major (Bright/Childhood)
+  [220.00, 261.63, 329.63], // A Minor (Intense/Teenage)
+  [196.00, 246.94, 293.66], // G Major (Cool/Adult)
+  [329.63, 415.30, 493.88], // E Major (Golden/Old Age)
+  [523.25, 659.25, 783.99]  // High C Major (Reset)
+];
+
+function initAudio() {
+  if(actx) return;
+  actx = new AudioContext();
+  masterGain = actx.createGain(); masterGain.connect(actx.destination);
+  masterGain.gain.value = 0.5;
+
+  playChord(0); // init
+
+  isMuted = false;
+  document.getElementById('muteBtn').style.opacity = '1';
+}
+
+function playChord(idx) {
+  if(!actx || isMuted) return;
+  const now = actx.currentTime;
+  
+  // Fade out old
+  currentChord.forEach(n => {
+    n.g.gain.linearRampToValueAtTime(0, now + 1.5);
+    setTimeout(() => n.o.stop(), 2000);
+  });
+  currentChord = [];
+
+  // Bring in new
+  chords[idx].forEach((f, i) => {
+    let o = actx.createOscillator(); o.type = 'sine'; o.frequency.value = f;
+    let g = actx.createGain(); g.gain.setValueAtTime(0, now);
+    g.gain.linearRampToValueAtTime(0.05, now + 2 + i*0.5); // staggered fade in
+    
+    // Slow LFO for organic feel
+    let lfo = actx.createOscillator(); lfo.frequency.value = 0.2 + Math.random()*0.3;
+    let lfoG = actx.createGain(); lfoG.gain.value = 5; // slight detune
+    lfo.connect(lfoG).connect(o.frequency);
+    lfo.start();
+
+    o.connect(g).connect(masterGain); o.start();
+    currentChord.push({o, g});
+  });
+}
+
+document.getElementById('muteBtn').addEventListener('click', () => {
+  if(!actx) { initAudio(); return; }
+  isMuted = !isMuted;
+  masterGain.gain.setTargetAtTime(isMuted ? 0 : 0.5, actx.currentTime, 0.1);
+  document.getElementById('muteBtn').style.opacity = isMuted ? '0.5' : '1';
+});
+
+// --- BLOB CANVAS ENGINE ---
+const canvas = document.getElementById('canvas-blobs');
+const ctx = canvas.getContext('2d');
+let cw, ch;
+
+const palettes = [
+  ['#88dd88', '#ffea77', '#77ccff'], // Childhood
+  ['#ff3366', '#5500aa', '#ffaa00'], // Teenage
+  ['#445566', '#778899', '#aaccdd'], // Adult
+  ['#ffddaa', '#ffeecc', '#ffffff'], // Golden
+  ['#ffffff', '#eeeeee', '#dddddd']  // Reset
+];
+
+let blobs = [];
+for(let i=0; i<6; i++) {
+  blobs.push({
+    x: Math.random(), y: Math.random(), // 0-1 normalized
+    vx: (Math.random()-0.5)*0.005, vy: (Math.random()-0.5)*0.005,
+    r: 0.3 + Math.random()*0.3,
+    cIdx: i % 3
+  });
+}
+
+function resize() {
+  cw = canvas.width = window.innerWidth;
+  ch = canvas.height = window.innerHeight;
+}
+window.addEventListener('resize', resize);
+resize();
+
+// --- SCROLL ENGINE ---
+let current = 0, target = 0, velocity = 0;
+const ease = 0.06;
+const container = document.getElementById('scroll-container');
+let vh = 0, maxScroll = 0;
+let activeStage = 0;
+
+function tick() {
+  vh = window.innerHeight;
+  maxScroll = container.getBoundingClientRect().height - vh;
+  velocity = (target - current) * ease;
+  current += velocity;
+  container.style.transform = `translateY(${-current}px)`;
+  
+  let stage = Math.min(4, Math.max(0, Math.round(current / vh)));
+  if(stage !== activeStage) {
+    activeStage = stage;
+    playChord(stage);
+    
+    if(stage === 0) { document.body.style.background = '#f0eed4'; document.body.style.color = '#1a1a1a'; }
+    if(stage === 1) { document.body.style.background = '#2a0a1a'; document.body.style.color = '#fff'; }
+    if(stage === 2) { document.body.style.background = '#222830'; document.body.style.color = '#fff'; }
+    if(stage === 3) { document.body.style.background = '#1a1505'; document.body.style.color = '#ffeedd'; }
+    if(stage === 4) { document.body.style.background = '#ffffff'; document.body.style.color = '#000'; }
+  }
+
+  // Reveal Text
+  document.querySelectorAll('.section').forEach((sec, i) => {
+    let t1 = sec.querySelector('.memory-text');
+    let t2 = sec.querySelector('.memory-sub');
+    if(Math.abs(current - i*vh) < vh*0.5) {
+      t1.classList.add('visible'); t2.classList.add('visible');
+    } else {
+      t1.classList.remove('visible'); t2.classList.remove('visible');
+    }
+  });
+
+  // Render Blobs
+  ctx.clearRect(0,0,cw,ch);
+  blobs.forEach(b => {
+    b.x += b.vx + velocity*0.0001; // scroll subtly affects blobs
+    b.y += b.vy + velocity*0.0005;
+    
+    if(b.x < -0.2) b.x = 1.2; if(b.x > 1.2) b.x = -0.2;
+    if(b.y < -0.2) b.y = 1.2; if(b.y > 1.2) b.y = -0.2;
+
+    ctx.beginPath();
+    let cx = b.x * cw; let cy = b.y * ch; let r = b.r * Math.max(cw,ch);
+    ctx.arc(cx, cy, r, 0, Math.PI*2);
+    
+    // Hex to RGB for opacity
+    let hex = palettes[activeStage][b.cIdx];
+    let rgb = ['0x'+hex[1]+hex[2]|0, '0x'+hex[3]+hex[4]|0, '0x'+hex[5]+hex[6]|0];
+    
+    ctx.fillStyle = `rgba(${rgb[0]},${rgb[1]},${rgb[2]},0.6)`;
+    ctx.fill();
+  });
+
+  requestAnimationFrame(tick);
+}
+
+window.addEventListener('wheel', e => {
+  e.preventDefault();
+  target += e.deltaY * 0.8;
+  target = Math.max(0, Math.min(target, maxScroll));
+}, { passive: false });
+
+let tStart = 0;
+window.addEventListener('touchstart', e => tStart = e.touches[0].clientY, {passive:false});
+window.addEventListener('touchmove', e => {
+  e.preventDefault();
+  target += (tStart - e.touches[0].clientY) * 1.5;
+  target = Math.max(0, Math.min(target, maxScroll));
+  tStart = e.touches[0].clientY;
+}, {passive:false});
+
+requestAnimationFrame(tick);
+
+</script>
+</body>
+</html>

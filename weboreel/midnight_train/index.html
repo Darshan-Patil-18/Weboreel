@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Midnight Train</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@1,400;1,700&display=swap');
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body, html {
+      width: 100%; height: 100%;
+      background: #000; color: #fff;
+      overflow-x: hidden;
+      font-family: 'Cormorant Garamond', serif;
+      overscroll-behavior: none;
+    }
+
+    #canvas-landscape {
+      position: fixed; top: 0; left: 0;
+      width: 100vw; height: 100vh;
+      pointer-events: none; z-index: 1;
+    }
+
+    /* Train Interior overlay */
+    .train-interior {
+      position: fixed; top: 0; left: 0;
+      width: 100vw; height: 100vh;
+      pointer-events: none; z-index: 10;
+      box-shadow: inset 0 0 100px rgba(0,0,0,0.9);
+      background: 
+        linear-gradient(to right, #111 0%, transparent 10%, transparent 90%, #111 100%),
+        linear-gradient(to bottom, #0a0a0a 0%, transparent 15%, transparent 85%, #050505 100%);
+    }
+
+    .window-frame {
+      position: absolute; top: 15%; left: 10%; right: 10%; bottom: 15%;
+      border: 20px solid #1a1a1a; border-radius: 20px;
+      box-shadow: inset 0 0 50px rgba(0,0,0,0.8), 0 0 50px rgba(0,0,0,1);
+    }
+    .window-reflection {
+      position: absolute; top:0; left:0; width:100%; height:100%;
+      background: linear-gradient(135deg, rgba(255,255,255,0.05) 0%, transparent 50%, rgba(255,255,255,0.02) 100%);
+      border-radius: 10px;
+      /* Subtle ghost reflection of a face */
+      background-image: radial-gradient(circle at 70% 40%, rgba(255,255,200,0.03) 0%, transparent 20%);
+    }
+
+    .scroll-container {
+      position: fixed; top: 0; left: 0;
+      width: 100vw; will-change: transform; z-index: 20;
+    }
+
+    .section {
+      width: 100vw; height: 100vh;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      text-align: center; padding: 0 15vw;
+    }
+
+    .train-text {
+      font-size: 3rem; font-style: italic; max-width: 600px;
+      text-shadow: 0 0 10px rgba(0,0,0,1);
+      opacity: 0; transform: translateY(20px);
+      transition: opacity 1s, transform 1s;
+    }
+    .visible { opacity: 1; transform: translateY(0); }
+
+    .mute-btn {
+      position: fixed; bottom: 30px; right: 30px;
+      font-size: 2rem; cursor: pointer; z-index: 100; pointer-events: auto; opacity: 0.5;
+    }
+    .mute-btn:hover { opacity: 1; }
+
+    @media (max-width: 768px) {
+      .train-text { font-size: 1.8rem; }
+      .window-frame { left: 5%; right: 5%; border-width: 10px; }
+    }
+  </style>
+</head>
+<body>
+
+<canvas id="canvas-landscape"></canvas>
+
+<div class="train-interior">
+  <div class="window-frame">
+    <div class="window-reflection"></div>
+  </div>
+</div>
+
+<div class="scroll-container" id="scroll-container">
+  <div class="section"><div class="train-text">Where are you going?</div></div>
+  <div class="section"><div class="train-text">You got on this train a long time ago.</div></div>
+  <div class="section"><div class="train-text">Sometimes it moves fast.</div></div>
+  <div class="section"><div class="train-text">Sometimes it feels stopped.</div></div>
+  <div class="section"><div class="train-text">But the scenery always changes.</div></div>
+  <div class="section"><div class="train-text">You can't get off until the end of the line.</div></div>
+  <div class="section"><div class="train-text" style="font-weight:700;">So look out the window.</div></div>
+  <div style="height: 50vh;"></div>
+</div>
+
+<div class="mute-btn" id="muteBtn" title="Toggle Audio">🚂</div>
+
+<script>
+// --- AUDIO ENGINE ---
+const AudioContext = window.AudioContext || window.webkitAudioContext;
+let actx, masterGain;
+let isMuted = true;
+let trackLFO, trackGain, noiseSrc, rumbleOsc;
+
+function initAudio() {
+  if(actx) return;
+  actx = new AudioContext();
+  masterGain = actx.createGain(); masterGain.connect(actx.destination);
+  masterGain.gain.value = 0.5;
+
+  // Rumble
+  rumbleOsc = actx.createOscillator(); rumbleOsc.frequency.value = 40;
+  let rGain = actx.createGain(); rGain.gain.value = 0.1;
+  rumbleOsc.connect(rGain).connect(masterGain);
+  rumbleOsc.start();
+
+  // Track clack noise
+  let bs = actx.createBuffer(1, actx.sampleRate, actx.sampleRate);
+  let d = bs.getChannelData(0); for(let i=0;i<bs.length;i++) d[i]=Math.random()*2-1;
+  noiseSrc = actx.createBufferSource(); noiseSrc.buffer = bs; noiseSrc.loop = true;
+  
+  let f = actx.createBiquadFilter(); f.type='bandpass'; f.frequency.value=800;
+  trackGain = actx.createGain(); trackGain.gain.value = 0;
+  
+  // LFO for rhythm
+  trackLFO = actx.createOscillator(); trackLFO.type = 'square'; trackLFO.frequency.value = 1;
+  let lfoAmt = actx.createGain(); lfoAmt.gain.value = 1;
+  trackLFO.connect(lfoAmt).connect(trackGain.gain);
+  
+  noiseSrc.connect(f).connect(trackGain).connect(masterGain);
+  noiseSrc.start(); trackLFO.start();
+
+  isMuted = false;
+  document.getElementById('muteBtn').style.opacity = '1';
+}
+
+function updateAudio(vel) {
+  if(!actx || isMuted) return;
+  let absVel = Math.abs(vel);
+  let speed = Math.max(0.1, absVel * 2);
+  let vol = Math.min(0.2, absVel * 0.05);
+  
+  trackLFO.frequency.setTargetAtTime(speed * 4, actx.currentTime, 0.2); // Clack rhythm
+  masterGain.gain.setTargetAtTime(isMuted ? 0 : 0.5 + vol, actx.currentTime, 0.2);
+  rumbleOsc.frequency.setTargetAtTime(40 + speed*10, actx.currentTime, 0.5);
+}
+
+document.getElementById('muteBtn').addEventListener('click', () => {
+  if(!actx) { initAudio(); return; }
+  isMuted = !isMuted;
+  masterGain.gain.setTargetAtTime(isMuted ? 0 : 0.5, actx.currentTime, 0.1);
+  document.getElementById('muteBtn').style.opacity = isMuted ? '0.5' : '1';
+});
+
+// --- PARALLAX ENGINE ---
+const canvas = document.getElementById('canvas-landscape');
+const ctx = canvas.getContext('2d');
+let cw, ch;
+let layers = [[], [], []]; // BG, MID, FG
+
+class Scenery {
+  constructor(layerIdx) {
+    this.l = layerIdx; // 0=far, 1=mid, 2=near
+    this.x = cw + Math.random()*cw;
+    this.w = 20 + Math.random()*(40 + layerIdx*50);
+    this.h = ch*(0.2 + Math.random()*(0.2 + layerIdx*0.3));
+    this.y = ch - this.h - (layerIdx===0?ch*0.2:0);
+    this.type = Math.random()>0.8 && layerIdx===2 ? 'pole' : 'tree';
+    
+    let cVal = 10 + layerIdx*15;
+    this.color = `rgb(${cVal}, ${cVal+5}, ${cVal})`;
+  }
+  update(vel) {
+    let speedMult = [0.1, 0.5, 2.0][this.l];
+    this.x -= vel * speedMult * 10;
+    if(this.x + this.w < 0) {
+      this.x = cw + Math.random()*cw*0.5;
+      this.h = ch*(0.2 + Math.random()*(0.2 + this.l*0.3));
+      this.y = ch - this.h - (this.l===0?ch*0.2:0);
+    }
+    // Also support backwards scrolling
+    if(this.x > cw * 1.5) {
+      this.x = -this.w;
+    }
+  }
+  draw(ctx) {
+    ctx.fillStyle = this.color;
+    if(this.type === 'pole' && this.l === 2) {
+      ctx.fillRect(this.x, 0, this.w*0.2, ch); // telegraph pole
+    } else {
+      ctx.fillRect(this.x, this.y, this.w, this.h);
+      ctx.beginPath(); ctx.moveTo(this.x, this.y); ctx.lineTo(this.x+this.w/2, this.y-this.h*0.5); ctx.lineTo(this.x+this.w, this.y); ctx.fill();
+    }
+  }
+}
+
+function resize() {
+  cw = canvas.width = window.innerWidth;
+  ch = canvas.height = window.innerHeight;
+  if(layers[0].length===0) {
+    for(let i=0; i<30; i++) layers[0].push(new Scenery(0));
+    for(let i=0; i<20; i++) layers[1].push(new Scenery(1));
+    for(let i=0; i<10; i++) layers[2].push(new Scenery(2));
+  }
+}
+window.addEventListener('resize', resize);
+resize();
+
+// --- SCROLL ENGINE ---
+let current = 0, target = 0, velocity = 0;
+const ease = 0.05;
+const container = document.getElementById('scroll-container');
+let maxScroll = 0, vh = 0;
+let scrollDist = 0;
+
+window.addEventListener('wheel', e => {
+  e.preventDefault();
+  target += e.deltaY * 0.8;
+  target = Math.max(0, Math.min(target, maxScroll));
+}, { passive: false });
+
+let tStart = 0;
+window.addEventListener('touchstart', e => tStart = e.touches[0].clientY, {passive:false});
+window.addEventListener('touchmove', e => {
+  e.preventDefault();
+  target += (tStart - e.touches[0].clientY) * 1.5;
+  target = Math.max(0, Math.min(target, maxScroll));
+  tStart = e.touches[0].clientY;
+}, {passive:false});
+
+function tick() {
+  vh = window.innerHeight;
+  maxScroll = container.getBoundingClientRect().height - vh;
+  velocity = (target - current) * ease;
+  current += velocity;
+  container.style.transform = `translateY(${-current}px)`;
+  
+  // If stopped, train still moves slightly forward
+  let trainVel = velocity;
+  if(Math.abs(velocity) < 0.5) trainVel = 0.5;
+
+  updateAudio(trainVel);
+
+  // Render Landscape
+  // Sky
+  let skyGrad = ctx.createLinearGradient(0,0,0,ch);
+  skyGrad.addColorStop(0, '#0a0a1a'); skyGrad.addColorStop(1, '#1a1a2a');
+  ctx.fillStyle = skyGrad; ctx.fillRect(0,0,cw,ch);
+
+  // Ground
+  ctx.fillStyle = '#050505'; ctx.fillRect(0, ch*0.8, cw, ch*0.2);
+
+  // Scenery
+  layers.forEach(layer => {
+    layer.forEach(s => { s.update(trainVel); s.draw(ctx); });
+  });
+
+  // Reveal Text
+  document.querySelectorAll('.section').forEach((sec, i) => {
+    let t = sec.querySelector('.train-text');
+    if(Math.abs(current - i*vh) < vh*0.5) t.classList.add('visible');
+    else t.classList.remove('visible');
+  });
+
+  // Train shake
+  let shakeY = (Math.random()-0.5)*Math.abs(trainVel)*0.1;
+  document.querySelector('.window-frame').style.transform = `translateY(${shakeY}px)`;
+
+  requestAnimationFrame(tick);
+}
+
+requestAnimationFrame(tick);
+
+</script>
+</body>
+</html>

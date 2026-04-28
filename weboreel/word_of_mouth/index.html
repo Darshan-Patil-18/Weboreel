@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Word of Mouth</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,400;1,300&family=Playfair+Display:ital@1&display=swap');
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body, html {
+      width: 100%; height: 100%;
+      background: #020202; color: #fff;
+      overflow-x: hidden;
+      font-family: 'DM Sans', sans-serif;
+      overscroll-behavior: none;
+    }
+
+    #canvas-network {
+      position: fixed; top: 0; left: 0;
+      width: 100vw; height: 100vh;
+      pointer-events: none; z-index: 1;
+    }
+
+    .scroll-container {
+      position: fixed; top: 0; left: 0;
+      width: 100%; will-change: transform; z-index: 5;
+    }
+
+    /* Secret Container */
+    .secret-node {
+      position: absolute;
+      background: #111; border: 1px solid #333;
+      padding: 10px 15px; border-radius: 20px;
+      font-family: 'DM Sans'; font-size: 0.9rem; color: #aaa;
+      white-space: nowrap;
+      opacity: 0; transform: scale(0.8);
+      transition: opacity 1s, transform 1s, border-color 0.3s;
+      cursor: crosshair; pointer-events: auto;
+    }
+    .secret-node:hover { border-color: #fff; color: #fff; z-index: 10; }
+    .secret-node.visible { opacity: 1; transform: scale(1); }
+
+    .main-text {
+      position: absolute; width: 100vw; text-align: center;
+      font-family: 'Playfair Display', serif; font-style: italic;
+      font-size: 3rem; color: #fff; text-shadow: 0 0 20px rgba(255,255,255,0.5);
+      pointer-events: none; opacity: 0; transition: opacity 2s;
+    }
+
+    .mute-btn {
+      position: fixed; bottom: 30px; right: 30px;
+      font-size: 2rem; cursor: pointer; z-index: 100; pointer-events: auto; opacity: 0.5;
+    }
+    .mute-btn:hover { opacity: 1; }
+
+    @media (max-width: 768px) {
+      .main-text { font-size: 2rem; }
+      .secret-node { font-size: 0.7rem; padding: 5px 10px; }
+    }
+  </style>
+</head>
+<body>
+
+<canvas id="canvas-network"></canvas>
+
+<div class="scroll-container" id="scroll-container">
+  <div class="main-text" id="t1" style="top: 50vh;">A secret told is a secret doubled.</div>
+  <div class="main-text" id="t2" style="top: 250vh;">The network remembers.</div>
+  <div class="main-text" id="t3" style="top: 450vh; font-size:5rem;">We are all connected by the things we don't say.</div>
+  
+  <div id="nodes-layer"></div>
+  <div style="height: 600vh;"></div>
+</div>
+
+<div class="mute-btn" id="muteBtn" title="Toggle Audio">🕸️</div>
+
+<script>
+// --- AUDIO ENGINE ---
+const AudioContext = window.AudioContext || window.webkitAudioContext;
+let actx, masterGain, droneGain;
+let isMuted = true;
+let panners = [];
+
+function initAudio() {
+  if(actx) return;
+  actx = new AudioContext();
+  masterGain = actx.createGain(); masterGain.connect(actx.destination);
+  masterGain.gain.value = 0.5;
+
+  droneGain = actx.createGain(); droneGain.gain.value = 0.05;
+  droneGain.connect(masterGain);
+  [55, 110].forEach(f => {
+    let o = actx.createOscillator(); o.type='sine'; o.frequency.value=f;
+    o.connect(droneGain); o.start();
+  });
+
+  isMuted = false;
+  document.getElementById('muteBtn').style.opacity = '1';
+}
+
+function playWhisper(xPosFraction) {
+  if(!actx || isMuted) return;
+  let bs = actx.createBufferSource();
+  let b = actx.createBuffer(1, actx.sampleRate*0.1, actx.sampleRate);
+  let d = b.getChannelData(0); for(let i=0;i<b.length;i++) d[i]=Math.random()*2-1;
+  bs.buffer = b;
+  let f = actx.createBiquadFilter(); f.type='bandpass'; f.frequency.value=2000 + Math.random()*2000;
+  let pan = actx.createStereoPanner(); pan.pan.value = xPosFraction * 2 - 1; // -1 to 1
+  let g = actx.createGain(); g.gain.setValueAtTime(0.01, actx.currentTime); g.gain.exponentialRampToValueAtTime(0.001, actx.currentTime+0.2);
+  
+  bs.connect(f).connect(pan).connect(g).connect(masterGain);
+  bs.start();
+}
+
+function playConnectionTone() {
+  if(!actx || isMuted) return;
+  let o = actx.createOscillator(); o.type='triangle'; o.frequency.value=440 + Math.random()*440;
+  let pan = actx.createStereoPanner(); pan.pan.value = Math.random()*2-1;
+  let g = actx.createGain(); g.gain.setValueAtTime(0, actx.currentTime);
+  g.gain.linearRampToValueAtTime(0.02, actx.currentTime+0.1); g.gain.exponentialRampToValueAtTime(0.001, actx.currentTime+1);
+  o.connect(pan).connect(g).connect(masterGain); o.start(); o.stop(actx.currentTime+1.1);
+}
+
+document.getElementById('muteBtn').addEventListener('click', () => {
+  if(!actx) { initAudio(); return; }
+  isMuted = !isMuted;
+  masterGain.gain.setTargetAtTime(isMuted ? 0 : 0.5, actx.currentTime, 0.1);
+  document.getElementById('muteBtn').style.opacity = isMuted ? '0.5' : '1';
+});
+
+// --- NETWORK DATA ---
+const secrets = [
+  "I don't know what I'm doing", "I lied about being busy", "I miss them", "I'm scared of failing",
+  "I read their messages", "I didn't vote", "I want to quit", "I'm not actually happy",
+  "I broke it", "I deleted the file", "I heard what they said", "I kept the money",
+  "I'm faking it", "I don't love it anymore", "I wish I hadn't", "I'm still angry",
+  "I pretend to understand", "I never forgave them", "I check their profile", "I'm tired of trying",
+  "I took the credit", "I let them take the fall", "I was the one who said it", "I'm just pretending"
+];
+
+const nodesLayer = document.getElementById('nodes-layer');
+let nodes = [];
+let vh = window.innerHeight;
+
+for(let i=0; i<60; i++) {
+  let n = document.createElement('div');
+  n.className = 'secret-node';
+  n.innerText = secrets[Math.floor(Math.random()*secrets.length)];
+  let x = 10 + Math.random()*80; // vw
+  let y = 100 + Math.random()*450; // vh
+  n.style.left = x + 'vw';
+  n.style.top = y + 'vh';
+  nodesLayer.appendChild(n);
+  nodes.push({ el: n, xvw: x, yvh: y, visible: false, connectedTo: [] });
+}
+
+// Generate random connections
+nodes.forEach((n1, i) => {
+  nodes.forEach((n2, j) => {
+    if(i !== j && Math.random() < 0.05 && Math.abs(n1.yvh - n2.yvh) < 50) {
+      if(n1.connectedTo.length < 3) n1.connectedTo.push(j);
+    }
+  });
+});
+
+// --- CANVAS LINES ---
+const canvas = document.getElementById('canvas-network');
+const ctx = canvas.getContext('2d');
+let cw, ch;
+
+function resize() {
+  vh = window.innerHeight;
+  cw = canvas.width = window.innerWidth;
+  ch = canvas.height = window.innerHeight;
+}
+window.addEventListener('resize', resize);
+resize();
+
+// --- SCROLL ENGINE ---
+let current = 0, target = 0, velocity = 0;
+const ease = 0.05;
+const container = document.getElementById('scroll-container');
+let maxScroll = 6000 - vh;
+
+window.addEventListener('wheel', e => {
+  e.preventDefault();
+  target += e.deltaY * 0.8;
+  target = Math.max(0, Math.min(target, maxScroll));
+}, { passive: false });
+
+let tStart = 0;
+window.addEventListener('touchstart', e => tStart = e.touches[0].clientY, {passive:false});
+window.addEventListener('touchmove', e => {
+  e.preventDefault();
+  target += (tStart - e.touches[0].clientY) * 1.5;
+  target = Math.max(0, Math.min(target, maxScroll));
+  tStart = e.touches[0].clientY;
+}, {passive:false});
+
+let lineAnim = 0;
+
+function tick() {
+  velocity = (target - current) * ease;
+  current += velocity;
+  container.style.transform = `translateY(${-current}px)`;
+  
+  lineAnim += 0.02;
+
+  // Reveal Nodes
+  let currentVH = (current / vh) * 100;
+  let newlyVisible = 0;
+  
+  nodes.forEach((n, i) => {
+    if(!n.visible && n.yvh < currentVH + 80) { // reveals as it comes into view
+      n.visible = true;
+      n.el.classList.add('visible');
+      playWhisper(n.xvw / 100);
+      newlyVisible++;
+    }
+  });
+
+  if(newlyVisible > 0 && Math.random() < 0.5) playConnectionTone();
+
+  // Text reveals
+  document.getElementById('t1').style.opacity = (current > 100) ? '1' : '0';
+  document.getElementById('t2').style.opacity = (current > vh*2) ? '1' : '0';
+  document.getElementById('t3').style.opacity = (current > vh*4) ? '1' : '0';
+
+  // Draw connections
+  ctx.clearRect(0,0,cw,ch);
+  ctx.lineWidth = 1;
+  
+  nodes.forEach(n1 => {
+    if(!n1.visible) return;
+    let x1 = (n1.xvw / 100) * cw;
+    let y1 = (n1.yvh / 100) * vh - current + 20; // +20 for center of box
+    
+    n1.connectedTo.forEach(j => {
+      let n2 = nodes[j];
+      if(!n2.visible) return;
+      let x2 = (n2.xvw / 100) * cw;
+      let y2 = (n2.yvh / 100) * vh - current + 20;
+      
+      // Draw flowing line
+      let dist = Math.hypot(x2-x1, y2-y1);
+      ctx.beginPath();
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(x2, y2);
+      
+      // Animated gradient stroke
+      let grad = ctx.createLinearGradient(x1, y1, x2, y2);
+      let p1 = (lineAnim % 1); let p2 = (p1 + 0.2) % 1;
+      grad.addColorStop(0, 'rgba(255,255,255,0.05)');
+      if(p1 < p2) {
+        grad.addColorStop(p1, 'rgba(255,255,255,0.05)');
+        grad.addColorStop((p1+p2)/2, 'rgba(255,255,255,0.8)');
+        grad.addColorStop(p2, 'rgba(255,255,255,0.05)');
+      }
+      grad.addColorStop(1, 'rgba(255,255,255,0.05)');
+      
+      ctx.strokeStyle = grad;
+      ctx.stroke();
+    });
+  });
+
+  requestAnimationFrame(tick);
+}
+
+requestAnimationFrame(tick);
+
+</script>
+</body>
+</html>

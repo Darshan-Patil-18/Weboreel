@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pixel Rain Story</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=DM+Sans&family=Press+Start+2P&display=swap');
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body, html {
+      width: 100%; height: 100%;
+      background: #000; color: #fff;
+      overflow-x: hidden;
+      font-family: 'DM Sans', sans-serif;
+      overscroll-behavior: none;
+    }
+
+    #canvas-pixels {
+      position: fixed; top: 0; left: 0;
+      width: 100vw; height: 100vh;
+      pointer-events: none;
+      z-index: 10;
+    }
+
+    .scroll-container {
+      position: fixed; top: 0; left: 0;
+      width: 100%;
+      will-change: transform;
+      z-index: 5;
+    }
+
+    .section {
+      position: relative;
+      width: 100%; height: 150vh;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: flex-end;
+      padding-bottom: 20vh;
+    }
+
+    .caption {
+      font-family: 'Press Start 2P', cursive;
+      font-size: 14px;
+      color: #fff;
+      max-width: 80%;
+      text-align: center;
+      line-height: 1.8;
+      opacity: 0; /* Revealed by JS */
+      transform: translateY(20px);
+      transition: opacity 1s, transform 1s;
+      text-shadow: 2px 2px 0px #000;
+    }
+    .caption.visible { opacity: 1; transform: translateY(0); }
+
+    .mute-btn {
+      position: fixed; bottom: 30px; right: 30px;
+      font-size: 2rem; cursor: pointer; z-index: 100; user-select: none; opacity: 0.5;
+    }
+    .mute-btn:hover { opacity: 1; }
+
+    @media (max-width: 768px) {
+      .caption { font-size: 10px; }
+    }
+  </style>
+</head>
+<body>
+
+<canvas id="canvas-pixels"></canvas>
+
+<div class="scroll-container" id="scroll-container">
+  <div class="section" id="s0"><div class="caption">Every astronomer started here.</div></div>
+  <div class="section" id="s1"><div class="caption">8 million people. 8 million stories. Running parallel.</div></div>
+  <div class="section" id="s2"><div class="caption">The tree does not compete with the bird. It just grows.</div></div>
+  <div class="section" id="s3"><div class="caption">The space between is not empty.</div></div>
+  <div class="section" id="s4"><div class="caption">Every beginning looks like this. Small you. Large door. Thin light.</div></div>
+  <div class="section" id="s5"><div class="caption">It does this every day. With or without an audience.</div></div>
+</div>
+
+<div class="mute-btn" id="muteBtn" title="Toggle Audio">🎨</div>
+
+<script>
+// --- AUDIO ENGINE ---
+const AudioContext = window.AudioContext || window.webkitAudioContext;
+let actx, masterGain, droneGain;
+let isMuted = true;
+
+function initAudio() {
+  if(actx) return;
+  actx = new AudioContext();
+  masterGain = actx.createGain();
+  masterGain.connect(actx.destination);
+  masterGain.gain.value = 0.5;
+
+  droneGain = actx.createGain(); droneGain.gain.value = 0.02;
+  droneGain.connect(masterGain);
+  [110, 220].forEach(f => {
+    let o = actx.createOscillator(); o.frequency.value = f;
+    o.connect(droneGain); o.start();
+  });
+
+  isMuted = false;
+  document.getElementById('muteBtn').style.opacity = '1';
+}
+
+function playTick(vel) {
+  if(!actx || isMuted || Math.random()>0.3) return; // limit voices
+  let o = actx.createOscillator(); let g = actx.createGain();
+  o.frequency.value = 1200 + Math.random()*400;
+  o.connect(g).connect(masterGain);
+  g.gain.setValueAtTime(0.02, actx.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.001, actx.currentTime + 0.02);
+  o.start(); o.stop(actx.currentTime + 0.03);
+}
+
+function playChord() {
+  if(!actx || isMuted) return;
+  [261.63, 329.63, 392.00, 523.25].forEach((f,i) => {
+    let o = actx.createOscillator(); let g = actx.createGain();
+    o.type='triangle'; o.frequency.value = f;
+    o.connect(g).connect(masterGain);
+    g.gain.setValueAtTime(0, actx.currentTime);
+    g.gain.linearRampToValueAtTime(0.04, actx.currentTime+0.1+i*0.05);
+    g.gain.exponentialRampToValueAtTime(0.001, actx.currentTime+0.6);
+    o.start(); o.stop(actx.currentTime+0.7);
+  });
+}
+
+function playScatter() {
+  if(!actx || isMuted) return;
+  let bs = actx.createBufferSource();
+  let b = actx.createBuffer(1, actx.sampleRate*0.2, actx.sampleRate);
+  let d = b.getChannelData(0); for(let i=0;i<b.length;i++) d[i]=Math.random()*2-1;
+  bs.buffer = b;
+  let f = actx.createBiquadFilter(); f.type='lowpass'; f.frequency.value=600;
+  let g = actx.createGain(); g.gain.setValueAtTime(0.05, actx.currentTime); g.gain.exponentialRampToValueAtTime(0.001, actx.currentTime+0.2);
+  bs.connect(f).connect(g).connect(masterGain); bs.start();
+}
+
+document.getElementById('muteBtn').addEventListener('click', () => {
+  if(!actx) { initAudio(); return; }
+  isMuted = !isMuted;
+  masterGain.gain.setTargetAtTime(isMuted ? 0 : 0.5, actx.currentTime, 0.1);
+  document.getElementById('muteBtn').style.opacity = isMuted ? '0.5' : '1';
+});
+
+// --- IMAGE GENERATOR ---
+const gridW = 50, gridH = 50;
+function genImage(type) {
+  let data = [];
+  for(let y=0; y<gridH; y++) {
+    let row = [];
+    for(let x=0; x<gridW; x++) {
+      let c = null;
+      if(type===0) { // Child stars
+        if(y>40) c='#2a2010'; // ground
+        else if(x>20 && x<30 && y>25 && y<=40) c='#1a1a1a'; // body
+        else if(Math.hypot(x-25, y-20)<4) c='#1a1a1a'; // head
+        else if(Math.random()<0.02) c='#fff'; // stars
+      } else if(type===1) { // City
+        let bg = `rgb(0,0,${Math.floor(y/gridH*100)})`;
+        if(y>30) c = (x%8<5 && y<45) ? '#222' : bg; // buildings
+        if(c==='#222' && Math.random()<0.2) c='#ff0'; // windows
+        if(!c) c=bg;
+        if(Math.hypot(x-40, y-10)<3) c='#fff'; // moon
+      } else if(type===2) { // Tree
+        if(y>35) c=(Math.random()>.5)?'#3a5a20':'#2d1f0a';
+        else if(x>23 && x<27 && y>20) c='#3d2817'; // trunk
+        else if(Math.hypot(x-25, y-15)<10) c='#4a7c2f'; // canopy
+        else c=`rgb(${100+y*2},${150+y*2},255)`; // sky
+        if(y===10 && (x===10||x===11||x===12) && x%2===0) c='#000'; // bird
+      } else if(type===3) { // Hands
+        c = '#050505';
+        if(x<20 && y>20 && y<30 && x+y>35) c='#e0ac69'; // left hand
+        if(x>30 && y>20 && y<30 && y-x<-5) c='#e0ac69'; // right hand
+      } else if(type===4) { // Door
+        c = '#050505';
+        if(x>15 && x<35 && y>10) c='#222'; // door
+        if(x===34 && y>10) c='#ffdd88'; // crack
+        if(x===10 && y>35) c='#444'; // figure
+      } else if(type===5) { // Sunrise
+        if(y>35) c='#1a1000';
+        else if(Math.hypot(x-25, y-35)<15) {
+          let dist = Math.hypot(x-25,y-35);
+          c = dist<10 ? '#ffcc00' : '#ff6600';
+        } else {
+          c = `rgb(${y*5},0,${50-y})`;
+        }
+      }
+      row.push(c);
+    }
+    data.push(row);
+  }
+  return data;
+}
+const images = [0,1,2,3,4,5].map(i => genImage(i));
+
+// --- PIXEL PHYSICS ---
+const canvas = document.getElementById('canvas-pixels');
+const ctx = canvas.getContext('2d');
+let cw, ch;
+let pSize = window.innerWidth<768 ? 3 : 4;
+let pixels = [];
+let oldPixels = [];
+
+class Pixel {
+  constructor(tx, ty, color, delay, isOld=false) {
+    this.targetX = tx; this.targetY = ty;
+    this.x = isOld ? tx : tx + (Math.random()-0.5)*cw;
+    this.y = isOld ? ty : -20 - Math.random()*ch;
+    this.color = color;
+    this.delay = delay;
+    this.active = isOld;
+    this.settled = isOld;
+    this.vx = isOld ? (Math.random()-0.5)*10 : (Math.random()-0.5)*1;
+    this.vy = isOld ? (Math.random()-0.5)*10 : Math.random()*2;
+    this.isOld = isOld;
+    this.life = 1.0;
+  }
+  update(sVel) {
+    if(this.isOld) {
+      this.x += this.vx; this.y += this.vy;
+      this.life -= 0.02;
+      return;
+    }
+    
+    if(this.delay > 0) { this.delay -= 16; return; }
+    if(!this.active) this.active = true;
+    if(this.settled) return;
+
+    this.vy += 0.15; // gravity
+    this.y += this.vy + Math.abs(sVel)*0.5;
+    this.x += this.vx;
+
+    if(this.y >= this.targetY - 50) {
+      this.x += (this.targetX - this.x) * 0.15;
+      this.y += (this.targetY - this.y) * 0.15;
+      if(Math.abs(this.y - this.targetY)<1 && Math.abs(this.x - this.targetX)<1) {
+        this.settled = true; this.x = this.targetX; this.y = this.targetY;
+        playTick(sVel);
+      }
+    }
+  }
+  draw(ctx, sVel) {
+    if(!this.active && !this.isOld) return;
+    if(this.isOld && this.life<=0) return;
+    
+    ctx.fillStyle = this.color;
+    if(this.isOld) ctx.globalAlpha = Math.max(0, this.life);
+    else if(this.settled) ctx.globalAlpha = 1.0;
+    else ctx.globalAlpha = 0.8;
+
+    if(!this.settled && !this.isOld && Math.abs(sVel)>5) {
+      ctx.fillRect(this.x, this.y, pSize, pSize*3); // blur stretch
+    } else {
+      ctx.fillRect(this.x, this.y, pSize, pSize);
+    }
+    ctx.globalAlpha = 1.0;
+  }
+}
+
+let activeSection = -1;
+function assemble(idx) {
+  if(idx === activeSection) return;
+  
+  if(activeSection !== -1) {
+    // Scatter old
+    playScatter();
+    let old = pixels.filter(p=>p.settled);
+    old.forEach(p => { p.isOld=true; p.vx=(Math.random()-0.5)*15; p.vy=(Math.random()-0.5)*15; });
+    oldPixels = oldPixels.concat(old);
+  }
+  
+  activeSection = idx;
+  pixels = [];
+  document.querySelectorAll('.caption').forEach(c => c.classList.remove('visible'));
+  
+  let data = images[idx];
+  let imgW = gridW * pSize; let imgH = gridH * pSize;
+  let startX = cw/2 - imgW/2; let startY = ch/2 - imgH/2 - 50; // offset up for caption
+
+  let maxDist = Math.hypot(gridW/2, gridH/2);
+  let limit = window.innerWidth<768 ? 600 : 1500; // max active
+  let added = 0;
+
+  for(let y=0; y<gridH; y++) {
+    for(let x=0; x<gridW; x++) {
+      let c = data[y][x];
+      if(!c) continue;
+      if(added > limit && Math.random()>0.5) continue; // sparse decimation
+      
+      let sx = startX + x*pSize; let sy = startY + y*pSize;
+      let dist = Math.hypot(x-gridW/2, y-gridH/2);
+      pixels.push(new Pixel(sx, sy, c, dist * 30));
+      added++;
+    }
+  }
+
+  // Trigger caption and chord after delay
+  setTimeout(() => {
+    if(activeSection === idx) {
+      document.getElementById(`s${idx}`).querySelector('.caption').classList.add('visible');
+      playChord();
+    }
+  }, 2500);
+}
+
+
+// --- SCROLL ENGINE ---
+let current = 0, target = 0, velocity = 0;
+const ease = 0.08;
+const container = document.getElementById('scroll-container');
+let maxScroll = 0, vh = 0;
+
+function resize() {
+  vh = window.innerHeight;
+  maxScroll = container.getBoundingClientRect().height - vh;
+  cw = canvas.width = window.innerWidth;
+  ch = canvas.height = window.innerHeight;
+  pSize = cw<768 ? 3 : 4;
+}
+window.addEventListener('resize', resize);
+
+window.addEventListener('wheel', e => {
+  e.preventDefault();
+  target += e.deltaY * 0.8;
+  target = Math.max(0, Math.min(target, maxScroll));
+}, { passive: false });
+
+let tStart = 0;
+window.addEventListener('touchstart', e => tStart = e.touches[0].clientY, {passive:false});
+window.addEventListener('touchmove', e => {
+  e.preventDefault();
+  target += (tStart - e.touches[0].clientY) * 1.5;
+  target = Math.max(0, Math.min(target, maxScroll));
+  tStart = e.touches[0].clientY;
+}, {passive:false});
+
+function tickScroll() {
+  velocity = (target - current) * ease;
+  current += velocity;
+  container.style.transform = `translateY(${-current}px)`;
+  
+  let idx = Math.floor(current / (vh * 1.5));
+  if(idx >= 0 && idx < 6 && idx !== activeSection) assemble(idx);
+
+  requestAnimationFrame(tickScroll);
+}
+
+function tickPhysics() {
+  ctx.clearRect(0,0,cw,ch);
+  
+  // Ghost persistence
+  ctx.fillStyle = 'rgba(0,0,0,0.1)';
+  ctx.fillRect(0,0,cw,ch);
+
+  oldPixels.forEach(p => { p.update(velocity); p.draw(ctx, velocity); });
+  oldPixels = oldPixels.filter(p => p.life > 0);
+
+  pixels.forEach(p => { p.update(velocity); p.draw(ctx, velocity); });
+
+  requestAnimationFrame(tickPhysics);
+}
+
+resize();
+requestAnimationFrame(tickScroll);
+requestAnimationFrame(tickPhysics);
+
+</script>
+</body>
+</html>

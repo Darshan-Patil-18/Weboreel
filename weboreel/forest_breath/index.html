@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Forest Breath</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital@1&family=DM+Sans&display=swap');
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body, html {
+      width: 100%; height: 100%;
+      background: #08120d; color: #fff;
+      overflow: hidden; /* we manage infinite scroll logic manually */
+      font-family: 'Cormorant Garamond', serif;
+    }
+
+    #bg-gradient {
+      position: fixed; top: 0; left: 0;
+      width: 100vw; height: 100vh;
+      background: linear-gradient(180deg, #050a07 0%, #152c1e 100%);
+      transition: opacity 1s; z-index: 0;
+    }
+
+    .forest-container {
+      position: fixed; top: 0; left: 0;
+      width: 100vw; height: 100vh;
+      z-index: 1; pointer-events: none;
+    }
+
+    /* CSS Trees */
+    .tree {
+      position: absolute; bottom: -50px;
+      width: 20px; height: 60vh;
+      background: linear-gradient(90deg, #0a110a, #112015);
+      border-radius: 10px 10px 0 0;
+      transform-origin: bottom center;
+    }
+    .branch {
+      position: absolute; width: 60px; height: 10px;
+      background: #0a110a; border-radius: 5px;
+    }
+
+    /* Fireflies */
+    .firefly {
+      position: absolute; width: 4px; height: 4px;
+      background: #ccffaa; border-radius: 50%;
+      box-shadow: 0 0 10px 2px #ccffaa;
+      opacity: 0; transition: opacity 1s, transform 3s ease-in-out;
+    }
+
+    /* CSS Art Animals */
+    .animal { position: absolute; opacity: 0; transition: opacity 2s, transform 2s; }
+    
+    .owl { top: 30%; right: 20%; transform: scale(0.8); }
+    .owl-body { width:40px; height:60px; background:#111; border-radius:40px; }
+    .owl-eye { position:absolute; top:15px; width:12px; height:12px; background:#ffcc00; border-radius:50%; box-shadow:0 0 10px #ffcc00;}
+    .owl-eye.l { left:6px; } .owl-eye.r { right:6px; }
+
+    .deer { bottom: 10%; left: 15%; transform: scale(1.2); }
+    .deer-body { width:60px; height:40px; background:#1a1510; border-radius:20px; }
+    .deer-head { position:absolute; top:-25px; right:-15px; width:25px; height:35px; background:#1a1510; border-radius:10px; }
+    .deer-antler { position:absolute; top:-20px; right:5px; width:2px; height:20px; background:#111; transform:rotate(15deg); }
+
+    /* UI Text */
+    .text-layer {
+      position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      z-index: 10; pointer-events: none;
+    }
+    .instruction {
+      font-family: 'DM Sans'; font-size: 1rem; color: #88aa99;
+      text-transform: uppercase; letter-spacing: 4px;
+      position: absolute; top: 30px;
+    }
+    .breath-text {
+      font-size: 5rem; font-style: italic; font-weight: 300;
+      text-shadow: 0 0 30px rgba(150,255,200,0.2);
+      opacity: 0.5; transition: opacity 0.5s;
+    }
+
+    .mute-btn {
+      position: fixed; bottom: 30px; right: 30px;
+      font-size: 2rem; cursor: pointer; z-index: 100; pointer-events: auto; opacity: 0.5;
+    }
+    .mute-btn:hover { opacity: 1; }
+
+    @media (max-width: 768px) {
+      .breath-text { font-size: 3rem; }
+    }
+  </style>
+</head>
+<body>
+
+<div id="bg-gradient"></div>
+
+<div class="forest-container" id="forest">
+  <div class="animal owl" id="a-owl">
+    <div class="owl-body">
+      <div class="owl-eye l"></div><div class="owl-eye r"></div>
+    </div>
+  </div>
+  <div class="animal deer" id="a-deer">
+    <div class="deer-body"><div class="deer-head"><div class="deer-antler"></div></div></div>
+  </div>
+</div>
+
+<div class="text-layer">
+  <div class="instruction">Scroll down to exhale. Scroll up to inhale.</div>
+  <div class="breath-text" id="b-text">Breathe</div>
+</div>
+
+<div class="mute-btn" id="muteBtn" title="Toggle Audio">🌲</div>
+
+<script>
+// --- AUDIO ENGINE ---
+const AudioContext = window.AudioContext || window.webkitAudioContext;
+let actx, masterGain, breathFilter, breathGain;
+let isMuted = true;
+let cricketsNode;
+
+function initAudio() {
+  if(actx) return;
+  actx = new AudioContext();
+  masterGain = actx.createGain(); masterGain.connect(actx.destination);
+  masterGain.gain.value = 0.5;
+
+  // Pink noise for breath
+  let bSize = actx.sampleRate * 2;
+  let b = actx.createBuffer(1, bSize, actx.sampleRate);
+  let out = b.getChannelData(0);
+  let b0=0, b1=0, b2=0, b3=0, b4=0, b5=0, b6=0;
+  for (let i = 0; i < bSize; i++) {
+    let w = Math.random() * 2 - 1;
+    b0 = 0.99886 * b0 + w * 0.0555179; b1 = 0.99332 * b1 + w * 0.0750759;
+    b2 = 0.96900 * b2 + w * 0.1538520; b3 = 0.86650 * b3 + w * 0.3104856;
+    b4 = 0.55000 * b4 + w * 0.5329522; b5 = -0.7616 * b5 - w * 0.0168980;
+    out[i] = b0 + b1 + b2 + b3 + b4 + b5 + b6 + w * 0.5362; out[i] *= 0.11;
+    b6 = w * 0.115926;
+  }
+  let noiseSrc = actx.createBufferSource(); noiseSrc.buffer = b; noiseSrc.loop = true;
+  
+  breathFilter = actx.createBiquadFilter(); breathFilter.type = 'lowpass'; breathFilter.frequency.value = 400;
+  breathGain = actx.createGain(); breathGain.gain.value = 0;
+  
+  noiseSrc.connect(breathFilter).connect(breathGain).connect(masterGain);
+  noiseSrc.start();
+
+  // Crickets
+  let crSrc = actx.createOscillator(); crSrc.type='square'; crSrc.frequency.value = 4500;
+  let crLFO = actx.createOscillator(); crLFO.frequency.value = 15;
+  let crGainLFO = actx.createGain(); crLFO.connect(crGainLFO.gain);
+  cricketsNode = actx.createGain(); cricketsNode.gain.value = 0.005;
+  crSrc.connect(crGainLFO).connect(cricketsNode).connect(masterGain);
+  crSrc.start(); crLFO.start();
+
+  isMuted = false;
+  document.getElementById('muteBtn').style.opacity = '1';
+}
+
+function updateAudio(vol, freq) {
+  if(!actx || isMuted) return;
+  breathGain.gain.setTargetAtTime(vol * 0.5, actx.currentTime, 0.1);
+  breathFilter.frequency.setTargetAtTime(freq, actx.currentTime, 0.1);
+  cricketsNode.gain.setTargetAtTime(0.005 + vol*0.002, actx.currentTime, 0.5);
+}
+
+document.getElementById('muteBtn').addEventListener('click', () => {
+  if(!actx) { initAudio(); return; }
+  isMuted = !isMuted;
+  masterGain.gain.setTargetAtTime(isMuted ? 0 : 0.5, actx.currentTime, 0.1);
+  document.getElementById('muteBtn').style.opacity = isMuted ? '0.5' : '1';
+});
+
+// --- FOREST GENERATION ---
+const forest = document.getElementById('forest');
+let trees = [];
+for(let i=0; i<12; i++) {
+  let t = document.createElement('div'); t.className = 'tree';
+  let x = Math.random()*100;
+  t.style.left = x + 'vw';
+  t.style.height = (40 + Math.random()*40) + 'vh';
+  t.style.opacity = 0.3 + Math.random()*0.7;
+  let zIndex = Math.floor(Math.random()*3);
+  t.style.zIndex = zIndex;
+  
+  // Branches
+  for(let b=0; b<3; b++) {
+    let br = document.createElement('div'); br.className = 'branch';
+    br.style.bottom = (20 + Math.random()*60) + '%';
+    if(Math.random()>0.5) {
+      br.style.left = '10px'; br.style.transform = `rotate(${20+Math.random()*30}deg)`;
+    } else {
+      br.style.right = '10px'; br.style.transform = `rotate(${-20-Math.random()*30}deg)`;
+    }
+    t.appendChild(br);
+  }
+  forest.appendChild(t);
+  trees.push({el: t, baseX: x, z: zIndex});
+}
+
+let fireflies = [];
+for(let i=0; i<30; i++) {
+  let f = document.createElement('div'); f.className = 'firefly';
+  f.style.left = Math.random()*100+'vw'; f.style.top = Math.random()*80+'vh';
+  forest.appendChild(f);
+  fireflies.push({el: f, tx: 0, ty: 0, phase: Math.random()*Math.PI*2});
+}
+
+// --- SCROLL / BREATH ENGINE ---
+let breathValue = 0.5; // 0 = empty, 1 = full
+let targetBreath = 0.5;
+let ease = 0.05;
+
+window.addEventListener('wheel', e => {
+  e.preventDefault();
+  // down = exhale (towards 0), up = inhale (towards 1)
+  targetBreath -= e.deltaY * 0.001;
+  targetBreath = Math.max(0, Math.min(targetBreath, 1));
+}, { passive: false });
+
+let tStart = 0;
+window.addEventListener('touchstart', e => tStart = e.touches[0].clientY, {passive:false});
+window.addEventListener('touchmove', e => {
+  e.preventDefault();
+  targetBreath += (e.touches[0].clientY - tStart) * 0.003; // swipe down = exhale
+  targetBreath = Math.max(0, Math.min(targetBreath, 1));
+  tStart = e.touches[0].clientY;
+}, {passive:false});
+
+let owl = document.getElementById('a-owl');
+let deer = document.getElementById('a-deer');
+let bText = document.getElementById('b-text');
+let bGradient = document.getElementById('bg-gradient');
+
+function tick() {
+  let vel = targetBreath - breathValue;
+  breathValue += vel * ease;
+  
+  // Audio
+  let vol = Math.abs(vel) * 10;
+  let freq = 400 + breathValue * 1200; // Inhale = brighter
+  updateAudio(vol, freq);
+
+  // Visuals tied to breath state
+  // 0 -> Exhale, 1 -> Inhale
+  bText.innerText = vel > 0.001 ? "Inhale..." : (vel < -0.001 ? "Exhale..." : "Hold");
+  bText.style.opacity = 0.3 + Math.abs(vel)*5;
+  bText.style.transform = `scale(${0.9 + breathValue*0.2})`;
+  
+  bGradient.style.opacity = 0.5 + breathValue*0.5;
+
+  // Trees sway slightly on breath
+  trees.forEach(t => {
+    let sway = (breathValue - 0.5) * (t.z+1) * 2;
+    t.el.style.transform = `rotate(${sway}deg)`;
+  });
+
+  // Animals appear based on stillness
+  if(Math.abs(vel) < 0.005) {
+    if(breathValue > 0.8) owl.style.opacity = '1';
+    if(breathValue < 0.2) deer.style.opacity = '1';
+  } else {
+    owl.style.opacity = '0';
+    deer.style.opacity = '0';
+  }
+
+  // Fireflies
+  let time = Date.now()*0.001;
+  fireflies.forEach(f => {
+    f.el.style.opacity = 0.2 + Math.sin(time + f.phase)*0.8 * (0.5+breathValue*0.5);
+    f.el.style.transform = `translate(${Math.sin(time*0.5+f.phase)*20}px, ${Math.cos(time*0.3+f.phase)*20 - breathValue*50}px)`;
+  });
+
+  requestAnimationFrame(tick);
+}
+
+requestAnimationFrame(tick);
+
+</script>
+</body>
+</html>

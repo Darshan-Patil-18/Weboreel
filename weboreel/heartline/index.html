@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Heartline</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Space+Mono&display=swap');
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body, html {
+      width: 100%; height: 100%;
+      background: #020503; color: #11ff44;
+      overflow-x: hidden;
+      font-family: 'Space Mono', monospace;
+      overscroll-behavior: none;
+    }
+
+    #canvas-ekg {
+      position: fixed; top: 0; left: 0;
+      width: 100vw; height: 100vh;
+      pointer-events: none; z-index: 1;
+    }
+
+    .scroll-container {
+      position: fixed; top: 0; left: 0;
+      width: 100vw; will-change: transform; z-index: 5;
+    }
+
+    /* Grid Background */
+    .bg-grid {
+      position: fixed; top: 0; left: 0;
+      width: 100vw; height: 100vh;
+      background-image: 
+        linear-gradient(rgba(17, 255, 68, 0.1) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(17, 255, 68, 0.1) 1px, transparent 1px);
+      background-size: 20px 20px;
+      z-index: 0; pointer-events: none;
+    }
+
+    .section {
+      width: 100vw; height: 100vh;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      text-align: center; padding: 0 10vw;
+    }
+
+    .monitor-text {
+      font-size: 2rem; max-width: 600px;
+      background: #020503; padding: 10px 20px;
+      border: 1px solid #11ff44; box-shadow: 0 0 10px rgba(17,255,68,0.2);
+      opacity: 0; transform: translateY(20px);
+      transition: opacity 1s, transform 1s;
+    }
+    .visible { opacity: 1; transform: translateY(0); }
+
+    .hud-bpm {
+      position: fixed; top: 30px; left: 30px;
+      font-size: 3rem; text-shadow: 0 0 15px #11ff44;
+      z-index: 10;
+    }
+    .hud-label {
+      position: fixed; top: 35px; left: 120px;
+      font-size: 1rem; opacity: 0.7; z-index: 10;
+    }
+
+    .mute-btn {
+      position: fixed; bottom: 30px; right: 30px;
+      font-size: 2rem; cursor: pointer; z-index: 100; pointer-events: auto; opacity: 0.5;
+    }
+    .mute-btn:hover { opacity: 1; }
+
+    @media (max-width: 768px) {
+      .monitor-text { font-size: 1.2rem; }
+      .hud-bpm { font-size: 2rem; }
+      .hud-label { left: 80px; top: 30px;}
+    }
+  </style>
+</head>
+<body>
+
+<div class="bg-grid"></div>
+<canvas id="canvas-ekg"></canvas>
+
+<div class="hud-bpm" id="hud-bpm">--</div>
+<div class="hud-label">BPM</div>
+
+<div class="scroll-container" id="scroll-container">
+  <div class="section"><div class="monitor-text">Movement is life.</div></div>
+  <div class="section"><div class="monitor-text">Scroll to pump. Stop to rest.</div></div>
+  <div class="section"><div class="monitor-text">Fast scrolling induces panic.</div></div>
+  <div class="section"><div class="monitor-text">Do not stop.</div></div>
+  <div class="section"><div class="monitor-text">The line must continue.</div></div>
+  <div style="height: 50vh;"></div>
+</div>
+
+<div class="mute-btn" id="muteBtn" title="Toggle Audio">💓</div>
+
+<script>
+// --- AUDIO ENGINE ---
+const AudioContext = window.AudioContext || window.webkitAudioContext;
+let actx, masterGain;
+let isMuted = true;
+let flatlineOsc, flatlineGain;
+
+function initAudio() {
+  if(actx) return;
+  actx = new AudioContext();
+  masterGain = actx.createGain(); masterGain.connect(actx.destination);
+  masterGain.gain.value = 0.5;
+
+  // Flatline setup
+  flatlineOsc = actx.createOscillator(); flatlineOsc.type = 'sine'; flatlineOsc.frequency.value = 600;
+  flatlineGain = actx.createGain(); flatlineGain.gain.value = 0.05; // starts playing
+  flatlineOsc.connect(flatlineGain).connect(masterGain);
+  flatlineOsc.start();
+
+  isMuted = false;
+  document.getElementById('muteBtn').style.opacity = '1';
+}
+
+function playBeat(intensity) {
+  if(!actx || isMuted) return;
+  
+  // Interrupt flatline
+  flatlineGain.gain.setTargetAtTime(0, actx.currentTime, 0.05);
+
+  let o = actx.createOscillator(); o.type = 'triangle';
+  o.frequency.setValueAtTime(100 + intensity*100, actx.currentTime);
+  o.frequency.exponentialRampToValueAtTime(40, actx.currentTime + 0.1);
+  
+  let g = actx.createGain(); g.gain.setValueAtTime(0.3 + intensity*0.2, actx.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.001, actx.currentTime + 0.3);
+  
+  o.connect(g).connect(masterGain); o.start(); o.stop(actx.currentTime + 0.4);
+
+  // Resume flatline if no more beats
+  clearTimeout(flatlineTimeout);
+  flatlineTimeout = setTimeout(() => {
+    if(!isMuted && actx) flatlineGain.gain.setTargetAtTime(0.05, actx.currentTime, 0.5);
+  }, 1000);
+}
+let flatlineTimeout;
+
+document.getElementById('muteBtn').addEventListener('click', () => {
+  if(!actx) { initAudio(); return; }
+  isMuted = !isMuted;
+  masterGain.gain.setTargetAtTime(isMuted ? 0 : 0.5, actx.currentTime, 0.1);
+  document.getElementById('muteBtn').style.opacity = isMuted ? '0.5' : '1';
+});
+
+// --- EKG CANVAS ---
+const canvas = document.getElementById('canvas-ekg');
+const ctx = canvas.getContext('2d');
+let cw, ch;
+let ekgPath = [];
+let cursorX = 0;
+
+function resize() {
+  cw = canvas.width = window.innerWidth;
+  ch = canvas.height = window.innerHeight;
+}
+window.addEventListener('resize', resize);
+resize();
+
+// --- SCROLL ENGINE ---
+let current = 0, target = 0, velocity = 0;
+const ease = 0.05;
+const container = document.getElementById('scroll-container');
+let maxScroll = 0, vh = 0;
+let bpm = 0;
+let beatTimer = 0;
+
+window.addEventListener('wheel', e => {
+  e.preventDefault();
+  target += e.deltaY * 0.8;
+  target = Math.max(0, Math.min(target, maxScroll));
+}, { passive: false });
+
+let tStart = 0;
+window.addEventListener('touchstart', e => tStart = e.touches[0].clientY, {passive:false});
+window.addEventListener('touchmove', e => {
+  e.preventDefault();
+  target += (tStart - e.touches[0].clientY) * 1.5;
+  target = Math.max(0, Math.min(target, maxScroll));
+  tStart = e.touches[0].clientY;
+}, {passive:false});
+
+function tick() {
+  vh = window.innerHeight;
+  maxScroll = container.getBoundingClientRect().height - vh;
+  velocity = (target - current) * ease;
+  current += velocity;
+  container.style.transform = `translateY(${-current}px)`;
+  
+  let absVel = Math.abs(velocity);
+  
+  // Calculate BPM based on velocity
+  let targetBpm = absVel < 0.1 ? 0 : 60 + absVel * 2;
+  targetBpm = Math.min(targetBpm, 200);
+  bpm += (targetBpm - bpm) * 0.1;
+  
+  document.getElementById('hud-bpm').innerText = bpm < 5 ? "--" : Math.round(bpm);
+
+  // EKG Generation
+  let speedX = 2; // draw speed
+  cursorX += speedX;
+  if(cursorX > cw) {
+    cursorX = 0;
+    ekgPath = [];
+  }
+
+  let baseY = ch/2;
+  let newY = baseY;
+
+  if(bpm > 20) {
+    let beatInterval = (60 / bpm) * 60; // frames between beats
+    beatTimer++;
+    if(beatTimer > beatInterval) {
+      beatTimer = 0;
+      // Generate P-QRS-T complex
+      let intensity = bpm / 200;
+      let amp = 50 + intensity * 150;
+      
+      // Inject points ahead of cursor
+      let pX = cursorX;
+      ekgPath.push({x: pX, y: baseY});
+      ekgPath.push({x: pX+5, y: baseY - amp*0.1}); // P wave
+      ekgPath.push({x: pX+10, y: baseY});
+      ekgPath.push({x: pX+15, y: baseY + amp*0.2}); // Q
+      ekgPath.push({x: pX+20, y: baseY - amp}); // R (Peak)
+      ekgPath.push({x: pX+25, y: baseY + amp*0.3}); // S
+      ekgPath.push({x: pX+30, y: baseY});
+      ekgPath.push({x: pX+40, y: baseY - amp*0.15}); // T wave
+      ekgPath.push({x: pX+50, y: baseY});
+      
+      playBeat(intensity);
+    }
+  }
+
+  // Find current Y for drawing (interpolate if needed)
+  let activePt = ekgPath.find(p => p.x >= cursorX && p.x < cursorX + speedX);
+  if(activePt) newY = activePt.y;
+  else if(bpm < 20) {
+    // Noise on flatline
+    newY = baseY + (Math.random()-0.5)*2;
+  }
+  
+  // Always push the actual drawn point to a render array so it trails nicely
+  // Actually, standard HTML5 canvas trick: draw line from last to current, with a fade rect
+  
+  ctx.fillStyle = 'rgba(2, 5, 3, 0.05)'; // fade trail
+  ctx.fillRect(0, 0, cw, ch);
+
+  ctx.beginPath();
+  ctx.moveTo(cursorX - speedX, window.lastY || baseY);
+  ctx.lineTo(cursorX, newY);
+  ctx.strokeStyle = '#11ff44';
+  ctx.lineWidth = 2;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.shadowColor = '#11ff44';
+  ctx.shadowBlur = 10;
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+
+  window.lastY = newY;
+
+  // Reveal UI
+  document.querySelectorAll('.section').forEach((sec, i) => {
+    let t = sec.querySelector('.monitor-text');
+    if(Math.abs(current - i*vh) < vh*0.5) t.classList.add('visible');
+    else t.classList.remove('visible');
+  });
+
+  requestAnimationFrame(tick);
+}
+
+window.lastY = ch/2;
+requestAnimationFrame(tick);
+
+</script>
+</body>
+</html>

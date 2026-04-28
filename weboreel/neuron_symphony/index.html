@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Neuron Symphony</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Cormorant+Garamond:ital,wght@1,400&family=DM+Sans:wght@400;500&family=Playfair+Display:ital,wght@1,600&family=Space+Mono&display=swap');
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body, html {
+      width: 100%;
+      height: 100%;
+      background: #020005;
+      color: #fff;
+      overflow-x: hidden;
+      font-family: 'DM Sans', sans-serif;
+      overscroll-behavior: none;
+    }
+    
+    #canvas-bg, #canvas-fg {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100vw; height: 100vh;
+      pointer-events: none;
+    }
+    #canvas-fg { mix-blend-mode: screen; z-index: 1; }
+    
+    .scroll-container {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%;
+      will-change: transform;
+      z-index: 5;
+    }
+
+    .section {
+      position: relative;
+      width: 100%;
+      min-height: 150vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 0 10vw;
+      text-align: center;
+    }
+
+    /* Section 1 - Logic */
+    .s1-title { font-family: 'Space Mono', monospace; font-size: 4rem; color: #0066ff; text-transform: uppercase; letter-spacing: 0.5rem; margin-bottom: 2rem; }
+    .s1-text { font-size: 1.2rem; max-width: 600px; color: rgba(255,255,255,0.8); }
+    .equation { position: absolute; font-family: 'Space Mono'; color: rgba(0,102,255,0.3); font-size: 2rem; pointer-events: none; animation: float 10s infinite alternate; }
+
+    /* Section 2 - Emotion */
+    .s2-title { font-family: 'Playfair Display', serif; font-size: 5rem; color: #ff4400; font-style: italic; animation: tremble 0.1s infinite; margin-bottom: 2rem; }
+    .s2-text { font-size: 1.4rem; max-width: 600px; line-height: 1.6; }
+    @keyframes tremble { 0% { transform: translate(0,0); } 25% { transform: translate(1px, -1px); } 50% { transform: translate(-1px, 1px); } 75% { transform: translate(1px, 1px); } 100% { transform: translate(0,0); } }
+    .memory-flash { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: #fff; opacity: 0; pointer-events: none; z-index: 2; mix-blend-mode: screen; }
+
+    /* Section 3 - Vision */
+    .s3-title { font-family: 'Space Mono'; font-weight: bold; font-size: 6rem; background: -webkit-linear-gradient(#00ddff, #ff00dd); -webkit-background-clip: text; -webkit-text-fill-color: transparent; filter: hue-rotate(0deg); animation: hueRot 4s linear infinite; margin-bottom: 2rem; }
+    @keyframes hueRot { to { filter: hue-rotate(360deg); } }
+    .kaleidoscope { position: absolute; width: 400px; height: 400px; border-radius: 50%; background: conic-gradient(from 0deg, #00ddff, #ff00ff, #00ddff); opacity: 0.1; filter: blur(30px); animation: spin 10s linear infinite; z-index: -1; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Section 4 - Sound */
+    .s4-title { font-family: 'Bebas Neue', cursive; font-size: 8rem; color: #ffaa00; letter-spacing: 5px; animation: vibrate 0.2s infinite; margin-bottom: 1rem; }
+    @keyframes vibrate { 0% { transform: scale(1); } 50% { transform: scale(1.02); } 100% { transform: scale(1); } }
+    .sound-wave { position: absolute; width: 200px; height: 200px; border: 2px solid rgba(255,170,0,0.5); border-radius: 50%; animation: rippleOut 3s infinite ease-out; }
+    @keyframes rippleOut { 0% { transform: scale(0.5); opacity: 1; } 100% { transform: scale(3); opacity: 0; } }
+
+    /* Section 5 - Memory */
+    .s5-title { font-family: 'Cormorant Garamond', serif; font-size: 5rem; font-style: italic; color: #ff6699; animation: fadeIO 4s infinite alternate; margin-bottom: 2rem; }
+    @keyframes fadeIO { 0% { opacity: 0.3; filter: blur(2px); } 100% { opacity: 1; filter: blur(0); } }
+
+    /* Section 6 - Consciousness */
+    .s6-title { font-family: 'Space Mono'; font-size: 4rem; letter-spacing: 0.5rem; text-transform: uppercase; display: flex; gap: 0.2rem; flex-wrap: wrap; justify-content: center; margin-bottom: 2rem; }
+    .s6-title span { animation: colorShift 5s infinite; }
+    @keyframes colorShift { 0% { color: #0066ff; } 20% { color: #ff4400; } 40% { color: #00ddff; } 60% { color: #ffaa00; } 80% { color: #ff6699; } 100% { color: #fff; } }
+
+    .mute-btn {
+      position: fixed;
+      bottom: 30px; right: 30px;
+      font-size: 2rem;
+      cursor: pointer;
+      z-index: 100;
+      user-select: none;
+      transition: transform 0.2s;
+    }
+    .mute-btn:hover { transform: scale(1.1); }
+
+    @media (max-width: 768px) {
+      .s1-title, .s6-title { font-size: 2.5rem; }
+      .s2-title, .s5-title { font-size: 3.5rem; }
+      .s3-title, .s4-title { font-size: 4.5rem; }
+    }
+  </style>
+</head>
+<body>
+
+<canvas id="canvas-bg"></canvas>
+<canvas id="canvas-fg"></canvas>
+
+<div class="memory-flash" id="memFlash"></div>
+
+<div class="scroll-container" id="scroll-container">
+  
+  <div class="section" id="sec-1">
+    <div class="equation" style="top:20%; left:10%;">E=mc²</div>
+    <div class="equation" style="top:70%; right:15%;">2+2=4</div>
+    <div class="s1-title" data-speed="0.85">LOGIC</div>
+    <div class="s1-text" data-speed="0.9">This is where you decide. Plan. Control impulses.<br>Right now, it's processing these words.</div>
+  </div>
+
+  <div class="section" id="sec-2">
+    <div class="s2-title" data-speed="0.85">EMOTION</div>
+    <div class="s2-text" data-speed="0.9">Every feeling you've ever had lived here first. Fear. Love. Grief. Joy. All of it — electrical signals.</div>
+  </div>
+
+  <div class="section" id="sec-3">
+    <div class="kaleidoscope" data-speed="0.5"></div>
+    <div class="s3-title" data-speed="0.85">VISION</div>
+    <div class="s3-text" data-speed="0.9">Your eyes don't see. Your brain does.<br>It's filling in 60% of what you think you're looking at right now.</div>
+  </div>
+
+  <div class="section" id="sec-4">
+    <div class="sound-wave" style="left:10%;" data-speed="0.6"></div>
+    <div class="sound-wave" style="right:10%; animation-delay: 1.5s;" data-speed="0.6"></div>
+    <div class="s4-title" data-speed="0.85">SOUND</div>
+    <div class="s4-text" data-speed="0.9">Sound is just air pressure.<br>Your brain turns vibrations into music, voice, meaning.</div>
+  </div>
+
+  <div class="section" id="sec-5">
+    <div class="s5-title" data-speed="0.85">MEMORY</div>
+    <div class="s5-text" data-speed="0.9">Right now, this moment is being encoded.<br>In 3 days, you'll remember the feeling more than the words.</div>
+  </div>
+
+  <div class="section" id="sec-6">
+    <div class="s6-title" data-speed="0.85" id="conscious-text">
+      <span>C</span><span>O</span><span>N</span><span>S</span><span>C</span><span>I</span><span>O</span><span>U</span><span>S</span><span>N</span><span>E</span><span>S</span><span>S</span>
+    </div>
+    <div class="s1-text" style="color:#fff;" data-speed="0.9">No one knows how 86 billion neurons doing this — right now — creates the experience of being you. It just does. You are a symphony playing itself.</div>
+  </div>
+
+  <div style="height: 50vh;"></div>
+
+</div>
+
+<div class="mute-btn" id="muteBtn" title="Toggle Audio">🧠</div>
+
+<script>
+// --- SMOOTH SCROLL ENGINE ---
+let current = 0, target = 0, velocity = 0;
+const ease = 0.072;
+const container = document.getElementById('scroll-container');
+let maxScroll = 0;
+
+function updateMaxScroll() {
+  maxScroll = container.getBoundingClientRect().height - window.innerHeight;
+}
+window.addEventListener('resize', updateMaxScroll);
+setTimeout(updateMaxScroll, 100);
+
+window.addEventListener('wheel', e => {
+  e.preventDefault();
+  target += e.deltaY * 0.8;
+  target = Math.max(0, Math.min(target, maxScroll));
+}, { passive: false });
+
+let touchStart = 0;
+window.addEventListener('touchstart', e => touchStart = e.touches[0].clientY, { passive: false });
+window.addEventListener('touchmove', e => {
+  e.preventDefault();
+  const delta = (touchStart - e.touches[0].clientY) * 1.4;
+  target += delta;
+  target = Math.max(0, Math.min(target, maxScroll));
+  touchStart = e.touches[0].clientY;
+}, { passive: false });
+
+let prevScroll = 0;
+let rippleFactor = 0;
+
+function tick() {
+  velocity = (target - current) * ease;
+  current += velocity;
+  
+  if((prevScroll < target && velocity < -1) || (prevScroll > target && velocity > 1)) {
+    // scroll reversal
+    rippleFactor = 1.0;
+  }
+  prevScroll = target;
+
+  container.style.transform = `translateY(${-current}px)`;
+  
+  // Parallax
+  document.querySelectorAll('[data-speed]').forEach(el => {
+    const s = parseFloat(el.getAttribute('data-speed'));
+    el.style.transform = `translateY(${current * (1 - s)}px)`;
+  });
+
+  updateAudioAndVisuals(current, velocity);
+  drawCanvas();
+  
+  if(rippleFactor > 0) rippleFactor -= 0.02;
+
+  requestAnimationFrame(tick);
+}
+requestAnimationFrame(tick);
+
+// --- AUDIO SYSTEM ---
+const AudioContext = window.AudioContext || window.webkitAudioContext;
+let actx;
+let isMuted = true;
+let masterGain, droneL, droneR;
+let oscStack = [];
+
+const sections = [
+  {y: 0, color: [0, 102, 255]}, // prefrontal
+  {y: 1.5, color: [255, 68, 0]}, // limbic
+  {y: 3.0, color: [0, 221, 255]}, // visual
+  {y: 4.5, color: [255, 170, 0]}, // auditory
+  {y: 6.0, color: [255, 102, 153]}, // memory
+  {y: 7.5, color: [255, 255, 255]} // whole
+];
+
+function initAudio() {
+  if(actx) return;
+  actx = new AudioContext();
+  masterGain = actx.createGain();
+  masterGain.connect(actx.destination);
+  masterGain.gain.value = 0.5;
+
+  // Base Binaural
+  droneL = actx.createOscillator(); droneL.frequency.value = 220;
+  droneR = actx.createOscillator(); droneR.frequency.value = 224;
+  let panL = actx.createStereoPanner(); panL.pan.value = -1;
+  let panR = actx.createStereoPanner(); panR.pan.value = 1;
+  
+  let droneGain = actx.createGain(); droneGain.gain.value = 0.05;
+  droneL.connect(panL).connect(droneGain);
+  droneR.connect(panR).connect(droneGain);
+  droneGain.connect(masterGain);
+  
+  droneL.start(); droneR.start();
+
+  isMuted = false;
+  document.getElementById('muteBtn').style.opacity = '1';
+}
+
+function playChord(freqs, vol = 0.1, type='sine') {
+  if(!actx || isMuted) return;
+  const t = actx.currentTime;
+  freqs.forEach(f => {
+    let osc = actx.createOscillator();
+    let g = actx.createGain();
+    osc.type = type;
+    osc.frequency.value = f;
+    osc.connect(g);
+    g.connect(masterGain);
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(vol, t + 0.5);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 3.0);
+    osc.start(t);
+    osc.stop(t + 3.1);
+  });
+}
+
+function playNeuronSound() {
+  if(!actx || isMuted) return;
+  let osc = actx.createOscillator();
+  let g = actx.createGain();
+  osc.frequency.value = 1200 + Math.random()*400;
+  osc.connect(g);
+  g.connect(masterGain);
+  g.gain.setValueAtTime(0.01, actx.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + 0.05);
+  osc.start();
+  osc.stop(actx.currentTime + 0.06);
+}
+
+document.getElementById('muteBtn').addEventListener('click', () => {
+  if(!actx) { initAudio(); return; }
+  isMuted = !isMuted;
+  masterGain.gain.setTargetAtTime(isMuted ? 0 : 0.5, actx.currentTime, 0.1);
+  document.getElementById('muteBtn').style.opacity = isMuted ? '0.5' : '1';
+});
+
+let currentSecIdx = -1;
+function updateAudioAndVisuals(curr, vel) {
+  let vh = window.innerHeight;
+  let progress = curr / vh;
+  let idx = Math.max(0, Math.min(5, Math.floor((progress + 0.75) / 1.5)));
+  
+  if(idx !== currentSecIdx && actx && !isMuted) {
+    currentSecIdx = idx;
+    if(idx===0) playChord([261.63, 329.63, 392.00], 0.08); // C
+    if(idx===1) { playChord([220, 261.63, 329.63], 0.08); document.getElementById('memFlash').style.opacity = '1'; setTimeout(()=>document.getElementById('memFlash').style.opacity='0',100); } // Am
+    if(idx===3) playChord([130.81, 261.63, 392], 0.1, 'triangle');
+    if(idx===4) playChord([261.63, 329.63, 392.00], 0.05); // echo
+    if(idx===5) playChord([528], 0.15); // final crystal
+  }
+}
+
+// --- CANVAS VISUALIZATION ---
+const bg = document.getElementById('canvas-bg');
+const fg = document.getElementById('canvas-fg');
+const ctx = bg.getContext('2d');
+const fctx = fg.getContext('2d', {alpha: true});
+
+let cw, ch;
+function resize() {
+  cw = bg.width = fg.width = window.innerWidth;
+  ch = bg.height = fg.height = window.innerHeight;
+}
+window.addEventListener('resize', resize);
+resize();
+
+// Neurons
+const numNeurons = window.innerWidth < 768 ? 40 : 80;
+let neurons = [];
+
+for(let i=0; i<numNeurons; i++) {
+  neurons.push({
+    x: cw*0.2 + Math.random()*(cw*0.6),
+    y: ch*0.2 + Math.random()*(ch*0.6),
+    vx: (Math.random()-0.5)*0.5,
+    vy: (Math.random()-0.5)*0.5,
+    charge: 0,
+    connections: [],
+    region: Math.floor(Math.random()*6)
+  });
+}
+
+// Connections
+neurons.forEach(n1 => {
+  neurons.forEach(n2 => {
+    if(n1 !== n2 && Math.hypot(n1.x-n2.x, n1.y-n2.y) < (cw<768?80:120)) {
+      n1.connections.push(n2);
+    }
+  });
+});
+
+function fireNeuron(n) {
+  if(n.charge > 0.5) return;
+  n.charge = 1.0;
+  playNeuronSound();
+  n.connections.forEach((connected, i) => {
+    setTimeout(() => { if(Math.random()>0.3) fireNeuron(connected); }, 80 + i * 40 - Math.min(30, Math.abs(velocity)*2));
+  });
+}
+
+function drawBrainBg() {
+  ctx.clearRect(0,0,cw,ch);
+  
+  // Parallax brain bg
+  ctx.save();
+  ctx.translate(cw/2, ch/2 - current*0.2);
+  
+  let scale = Math.min(cw, ch) / 600;
+  ctx.scale(scale, scale);
+
+  ctx.beginPath();
+  ctx.moveTo(0, -200);
+  ctx.bezierCurveTo(150, -250, 250, -100, 200, 50);
+  ctx.bezierCurveTo(150, 200, 50, 200, 0, 150);
+  ctx.bezierCurveTo(-50, 200, -150, 200, -200, 50);
+  ctx.bezierCurveTo(-250, -100, -150, -250, 0, -200);
+  
+  ctx.fillStyle = 'rgba(20,5,30,0.8)';
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(180,100,255,0.3)';
+  ctx.lineWidth = 2;
+  ctx.shadowBlur = 20;
+  ctx.shadowColor = '#aa00ff';
+  ctx.stroke();
+
+  // Draw some folds
+  ctx.beginPath(); ctx.moveTo(0,-180); ctx.bezierCurveTo(30,-150,20,-50,100,-20); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(-50,-150); ctx.bezierCurveTo(-100,-100,-120,0,-80,80); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(50,100); ctx.bezierCurveTo(100,120,150,50,180,0); ctx.stroke();
+  
+  ctx.restore();
+}
+
+function drawElectricArc(ctx, n1, n2, charge) {
+  const points = [{x: n1.x, y: n1.y}];
+  const dist = Math.hypot(n1.x-n2.x, n1.y-n2.y);
+  const segments = 4;
+  for(let i=1; i<segments; i++) {
+    let t = i/segments;
+    points.push({
+      x: n1.x + (n2.x-n1.x)*t + (Math.random()-0.5)*20,
+      y: n1.y + (n2.y-n1.y)*t + (Math.random()-0.5)*20
+    });
+  }
+  points.push({x: n2.x, y: n2.y});
+
+  ctx.beginPath();
+  ctx.moveTo(points[0].x, points[0].y);
+  for(let i=1; i<points.length; i++) ctx.lineTo(points[i].x, points[i].y);
+  
+  let c = sections[currentSecIdx] ? sections[currentSecIdx].color : [200,100,255];
+  if(currentSecIdx === 5) c = [255,255,255]; // consciousness
+  ctx.strokeStyle = `rgba(${c[0]},${c[1]},${c[2]},${charge})`;
+  ctx.lineWidth = 1.5 + Math.abs(velocity)*0.1;
+  ctx.shadowBlur = 15;
+  ctx.shadowColor = `rgba(${c[0]},${c[1]},${c[2]}, 1)`;
+  ctx.stroke();
+}
+
+let lastFire = 0;
+function drawCanvas() {
+  drawBrainBg();
+  
+  if(currentSecIdx === 4) {
+    // Memory trails fade slowly
+    fctx.fillStyle = 'rgba(0,0,0,0.02)';
+  } else {
+    fctx.clearRect(0,0,cw,ch);
+  }
+  
+  fctx.save();
+  fctx.translate(0, -current*0.5); // neuron parallax
+  
+  let fastScroll = Math.abs(velocity) > 8;
+  if(Math.abs(velocity) > 1 && Date.now() - lastFire > (fastScroll ? 50 : 200)) {
+    lastFire = Date.now();
+    let targetRegion = currentSecIdx >= 0 ? currentSecIdx : 0;
+    if(targetRegion === 5) {
+      // Whole brain explosion
+      neurons.forEach(n => { if(Math.random()>0.8) fireNeuron(n); });
+    } else {
+      let potentials = neurons.filter(n => n.region === targetRegion);
+      if(potentials.length) fireNeuron(potentials[Math.floor(Math.random()*potentials.length)]);
+    }
+  }
+
+  // Ripple effect
+  if(rippleFactor > 0) {
+    let r = (1-rippleFactor)*cw;
+    fctx.beginPath();
+    fctx.arc(cw/2, ch/2 + current*0.5, r, 0, Math.PI*2);
+    fctx.strokeStyle = `rgba(255,255,255,${rippleFactor*0.2})`;
+    fctx.lineWidth = 5;
+    fctx.stroke();
+  }
+
+  neurons.forEach(n => {
+    // gentle drift
+    n.x += n.vx; n.y += n.vy;
+    if(n.x<0||n.x>cw) n.vx*=-1;
+    if(n.y<0||n.y>ch*5) n.vy*=-1; // allow vertical space for scrolling
+
+    if(n.charge > 0) {
+      let c = sections[currentSecIdx] ? sections[currentSecIdx].color : [200,100,255];
+      if(currentSecIdx === 5) c = [Math.random()*255, Math.random()*255, Math.random()*255]; // Aurora mix
+      fctx.beginPath();
+      fctx.arc(n.x, n.y, 3 + n.charge*3, 0, Math.PI*2);
+      fctx.fillStyle = `rgba(${c[0]},${c[1]},${c[2]},${n.charge})`;
+      fctx.shadowBlur = 10;
+      fctx.shadowColor = `rgba(${c[0]},${c[1]},${c[2]},1)`;
+      fctx.fill();
+
+      // Arcs
+      n.connections.forEach(conn => {
+        if(conn.charge > 0.1) drawElectricArc(fctx, n, conn, Math.min(n.charge, conn.charge));
+      });
+
+      n.charge *= 0.92; // decay
+      if(Math.abs(velocity) < 1) n.charge *= 0.8; // dim quickly when resting
+    }
+  });
+  
+  fctx.restore();
+}
+
+</script>
+</body>
+</html>

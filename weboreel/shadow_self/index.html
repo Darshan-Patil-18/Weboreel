@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Shadow Self</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Cormorant+Garamond:ital@1&family=DM+Sans&family=Playfair+Display:ital@1&display=swap');
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body, html {
+      width: 100%; height: 100%;
+      background: #050505; color: #f5f0e8;
+      overflow-x: hidden;
+      font-family: 'DM Sans', sans-serif;
+      overscroll-behavior: none;
+      cursor: none; /* custom cursor */
+    }
+
+    /* Split layout container */
+    .view-container {
+      position: fixed; top: 0; left: 0;
+      width: 100vw; height: 100vh;
+      pointer-events: none;
+    }
+    
+    #main-view {
+      position: absolute; top: 0; left: 0;
+      width: 100%; height: 50vh;
+      background: #f5f0e8;
+      color: #1a1a1a;
+      overflow: hidden;
+    }
+    
+    #shadow-view {
+      position: absolute; top: 50vh; left: 0;
+      width: 100%; height: 50vh;
+      background: #050505;
+      color: #c0c0c0;
+      overflow: hidden;
+    }
+
+    .scroll-content {
+      position: absolute; top: 0; left: 0;
+      width: 100%;
+      will-change: transform;
+    }
+
+    /* The shadow content itself is flipped horizontally */
+    #shadow-content {
+      transform-origin: center center;
+    }
+
+    .section {
+      width: 100%; height: 100vh;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      text-align: center; padding: 0 10vw;
+    }
+
+    /* Main text styles */
+    .m-text {
+      font-family: 'Playfair Display', serif; font-style: italic;
+      font-size: 4rem; max-width: 800px; line-height: 1.3;
+    }
+    /* Shadow text styles */
+    .s-text {
+      font-family: 'Cormorant Garamond', serif; font-style: italic;
+      font-size: 4rem; max-width: 800px; line-height: 1.3;
+      transform: scaleX(-1); /* Flips back to readable but visually mirrored feel if we want, but prompt says "flipped" */
+      filter: blur(0.5px); opacity: 0.8;
+    }
+
+    /* Ghost trails */
+    .ghost { position: absolute; opacity: 0.1; filter: blur(2px); pointer-events: none; }
+
+    /* Custom Cursors */
+    #cursor-main {
+      position: fixed; width: 10px; height: 10px;
+      background: #1a1a1a; border-radius: 50%;
+      pointer-events: none; z-index: 100;
+      transform: translate(-50%, -50%);
+    }
+    #cursor-shadow {
+      position: fixed; width: 20px; height: 20px;
+      background: rgba(0,0,0,0.5); border-radius: 50%;
+      mix-blend-mode: multiply; pointer-events: none; z-index: 99;
+      transform: translate(-50%, -50%); transition: top 0.2s, left 0.2s;
+    }
+
+    /* Specific Visuals */
+    .glow-warm { text-shadow: 0 0 20px rgba(255,100,0,0.3); }
+    .glow-cool { text-shadow: 0 0 20px rgba(0,100,255,0.3); }
+
+    .whole-text {
+      font-family: 'Bebas Neue', cursive; font-size: 15vw;
+      background-image: linear-gradient(90deg, #d4a843 50%, #4488ff 50%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      opacity: 0; transition: opacity 2s;
+    }
+
+    .mute-btn {
+      position: fixed; bottom: 30px; right: 30px;
+      font-size: 2rem; cursor: pointer; z-index: 100; user-select: auto; opacity: 0.5;
+    }
+    .mute-btn:hover { opacity: 1; }
+
+    @media (max-width: 768px) {
+      .m-text, .s-text { font-size: 2rem; }
+    }
+  </style>
+</head>
+<body>
+
+<div id="cursor-main"></div>
+<div id="cursor-shadow"></div>
+
+<!-- MAIN VIEW (Top Half) -->
+<div id="main-view">
+  <div class="scroll-content" id="main-content">
+    <div class="section"><div class="m-text">You are enough.</div></div>
+    <div class="section"><div class="m-text">Let go.</div></div>
+    <div class="section"><div class="m-text glow-warm">You need people.</div></div>
+    <div class="section"><div class="m-text" style="font-family:'Cormorant Garamond'">Your feelings are valid.</div></div>
+    <div class="section"><div class="m-text" id="m-slow" style="font-family:serif;font-size:5rem;">Slow down.</div></div>
+    <div class="section" id="s6-main"><div class="m-text" style="font-family:'DM Sans';font-style:normal;">You are not your past.</div></div>
+    <div class="section"><div class="m-text" style="color:#d4a843">Choose happiness.</div></div>
+    <div class="section"><div class="m-text whole-trigger">You are the light.</div></div>
+    <div class="section"><div class="whole-text">WHOLE</div></div>
+  </div>
+</div>
+
+<!-- SHADOW VIEW (Bottom Half) -->
+<div id="shadow-view">
+  <div class="scroll-content" id="shadow-content">
+    <div class="section"><div class="s-text" style="transform: scaleX(-1);">Wanting more doesn't make you broken.</div></div>
+    <div class="section"><div class="s-text" style="transform: scaleX(-1);">Hold on.</div></div>
+    <div class="section"><div class="s-text glow-cool" style="transform: scaleX(-1);">Solitude is a skill, not a failure.</div></div>
+    <div class="section"><div class="s-text" style="transform: scaleX(-1) rotate(180deg);">Your feelings aren't always facts.</div></div>
+    <div class="section"><div class="s-text" id="s-fast" style="font-size:5rem; transform: scaleX(-1);">Move before it's too late.</div></div>
+    <div class="section"><div class="s-text" style="transform: scaleX(-1);">Your past made you exactly who you are.</div></div>
+    <div class="section"><div class="s-text" style="color:#555; transform: scaleX(-1);">Happiness cannot be chosen, only invited.</div></div>
+    <div class="section"><div class="s-text whole-trigger" style="transform: scaleX(-1);">You are also the dark.</div></div>
+    <div class="section"><div class="whole-text">WHOLE</div></div>
+  </div>
+</div>
+
+<div class="mute-btn" id="muteBtn" title="Toggle Audio">☯</div>
+
+<script>
+// --- AUDIO ENGINE ---
+const AudioContext = window.AudioContext || window.webkitAudioContext;
+let actx, masterGain;
+let isMuted = true;
+let mOscGroup = [], sOscGroup = [];
+
+function initAudio() {
+  if(actx) return;
+  actx = new AudioContext();
+  masterGain = actx.createGain();
+  masterGain.connect(actx.destination);
+  masterGain.gain.value = 0.5;
+
+  let panR = actx.createStereoPanner(); panR.pan.value = 0.6;
+  let panL = actx.createStereoPanner(); panL.pan.value = -0.6;
+  
+  // Main (Warm, Right)
+  [261.63, 329.63, 392.00].forEach(f => {
+    let o = actx.createOscillator(); o.type='sine'; o.frequency.value=f;
+    let g = actx.createGain(); g.gain.value = 0.05;
+    o.connect(g).connect(panR).connect(masterGain); o.start();
+    mOscGroup.push({o, g, pan: panR});
+  });
+  
+  // Shadow (Cool, Left)
+  [220.00, 261.63, 329.63].forEach(f => {
+    let o = actx.createOscillator(); o.type='triangle'; o.frequency.value=f;
+    let g = actx.createGain(); g.gain.value = 0.04;
+    o.connect(g).connect(panL).connect(masterGain); o.start();
+    sOscGroup.push({o, g, pan: panL});
+  });
+
+  isMuted = false;
+  document.getElementById('muteBtn').style.opacity = '1';
+}
+
+function mergeAudio() {
+  if(!actx || isMuted) return;
+  const now = actx.currentTime;
+  // Slowly pan both to center and match frequencies
+  mOscGroup.forEach((n,i) => {
+    n.pan.pan.linearRampToValueAtTime(0, now + 3);
+  });
+  sOscGroup.forEach((n,i) => {
+    n.pan.pan.linearRampToValueAtTime(0, now + 3);
+    if(i===0) n.o.frequency.linearRampToValueAtTime(261.63, now + 3); // A -> C
+  });
+}
+
+function playFinalTone() {
+  if(!actx || isMuted) return;
+  const now = actx.currentTime;
+  mOscGroup.forEach(n => n.g.gain.linearRampToValueAtTime(0, now+1));
+  sOscGroup.forEach(n => n.g.gain.linearRampToValueAtTime(0, now+1));
+  
+  let o = actx.createOscillator(); o.type='sine'; o.frequency.value=261.63;
+  let g = actx.createGain(); g.gain.setValueAtTime(0, now);
+  g.gain.linearRampToValueAtTime(0.2, now+2); g.gain.exponentialRampToValueAtTime(0.001, now+6);
+  o.connect(g).connect(masterGain); o.start(); o.stop(now+6.1);
+}
+
+document.getElementById('muteBtn').addEventListener('click', () => {
+  if(!actx) { initAudio(); return; }
+  isMuted = !isMuted;
+  masterGain.gain.setTargetAtTime(isMuted ? 0 : 0.5, actx.currentTime, 0.1);
+  document.getElementById('muteBtn').style.opacity = isMuted ? '0.5' : '1';
+});
+
+// --- CURSOR ---
+const cMain = document.getElementById('cursor-main');
+const cShadow = document.getElementById('cursor-shadow');
+let mouseX = window.innerWidth/2, mouseY = window.innerHeight/2;
+let mHistory = [];
+
+document.addEventListener('mousemove', e => {
+  mouseX = e.clientX; mouseY = e.clientY;
+  cMain.style.left = mouseX+'px'; cMain.style.top = mouseY+'px';
+});
+
+// --- SCROLL ENGINE ---
+let current = 0, target = 0;
+let shadowY = 0;
+let ease = 0.078;
+let shadowEase = 0.04;
+const mCont = document.getElementById('main-content');
+const sCont = document.getElementById('shadow-content');
+let maxScroll = 0, vh = 0;
+let isConverged = false;
+
+function resize() {
+  vh = window.innerHeight;
+  maxScroll = mCont.getBoundingClientRect().height - vh;
+}
+window.addEventListener('resize', resize);
+setTimeout(resize, 100);
+
+window.addEventListener('wheel', e => {
+  e.preventDefault();
+  target += e.deltaY * 0.8;
+  target = Math.max(0, Math.min(target, maxScroll));
+}, { passive: false });
+
+let tStart = 0;
+window.addEventListener('touchstart', e => tStart = e.touches[0].clientY, {passive:false});
+window.addEventListener('touchmove', e => {
+  e.preventDefault();
+  target += (tStart - e.touches[0].clientY) * 1.5;
+  target = Math.max(0, Math.min(target, maxScroll));
+  tStart = e.touches[0].clientY;
+}, {passive:false});
+
+let ghostTimer = 0;
+
+function tick() {
+  current += (target - current) * ease;
+  shadowY += (current - shadowY) * shadowEase;
+  
+  // Section 8 Convergence
+  if(current > maxScroll - vh*1.5 && !isConverged) {
+    isConverged = true;
+    shadowEase = ease; // Sync up
+    mergeAudio();
+    document.querySelectorAll('.whole-text').forEach(el => el.style.opacity = '1');
+    setTimeout(playFinalTone, 2000);
+  }
+
+  // Visual text effects
+  if(current > vh*3.5 && current < vh*5.5) {
+    // S5 slow down main
+    document.getElementById('m-slow').style.letterSpacing = `${(current - vh*4)*0.01}px`;
+  }
+
+  // Past ghosts S6
+  if(current > vh*4.5 && current < vh*6.5) {
+    ghostTimer++;
+    if(ghostTimer > 20) {
+      ghostTimer = 0;
+      let g = document.createElement('div');
+      g.className = 'm-text ghost';
+      g.style.top = current + vh/2 + 'px';
+      g.innerText = "You are not your past.";
+      document.getElementById('main-view').appendChild(g);
+      setTimeout(()=>g.remove(), 2000);
+    }
+  }
+
+  mCont.style.transform = `translateY(${-current}px)`;
+  sCont.style.transform = `translateY(${-shadowY}px)`;
+  
+  // Cursor Shadow Delay
+  mHistory.push({x: mouseX, y: mouseY});
+  if(mHistory.length > 10) {
+    let old = mHistory.shift();
+    cShadow.style.left = old.x+'px'; cShadow.style.top = old.y+'px';
+  }
+
+  requestAnimationFrame(tick);
+}
+
+requestAnimationFrame(tick);
+
+</script>
+</body>
+</html>
