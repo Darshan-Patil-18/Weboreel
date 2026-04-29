@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Whiskey Distillery Journey</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/studio-freight/lenis@1.0.19/bundled/lenis.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Lora:ital,wght@0,400;1,400&family=Playfair+Display:ital,wght@0,400;1,400&display=swap');
+  
+  :root { --peat: #1A1108; --amber: #B5651D; --gold: #D4A017; --oak: #8B5E3C; --cream: #F5F0E8; --smoke: #2C2416; }
+  body, html { margin: 0; padding: 0; background: var(--peat); color: var(--cream); font-family: 'Lora', serif; overflow-x: hidden; cursor: crosshair; }
+  h1, h2, h3 { font-family: 'Playfair Display', serif; font-weight: normal; margin: 0; font-style: italic; }
+  .label { font-family: 'Cinzel', serif; text-transform: uppercase; letter-spacing: 3px; font-size: 0.8rem; color: var(--gold); }
+  
+  #canvas-container { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: -1; pointer-events: none; }
+  .section { height: 100vh; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; position: relative; padding: 2rem; box-sizing: border-box; }
+  
+  /* Sec 1 */
+  .title-main { font-size: 5vw; line-height: 1.1; margin-bottom: 2rem; color: var(--cream); text-shadow: 0 4px 20px rgba(0,0,0,0.8); }
+  .subtitle { font-size: 1.5rem; color: var(--amber); max-width: 600px; }
+  .droplet { width: 2px; height: 40px; background: linear-gradient(to bottom, transparent, var(--amber)); position: absolute; bottom: 50px; animation: drop 2s infinite; }
+  @keyframes drop { 0% { transform: translateY(0); opacity: 1; } 100% { transform: translateY(50px); opacity: 0; } }
+  
+  /* Overlays */
+  .grain-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 100; opacity: 0.05; background-image: url('data:image/svg+xml,%3Csvg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"%3E%3Cfilter id="noiseFilter"%3E%3CfeTurbulence type="fractalNoise" baseFrequency="0.65" numOctaves="3" stitchTiles="stitch"/%3E%3C/filter%3E%3Crect width="100%25" height="100%25" filter="url(%23noiseFilter)"/%3E%3C/svg%3E'); }
+  
+  .start-btn { padding: 15px 30px; background: transparent; border: 1px solid var(--amber); color: var(--cream); font-family: 'Cinzel', serif; cursor: pointer; transition: 0.4s; z-index: 10; margin-top: 20px;}
+  .start-btn:hover { background: var(--amber); color: var(--peat); }
+  
+  #audio-prompt { position: fixed; inset: 0; background: var(--peat); z-index: 999; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+</style>
+</head>
+<body>
+<div id="audio-prompt">
+  <h1>The Journey Awaits</h1>
+  <p class="label">Headphones Recommended</p>
+  <button class="start-btn" id="start-btn">Enter Distillery</button>
+</div>
+
+<div class="grain-overlay"></div>
+<canvas id="canvas-container"></canvas>
+
+<section class="section" id="sec-1">
+  <div class="label" style="margin-bottom: 1rem;">Chapter I</div>
+  <h1 class="title-main">Born from Rain.<br>Aged by Time.<br>Finished by Fire.</h1>
+  <div class="droplet"></div>
+</section>
+
+<section class="section" id="sec-2">
+  <div class="label">The Source</div>
+  <h2>Highland Spring Water</h2>
+  <p class="subtitle" style="margin-top: 2rem;">Filtered through granite and peat, our water runs pure and cold. It is the lifeblood of our spirit.</p>
+  <div style="margin-top: 3rem; display: flex; gap: 4rem;">
+    <div><div class="label">pH Level</div><div style="font-size: 2rem;">6.8</div></div>
+    <div><div class="label">Temp</div><div style="font-size: 2rem;">8°C</div></div>
+  </div>
+</section>
+
+<section class="section" id="sec-3">
+  <div class="label">The Copper Still</div>
+  <h2>Distillation</h2>
+  <p class="subtitle" style="margin-top: 2rem;">Where alchemy happens. The wash is heated, the vapors rise, and only the pure heart of the run is captured.</p>
+</section>
+
+<section class="section" id="sec-4">
+  <div class="label">The Barrel Room</div>
+  <h2>The Angel's Share</h2>
+  <p class="subtitle" style="margin-top: 2rem;">Every year, 2% evaporates into the heavens. We sleep while the oak works its magic in the silent dark.</p>
+</section>
+
+<section class="section" id="sec-5">
+  <div class="label">The Glass</div>
+  <h2>Pour & Order</h2>
+  <p class="subtitle" style="margin-top: 2rem;">Reserve your bottle of our 18-Year Oloroso finish.</p>
+  <button class="start-btn" style="margin-top: 2rem;">Reserve Now</button>
+</section>
+
+<script>
+  // Audio Context Setup
+  let audioCtx, masterGain;
+  let bgOsc, droneOsc, noiseNode;
+
+  function initAudio() {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    masterGain = audioCtx.createGain();
+    masterGain.gain.value = 0.5;
+    masterGain.connect(audioCtx.destination);
+
+    // Drone
+    droneOsc = audioCtx.createOscillator();
+    droneOsc.type = 'sine';
+    droneOsc.frequency.value = 55; // Deep A
+    let droneGain = audioCtx.createGain();
+    droneGain.gain.value = 0.2;
+    droneOsc.connect(droneGain);
+    droneGain.connect(masterGain);
+    droneOsc.start();
+
+    // Wind Noise
+    let bufferSize = audioCtx.sampleRate * 2;
+    let noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+    let output = noiseBuffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+      output[i] = Math.random() * 2 - 1;
+    }
+    noiseNode = audioCtx.createBufferSource();
+    noiseNode.buffer = noiseBuffer;
+    noiseNode.loop = true;
+    let noiseFilter = audioCtx.createBiquadFilter();
+    noiseFilter.type = 'lowpass';
+    noiseFilter.frequency.value = 400;
+    let noiseGain = audioCtx.createGain();
+    noiseGain.gain.value = 0.1;
+    noiseNode.connect(noiseFilter);
+    noiseFilter.connect(noiseGain);
+    noiseGain.connect(masterGain);
+    noiseNode.start();
+  }
+
+  function playClink() {
+    if(!audioCtx) return;
+    let osc = audioCtx.createOscillator();
+    let gain = audioCtx.createGain();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(1200, audioCtx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(800, audioCtx.currentTime + 0.5);
+    gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+    osc.connect(gain);
+    gain.connect(masterGain);
+    osc.start();
+    osc.stop(audioCtx.currentTime + 0.5);
+  }
+
+  document.getElementById('start-btn').addEventListener('click', () => {
+    initAudio();
+    gsap.to('#audio-prompt', { opacity: 0, duration: 1, onComplete: () => {
+      document.getElementById('audio-prompt').style.display = 'none';
+    }});
+  });
+
+  // Canvas Particles (Amber dust/steam)
+  const canvas = document.getElementById('canvas-container');
+  const ctx = canvas.getContext('2d');
+  let width, height;
+  let particles = [];
+
+  function resize() {
+    width = canvas.width = window.innerWidth;
+    height = canvas.height = window.innerHeight;
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  for(let i=0; i<100; i++){
+    particles.push({
+      x: Math.random() * width,
+      y: Math.random() * height,
+      r: Math.random() * 2 + 1,
+      vy: (Math.random() * -0.5) - 0.2,
+      opacity: Math.random() * 0.5
+    });
+  }
+
+  let scrollY = 0;
+  window.addEventListener('scroll', () => { scrollY = window.scrollY; });
+
+  function draw() {
+    ctx.clearRect(0, 0, width, height);
+    
+    // Background gradient reaction
+    let scrollRatio = scrollY / (document.body.scrollHeight - height);
+    let r = Math.floor(26 + scrollRatio * 155); // 1A to B5 roughly
+    let g = Math.floor(17 + scrollRatio * 84);
+    let b = Math.floor(8 + scrollRatio * 21);
+    ctx.fillStyle = `rgba(${r}, ${g}, ${b}, 0.2)`;
+    ctx.fillRect(0,0,width,height);
+
+    ctx.fillStyle = '#D4A017';
+    particles.forEach(p => {
+      p.y += p.vy;
+      if(p.y < 0) p.y = height;
+      ctx.globalAlpha = p.opacity;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y - (scrollY * 0.2 % height), p.r, 0, Math.PI*2);
+      ctx.fill();
+    });
+    ctx.globalAlpha = 1;
+    requestAnimationFrame(draw);
+  }
+  draw();
+
+  // Lenis Smooth Scroll
+  const lenis = new Lenis({ duration: 1.2, easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)) });
+  function raf(time) { lenis.raf(time); requestAnimationFrame(raf); }
+  requestAnimationFrame(raf);
+
+  // GSAP Animations
+  gsap.registerPlugin(ScrollTrigger);
+  
+  gsap.utils.toArray('.section').forEach((sec, i) => {
+    if(i === 0) return;
+    gsap.from(sec.children, {
+      y: 50, opacity: 0, duration: 1, stagger: 0.2,
+      scrollTrigger: { trigger: sec, start: "top 70%" }
+    });
+  });
+  
+</script>
+</body>
+</html>
