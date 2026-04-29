@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Netflix-Style Cinematic Scroll</title>
+    <style>
+        :root {
+            --bg-color: #141414;
+            --text-color: #e5e5e5;
+            --accent: #e50914;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            overflow-x: hidden;
+        }
+        /* Netflix intro */
+        #intro {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: #000; z-index: 9999; display: flex;
+            align-items: center; justify-content: center;
+            color: var(--accent); font-size: 5rem; font-weight: bold; letter-spacing: 5px;
+            animation: introFade 3s forwards;
+            pointer-events: none;
+        }
+        @keyframes introFade {
+            0% { opacity: 1; transform: scale(0.8); }
+            50% { opacity: 1; transform: scale(1.1); }
+            100% { opacity: 0; transform: scale(1.5); visibility: hidden; }
+        }
+        
+        .hero {
+            height: 80vh; position: relative;
+            background: linear-gradient(to top, var(--bg-color), transparent), url('https://images.unsplash.com/photo-1536440136628-849c177e76a1?ixlib=rb-4.0.3&auto=format&fit=crop&w=1925&q=80') center/cover;
+            display: flex; align-items: flex-end; padding: 50px;
+        }
+        .hero-content { max-width: 600px; z-index: 2; transform: translateY(50px); opacity: 0; transition: all 1s ease-out; }
+        .hero-content.visible { transform: translateY(0); opacity: 1; }
+        .hero h1 { font-size: 4rem; margin-bottom: 20px; text-shadow: 2px 2px 4px rgba(0,0,0,0.5); }
+        .hero p { font-size: 1.2rem; margin-bottom: 30px; text-shadow: 1px 1px 2px rgba(0,0,0,0.5); }
+        .btn { padding: 10px 30px; border: none; border-radius: 4px; font-size: 1.2rem; cursor: pointer; font-weight: bold; transition: 0.3s; }
+        .btn-play { background: white; color: black; margin-right: 15px; }
+        .btn-play:hover { background: rgba(255,255,255,0.7); }
+        .btn-more { background: rgba(109, 109, 110, 0.7); color: white; }
+        .btn-more:hover { background: rgba(109, 109, 110, 0.4); }
+
+        .row { padding: 20px 50px; position: relative; opacity: 0; transform: translateY(50px); transition: all 1s cubic-bezier(0.25, 0.46, 0.45, 0.94); }
+        .row.visible { opacity: 1; transform: translateY(0); }
+        .row h2 { font-size: 1.5rem; margin-bottom: 15px; color: #fff; }
+        .cards {
+            display: flex; gap: 10px; overflow-x: auto; scroll-snap-type: x mandatory;
+            padding: 20px 0; scrollbar-width: none;
+        }
+        .cards::-webkit-scrollbar { display: none; }
+        .card {
+            flex: 0 0 250px; height: 140px; background: #222; border-radius: 4px;
+            scroll-snap-align: start; transition: transform 0.3s ease, box-shadow 0.3s ease;
+            position: relative; overflow: hidden; cursor: pointer;
+            background-size: cover; background-position: center;
+        }
+        .card:hover { transform: scale(1.1); box-shadow: 0 10px 20px rgba(0,0,0,0.8); z-index: 10; border: 1px solid rgba(255,255,255,0.2); }
+        .card-info { position: absolute; bottom: 0; left: 0; right: 0; background: linear-gradient(transparent, rgba(0,0,0,0.9)); padding: 10px; opacity: 0; transition: opacity 0.3s; }
+        .card:hover .card-info { opacity: 1; }
+        .card-info h3 { font-size: 1rem; color: #fff; }
+
+        /* Mute button */
+        #audio-controls {
+            position: fixed; bottom: 30px; right: 30px; z-index: 100;
+            background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.3); border-radius: 50%;
+            width: 50px; height: 50px; display: flex; align-items: center; justify-content: center;
+            cursor: pointer; transition: 0.3s;
+        }
+        #audio-controls:hover { background: rgba(255,255,255,0.2); transform: scale(1.1); }
+        #audio-controls svg { fill: white; width: 24px; height: 24px; }
+        
+        /* Parallax Backgrounds */
+        .parallax-bg { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; opacity: 0.2; pointer-events: none; transition: transform 0.1s linear; }
+    </style>
+</head>
+<body>
+    <div id="intro">CINEMATIC</div>
+    
+    <div class="parallax-bg" id="p-bg"></div>
+
+    <div class="hero">
+        <div class="hero-content" id="hero-content">
+            <h1>The Void</h1>
+            <p>In the depths of space, silence is the only sound. A breathtaking visual journey into the unknown.</p>
+            <button class="btn btn-play">▶ Play</button>
+            <button class="btn btn-more">ⓘ More Info</button>
+        </div>
+    </div>
+
+    <!-- Rows -->
+    <div class="row" data-section="trending">
+        <h2>Trending Now</h2>
+        <div class="cards" id="row-trending"></div>
+    </div>
+    
+    <div class="row" data-section="scifi">
+        <h2>Sci-Fi Masterpieces</h2>
+        <div class="cards" id="row-scifi"></div>
+    </div>
+
+    <div class="row" data-section="ai">
+        <h2>AI Future</h2>
+        <div class="cards" id="row-ai"></div>
+    </div>
+    
+    <div class="row" data-section="continue">
+        <h2>Continue Watching</h2>
+        <div class="cards" id="row-continue"></div>
+    </div>
+
+    <div id="audio-controls">
+        <svg id="icon-mute" viewBox="0 0 24 24"><path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/></svg>
+        <svg id="icon-unmute" viewBox="0 0 24 24" style="display:none;"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
+    </div>
+
+    <script>
+        // Images for cards
+        const images = [
+            'https://images.unsplash.com/photo-1506443432602-ac2fcd6f54e0?auto=format&fit=crop&w=500&q=60',
+            'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=500&q=60',
+            'https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=500&q=60',
+            'https://images.unsplash.com/photo-1515630278258-407f66498911?auto=format&fit=crop&w=500&q=60',
+            'https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=500&q=60',
+            'https://images.unsplash.com/photo-1478760329108-5c3ed9d495a0?auto=format&fit=crop&w=500&q=60',
+            'https://images.unsplash.com/photo-1505506874110-6a7a6099837b?auto=format&fit=crop&w=500&q=60',
+            'https://images.unsplash.com/photo-1557672172-298e090bd0f1?auto=format&fit=crop&w=500&q=60',
+        ];
+
+        function populateRow(id, isContinue) {
+            const container = document.getElementById(id);
+            for(let i=0; i<8; i++) {
+                const card = document.createElement('div');
+                card.className = 'card';
+                card.style.backgroundImage = `url('${images[Math.floor(Math.random() * images.length)]}')`;
+                
+                let inner = `<div class="card-info"><h3>Movie Title</h3>`;
+                if(isContinue) {
+                    inner += `<div style="height: 4px; background: #333; margin-top: 5px; border-radius: 2px;"><div style="width: ${Math.random()*80+10}%; height: 100%; background: var(--accent); border-radius: 2px;"></div></div>`;
+                }
+                inner += `</div>`;
+                card.innerHTML = inner;
+                container.appendChild(card);
+            }
+        }
+
+        populateRow('row-trending', false);
+        populateRow('row-scifi', false);
+        populateRow('row-ai', false);
+        populateRow('row-continue', true);
+
+        // Intersection Observer for scroll animations
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if(entry.isIntersecting) {
+                    entry.target.classList.add('visible');
+                }
+            });
+        }, { threshold: 0.1 });
+
+        document.querySelectorAll('.row, .hero-content').forEach(el => observer.observe(el));
+
+        // Parallax
+        const parallaxBg = document.getElementById('p-bg');
+        let scrollY = 0;
+        let ticking = false;
+        window.addEventListener('scroll', () => {
+            scrollY = window.scrollY;
+            if(!ticking) {
+                window.requestAnimationFrame(() => {
+                    parallaxBg.style.transform = `translateY(${scrollY * 0.3}px)`;
+                    ticking = false;
+                });
+                ticking = true;
+            }
+        });
+
+        // Web Audio API for ambient music
+        let audioCtx, masterGain, droneOsc, sweepOsc;
+        let isMuted = true;
+        let isInit = false;
+
+        function initAudio() {
+            if(isInit) return;
+            isInit = true;
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            masterGain = audioCtx.createGain();
+            masterGain.gain.value = 0; // Start muted
+            masterGain.connect(audioCtx.destination);
+
+            // Deep drone
+            droneOsc = audioCtx.createOscillator();
+            droneOsc.type = 'sawtooth';
+            droneOsc.frequency.value = 43.65; // F1
+            
+            let droneFilter = audioCtx.createBiquadFilter();
+            droneFilter.type = 'lowpass';
+            droneFilter.frequency.value = 150;
+            
+            droneOsc.connect(droneFilter);
+            droneFilter.connect(masterGain);
+            droneOsc.start();
+
+            // High sweep
+            sweepOsc = audioCtx.createOscillator();
+            sweepOsc.type = 'sine';
+            sweepOsc.frequency.value = 400;
+            
+            let sweepGain = audioCtx.createGain();
+            sweepGain.gain.value = 0.05;
+            sweepOsc.connect(sweepGain);
+            sweepGain.connect(masterGain);
+            sweepOsc.start();
+            
+            // Modulate sweep
+            setInterval(() => {
+                if(audioCtx.state === 'running') {
+                    sweepOsc.frequency.setTargetAtTime(300 + Math.random() * 200, audioCtx.currentTime, 2);
+                }
+            }, 3000);
+        }
+
+        // Section based music change
+        const sections = document.querySelectorAll('.row');
+        window.addEventListener('scroll', () => {
+            if(!isInit || isMuted) return;
+            let activeSection = null;
+            sections.forEach(sec => {
+                const rect = sec.getBoundingClientRect();
+                if(rect.top < window.innerHeight / 2 && rect.bottom > window.innerHeight / 2) {
+                    activeSection = sec.dataset.section;
+                }
+            });
+            
+            if(activeSection === 'scifi') {
+                droneOsc.frequency.setTargetAtTime(55, audioCtx.currentTime, 1); // A1
+            } else if (activeSection === 'ai') {
+                droneOsc.frequency.setTargetAtTime(49, audioCtx.currentTime, 1); // G1
+            } else {
+                droneOsc.frequency.setTargetAtTime(43.65, audioCtx.currentTime, 1); // F1
+            }
+        });
+
+        // Initialize audio on load (muted)
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                document.getElementById('hero-content').classList.add('visible');
+            }, 3000);
+            initAudio(); 
+        });
+
+        const audioBtn = document.getElementById('audio-controls');
+        const iconMute = document.getElementById('icon-mute');
+        const iconUnmute = document.getElementById('icon-unmute');
+
+        audioBtn.addEventListener('click', () => {
+            initAudio(); // In case it wasn't init
+            if(audioCtx.state === 'suspended') audioCtx.resume();
+            
+            if(isMuted) {
+                masterGain.gain.setTargetAtTime(0.3, audioCtx.currentTime, 0.5);
+                iconMute.style.display = 'none';
+                iconUnmute.style.display = 'block';
+                isMuted = false;
+            } else {
+                masterGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.5);
+                iconMute.style.display = 'block';
+                iconUnmute.style.display = 'none';
+                isMuted = true;
+            }
+        });
+        
+        // Keyboard navigation
+        document.addEventListener('keydown', (e) => {
+            const rows = document.querySelectorAll('.cards');
+            let visibleRow = Array.from(rows).find(r => {
+                const rect = r.getBoundingClientRect();
+                return rect.top >= 0 && rect.bottom <= window.innerHeight;
+            });
+            if(!visibleRow) visibleRow = rows[0];
+            
+            if(e.key === 'ArrowRight') {
+                visibleRow.scrollBy({ left: 260, behavior: 'smooth' });
+            } else if (e.key === 'ArrowLeft') {
+                visibleRow.scrollBy({ left: -260, behavior: 'smooth' });
+            }
+        });
+    </script>
+</body>
+</html>
